@@ -39,5 +39,5 @@ export const COLLEGE_COMMITMENTS = [
   { name: "Shippensburg University", abbr: "SHIPPENSBURG", count: 1 },
 ] as const;
 
-// Logo files: 2.jpg through 20.jpg in public/images/logos/
-export const COLLEGE_LOGO_FILES = Array.from({ length: 19 }, (_, i) => `/images/logos/${i + 2}.jpg`);
+// Logo files: 1.png through 20.png in public/images/logos/
+export const COLLEGE_LOGO_FILES = Array.from({ length: 20 }, (_, i) => `/images/logos/${i + 1}.png`);
