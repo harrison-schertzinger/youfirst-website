@@ -21,8 +21,8 @@ export default function Home() {
         <Mission />
         <CompetitiveEdge />
         <CollegeCommitments />
-        <AllAmerican />
         <Philosophy />
+        <AllAmerican />
         <PhotoStrip />
         <PlayerJourney />
         <CallToAction />
