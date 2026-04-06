@@ -27,7 +27,7 @@ const CARDS = [
 
 export default function CompetitiveEdge() {
   return (
-    <section className="py-20 sm:py-24 lg:py-32 bg-background" id="competitive-edge">
+    <section className="py-16 sm:py-20 lg:py-24 bg-background" id="competitive-edge">
       <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
         {/* Section header */}
         <ScrollReveal>
