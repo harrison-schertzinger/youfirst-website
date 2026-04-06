@@ -2,41 +2,26 @@ import type { Metadata } from "next";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ScrollProgressBar from "@/components/layout/ScrollProgressBar";
-import PricingCards from "@/components/fees/PricingCards";
-import TrustBadge from "@/components/fees/TrustBadge";
-import FeesHero from "@/components/fees/FeesHero";
-import CheckoutToast from "@/components/fees/CheckoutToast";
-import MemberSignIn from "@/components/fees/MemberSignIn";
+import ParentPortal from "@/components/fees/ParentPortal";
 
 export const metadata: Metadata = {
-  title: "Team Fees & Payment Plans | YOU. FIRST Elite Lacrosse",
+  title: "My Account | YOU. FIRST Elite Lacrosse",
   description:
-    "Transparent pricing for YOU. FIRST Elite Lacrosse. Full season, quarterly, and monthly payment plans. Tournament entry, year-round training, recruiting support, and gear included.",
+    "Sign in to your YOU. FIRST parent portal. View payment history, account balance, and manage your family's membership.",
   openGraph: {
-    title: "Team Fees & Payment Plans | YOU. FIRST Elite Lacrosse",
+    title: "My Account | YOU. FIRST Elite Lacrosse",
     description:
-      "Invest in your daughter's development. Three flexible payment plans — same elite experience.",
+      "Sign in to your parent portal to view payment history and account balance.",
   },
 };
 
-export default async function FeesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ success?: string; canceled?: string }>;
-}) {
-  const params = await searchParams;
-
+export default function FeesPage() {
   return (
     <>
       <ScrollProgressBar />
       <Navbar />
       <main>
-        {params.success && <CheckoutToast type="success" />}
-        {params.canceled && <CheckoutToast type="canceled" />}
-        <FeesHero />
-        <PricingCards />
-        <MemberSignIn />
-        <TrustBadge />
+        <ParentPortal />
       </main>
       <Footer />
     </>
