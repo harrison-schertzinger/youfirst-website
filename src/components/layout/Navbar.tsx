@@ -9,12 +9,11 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 10);
+    const onScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Lock body scroll when mobile menu is open
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
     return () => {
@@ -26,20 +25,20 @@ export default function Navbar() {
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? "bg-white/95 backdrop-blur-md border-b border-black/5 shadow-sm"
+          ? "bg-white/90 backdrop-blur-xl shadow-[0_1px_0_rgba(0,0,0,0.06)]"
           : "bg-transparent"
       }`}
     >
       <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between lg:h-20">
-          {/* Wordmark — brand mark, not a text label */}
+        <div className="flex h-16 items-center justify-between">
+          {/* Brand mark */}
           <Link
             href="/"
-            className={`text-[17px] font-extrabold tracking-[0.04em] transition-colors ${
-              scrolled ? "text-text-primary" : "text-white"
+            className={`text-[15px] font-extrabold tracking-tight transition-colors duration-200 ${
+              scrolled ? "text-[#1A1A1A]" : "text-white"
             }`}
           >
-            YOU<span className="text-accent-blue">.</span> FIRST ELITE LACROSSE
+            YOU<span className="text-accent-blue">.</span> FIRST
           </Link>
 
           {/* Desktop nav */}
@@ -48,15 +47,21 @@ export default function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`text-[12px] font-medium uppercase tracking-[0.1em] transition-colors hover:text-accent-blue ${
+                className={`nav-link text-[12px] font-medium uppercase tracking-[0.12em] transition-colors duration-200 ${
                   scrolled
-                    ? "text-text-secondary"
-                    : "text-white/80 hover:text-white"
+                    ? "text-[#6B7280] hover:text-[#1A1A1A]"
+                    : "text-white/70 hover:text-white"
                 }`}
               >
                 {link.label}
               </Link>
             ))}
+            <Link
+              href="/register"
+              className="ml-2 px-5 py-2 bg-accent-blue text-white text-[11px] font-semibold uppercase tracking-[0.12em] rounded-lg shadow-[0_4px_14px_rgba(74,144,217,0.35)] hover:shadow-[0_4px_20px_rgba(74,144,217,0.5)] hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
+            >
+              Join Us
+            </Link>
           </div>
 
           {/* Mobile hamburger */}
@@ -68,29 +73,29 @@ export default function Navbar() {
           >
             <div className="w-6 flex flex-col gap-[5px]">
               <span
-                className={`block h-[2px] rounded-full transition-all duration-300 ${
+                className={`block h-[1.5px] rounded-full transition-all duration-300 ${
                   mobileOpen
-                    ? "rotate-45 translate-y-[7px] bg-text-primary"
+                    ? "rotate-45 translate-y-[6.5px] bg-[#1A1A1A]"
                     : scrolled
-                    ? "bg-text-primary"
+                    ? "bg-[#1A1A1A]"
                     : "bg-white"
                 }`}
               />
               <span
-                className={`block h-[2px] rounded-full transition-all duration-300 ${
+                className={`block h-[1.5px] rounded-full transition-all duration-300 ${
                   mobileOpen
-                    ? "opacity-0"
+                    ? "opacity-0 scale-x-0"
                     : scrolled
-                    ? "bg-text-primary"
+                    ? "bg-[#1A1A1A]"
                     : "bg-white"
                 }`}
               />
               <span
-                className={`block h-[2px] rounded-full transition-all duration-300 ${
+                className={`block h-[1.5px] rounded-full transition-all duration-300 ${
                   mobileOpen
-                    ? "-rotate-45 -translate-y-[7px] bg-text-primary"
+                    ? "-rotate-45 -translate-y-[6.5px] bg-[#1A1A1A]"
                     : scrolled
-                    ? "bg-text-primary"
+                    ? "bg-[#1A1A1A]"
                     : "bg-white"
                 }`}
               />
@@ -101,23 +106,40 @@ export default function Navbar() {
 
       {/* Mobile menu overlay */}
       <div
-        className={`fixed inset-0 bg-white z-40 transition-all duration-500 lg:hidden ${
+        className={`fixed inset-0 bg-white/95 backdrop-blur-xl z-40 transition-all duration-500 lg:hidden ${
           mobileOpen
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
         }`}
       >
         <div className="flex flex-col items-center justify-center h-full gap-8">
-          {NAV_LINKS.map((link) => (
+          {NAV_LINKS.map((link, i) => (
             <Link
               key={link.href}
               href={link.href}
               onClick={() => setMobileOpen(false)}
-              className="text-lg font-medium uppercase tracking-[0.1em] text-text-primary hover:text-accent-blue transition-colors"
+              className="text-lg font-medium uppercase tracking-[0.12em] text-[#1A1A1A] hover:text-accent-blue transition-colors duration-200"
+              style={{
+                opacity: mobileOpen ? 1 : 0,
+                transform: mobileOpen ? "translateY(0)" : "translateY(12px)",
+                transition: `opacity 0.3s ${i * 0.05 + 0.15}s, transform 0.3s ${i * 0.05 + 0.15}s`,
+              }}
             >
               {link.label}
             </Link>
           ))}
+          <Link
+            href="/register"
+            onClick={() => setMobileOpen(false)}
+            className="mt-4 px-8 py-3.5 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(74,144,217,0.35)] transition-all duration-300"
+            style={{
+              opacity: mobileOpen ? 1 : 0,
+              transform: mobileOpen ? "translateY(0)" : "translateY(12px)",
+              transition: `opacity 0.3s 0.4s, transform 0.3s 0.4s`,
+            }}
+          >
+            Join Us
+          </Link>
         </div>
       </div>
     </nav>

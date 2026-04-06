@@ -1,65 +1,120 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 
 export default function Hero() {
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    // Trigger staggered reveal after mount
+    const timer = setTimeout(() => setLoaded(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Background photo */}
+      {/* Background photo with Ken Burns */}
       <div className="absolute inset-0">
-        <Image
-          src="/images/team/DWW07274.JPG"
-          alt="You. First Elite Lacrosse players in light blue jerseys raising their sticks to the sky"
-          fill
-          className="object-cover object-[center_40%]"
-          sizes="100vw"
-          priority
-        />
+        <div className="absolute inset-0 animate-ken-burns">
+          <Image
+            src="/images/team/DWW07274.JPG"
+            alt="You. First Elite Lacrosse players in light blue jerseys raising their sticks to the sky"
+            fill
+            className="object-cover object-[center_40%]"
+            sizes="100vw"
+            priority
+          />
+        </div>
       </div>
 
-      {/* Dark gradient overlay for text readability */}
+      {/* Multi-layer gradient overlay — heavy on sky, light on players */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: `
+            linear-gradient(to bottom,
+              rgba(0,0,0,0.7) 0%,
+              rgba(0,0,0,0.55) 30%,
+              rgba(0,0,0,0.3) 60%,
+              rgba(0,0,0,0.15) 80%,
+              rgba(0,0,0,0.35) 100%
+            )
+          `,
+        }}
+      />
+      {/* Radial glow behind text for depth */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.4) 100%)",
+            "radial-gradient(ellipse 60% 40% at 50% 40%, rgba(74, 144, 217, 0.06), transparent)",
         }}
       />
 
-      {/* Content */}
+      {/* Content — staggered reveal */}
       <div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
         {/* Top label */}
-        <p className="section-label text-white/50 mb-8">
+        <p
+          className={`section-label text-white/50 mb-8 transition-all duration-700 ${
+            loaded
+              ? "opacity-100 translate-y-0 blur-0"
+              : "opacity-0 translate-y-4 blur-sm"
+          }`}
+        >
           Southern Ohio&apos;s Premier College Prep Club
         </p>
 
         {/* Main headline */}
-        <h1 className="mb-6">
-          <span className="block text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold text-white tracking-[0.02em] leading-none">
+        <h1
+          className={`mb-6 transition-all duration-800 ${
+            loaded
+              ? "opacity-100 translate-y-0 blur-0"
+              : "opacity-0 translate-y-4 blur-sm"
+          }`}
+          style={{ transitionDelay: "200ms" }}
+        >
+          <span className="block text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold text-white tracking-[-0.02em] leading-[0.9]">
             YOU
             <span className="text-accent-blue">.</span>
             {" "}FIRST
           </span>
-          <span className="block text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white/60 tracking-[0.15em] uppercase mt-3">
+          <span className="block text-2xl sm:text-3xl md:text-4xl font-extralight text-white/50 tracking-[0.2em] uppercase mt-4">
             Elite Lacrosse
           </span>
         </h1>
 
         {/* Tagline */}
-        <p className="text-sm sm:text-base text-white/45 font-light tracking-[0.2em] uppercase max-w-xl mx-auto mb-12">
+        <p
+          className={`text-sm sm:text-base text-white/40 font-light tracking-[0.2em] uppercase max-w-xl mx-auto mb-14 transition-all duration-800 ${
+            loaded
+              ? "opacity-100 translate-y-0 blur-0"
+              : "opacity-0 translate-y-4 blur-sm"
+          }`}
+          style={{ transitionDelay: "400ms" }}
+        >
           Build &amp; Bring the Best Together
         </p>
 
         {/* CTA buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <div
+          className={`flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-800 ${
+            loaded
+              ? "opacity-100 translate-y-0 blur-0"
+              : "opacity-0 translate-y-4 blur-sm"
+          }`}
+          style={{ transitionDelay: "600ms" }}
+        >
           <Link
             href="/schedule"
-            className="inline-flex items-center justify-center px-8 py-3.5 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-lg hover:bg-accent-blue-hover transition-colors min-w-[200px]"
+            className="inline-flex items-center justify-center px-8 py-4 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(74,144,217,0.4)] hover:shadow-[0_4px_24px_rgba(74,144,217,0.55)] hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 min-w-[200px]"
           >
             View Schedule
           </Link>
           <Link
             href="/register"
-            className="inline-flex items-center justify-center px-8 py-3.5 border-2 border-white/30 text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-lg hover:bg-white/10 hover:border-white/50 transition-all min-w-[200px]"
+            className="inline-flex items-center justify-center px-8 py-4 border border-white/25 text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl hover:bg-white/10 hover:border-white/40 hover:-translate-y-0.5 transition-all duration-300 min-w-[200px] backdrop-blur-sm"
           >
             Join the Family
           </Link>
@@ -67,12 +122,14 @@ export default function Hero() {
       </div>
 
       {/* Scroll indicator */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
-        <div
-          className="flex flex-col items-center gap-2"
-          style={{ animation: "scroll-hint 2s ease-in-out infinite" }}
-        >
-          <span className="text-[10px] uppercase tracking-[0.15em] text-white/40 font-medium">
+      <div
+        className={`absolute bottom-8 left-1/2 -translate-x-1/2 z-10 transition-all duration-700 ${
+          loaded ? "opacity-100" : "opacity-0"
+        }`}
+        style={{ transitionDelay: "900ms" }}
+      >
+        <div className="flex flex-col items-center gap-2 animate-pulse-chevron">
+          <span className="text-[10px] uppercase tracking-[0.2em] text-white/30 font-medium">
             Scroll
           </span>
           <svg
@@ -80,7 +137,7 @@ export default function Hero() {
             height="20"
             viewBox="0 0 20 20"
             fill="none"
-            className="text-white/40"
+            className="text-white/30"
           >
             <path
               d="M4 8L10 14L16 8"

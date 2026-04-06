@@ -5,14 +5,16 @@
   --color-background: #F8F9FA;
   --color-surface: #FFFFFF;
   --color-text-primary: #1A1A1A;
-  --color-text-secondary: #6B6B6B;
+  --color-text-secondary: #6B7280;
   --color-text-muted: #9CA3AF;
   --color-accent-blue: #4A90D9;
   --color-accent-blue-hover: #3A7BC8;
-  --color-accent-green: #34D399;
-  --color-footer-bg: #111827;
+  --color-accent-green: #10B981;
+  --color-dark: #0A0A0B;
+  --color-footer-bg: #0A0A0B;
   --color-section-alt: #F0F1F3;
   --color-card-shadow: rgba(0, 0, 0, 0.06);
+  --color-border: #E5E7EB;
 
   /* Typography */
   --font-sans: var(--font-inter);
@@ -20,11 +22,17 @@
   /* Animations */
   --animate-scroll-hint: scroll-hint 2s ease-in-out infinite;
   --animate-marquee: marquee 40s linear infinite;
+  --animate-marquee-slow: marquee 50s linear infinite;
+  --animate-ken-burns: ken-burns 25s ease-in-out infinite alternate;
+  --animate-pulse-chevron: pulse-chevron 2s ease-in-out infinite;
+  --animate-counter-up: counter-up 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-gradient: gradient-shift 8s ease infinite;
 }
 
-/* Reset & Base */
+/* ─── Reset & Base ─── */
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 80px;
 }
 
 body {
@@ -35,55 +43,149 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Section label style — reusable */
+::selection {
+  background-color: rgba(74, 144, 217, 0.2);
+  color: #1A1A1A;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #F1F1F1; }
+::-webkit-scrollbar-thumb { background: #C4C4C4; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #A0A0A0; }
+
+/* ─── Section Label — reusable uppercase pill ─── */
 .section-label {
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: #6B6B6B;
+  color: #6B7280;
 }
 
-/* Card base */
+/* ─── Gradient Text Utility ─── */
+.gradient-text {
+  background: linear-gradient(135deg, #1A1A1A 0%, #6B7280 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-light {
+  background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.6) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-accent {
+  background: linear-gradient(135deg, #4A90D9 0%, #10B981 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Gradient Divider ─── */
+.gradient-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(74, 144, 217, 0.3), transparent);
+}
+
+/* ─── Card base ─── */
 .card {
   background: #FFFFFF;
   border-radius: 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.07);
-  padding: 36px 32px;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
-  border-top: 3px solid transparent;
+  border: 1px solid #E5E7EB;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
-  border-top-color: #4A90D9;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
 }
 
-/* Photo placeholder */
-.photo-placeholder {
-  background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  overflow: hidden;
+/* ─── Focus States ─── */
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid #4A90D9;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
-/* Scroll indicator animation */
+/* ─── Keyframe Animations ─── */
+
+/* Scroll indicator bounce */
 @keyframes scroll-hint {
   0%, 100% { transform: translateY(0); opacity: 0.6; }
   50% { transform: translateY(8px); opacity: 1; }
 }
 
-/* Marquee animation for logo carousel */
+/* Infinite logo carousel */
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
+}
+
+/* Ken Burns slow zoom */
+@keyframes ken-burns {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.08); }
+}
+
+/* Chevron pulse for scroll indicator */
+@keyframes pulse-chevron {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.9; }
+}
+
+/* Smooth reveal — the core scroll animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Hero stagger reveal */
+@keyframes heroReveal {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Gradient background position shift */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Counter number animation */
+@keyframes counter-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Animation Classes ─── */
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-hero-reveal {
+  animation: heroReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-marquee {
@@ -94,26 +196,50 @@ body {
   animation-play-state: paused;
 }
 
-/* Smooth reveal on scroll */
-@keyframes fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.animate-marquee-slow {
+  animation: marquee 50s linear infinite;
 }
 
-.animate-fade-up {
-  animation: fade-up 0.8s ease-out forwards;
+.animate-marquee-slow:hover {
+  animation-play-state: paused;
 }
 
-/* Focus states for accessibility */
-a:focus-visible,
-button:focus-visible {
-  outline: 2px solid #4A90D9;
-  outline-offset: 2px;
-  border-radius: 4px;
+/* ─── Scroll-triggered reveal system ─── */
+.scroll-reveal {
+  opacity: 0;
+}
+
+.scroll-reveal.visible {
+  animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── Stagger Delay Classes ─── */
+.delay-0 { animation-delay: 0ms; }
+.delay-100 { animation-delay: 100ms; }
+.delay-150 { animation-delay: 150ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-600 { animation-delay: 600ms; }
+.delay-700 { animation-delay: 700ms; }
+
+/* ─── Nav link underline animation ─── */
+.nav-link {
+  position: relative;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  height: 1.5px;
+  width: 0;
+  background: #4A90D9;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-link:hover::after {
+  width: 100%;
 }
