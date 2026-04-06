@@ -12,6 +12,13 @@ import {
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+const MONTHS: { year: number; month: number }[] = [
+  { year: 2026, month: 4 },  // May
+  { year: 2026, month: 5 },  // June
+  { year: 2026, month: 6 },  // July
+  { year: 2026, month: 7 },  // August
+];
+
 const EVENT_TYPE_FILTERS: { value: EventType | "all"; label: string }[] = [
   { value: "all", label: "All Events" },
   { value: "tournament", label: "Tournaments" },
@@ -49,7 +56,6 @@ function getCalendarDays(year: number, month: number): CalendarDay[] {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const days: CalendarDay[] = [];
 
-  // Previous month padding
   const prevLast = new Date(year, month, 0).getDate();
   for (let i = firstDow - 1; i >= 0; i--) {
     const d = prevLast - i;
@@ -60,7 +66,6 @@ function getCalendarDays(year: number, month: number): CalendarDay[] {
     });
   }
 
-  // Current month
   for (let d = 1; d <= daysInMonth; d++) {
     days.push({
       dateStr: toDateStr(new Date(year, month, d)),
@@ -69,7 +74,6 @@ function getCalendarDays(year: number, month: number): CalendarDay[] {
     });
   }
 
-  // Next month padding
   const rem = 7 - (days.length % 7);
   if (rem < 7) {
     for (let d = 1; d <= rem; d++) {
@@ -141,26 +145,11 @@ interface ScheduleContentProps {
 }
 
 export default function ScheduleContent({ events }: ScheduleContentProps) {
-  // Filters
   const [typeFilter, setTypeFilter] = useState<EventType | "all">("all");
   const [teamFilter, setTeamFilter] = useState<number | "all">("all");
-
-  // Calendar month
-  const initialMonth = useMemo(() => {
-    if (events.length === 0) return { year: new Date().getFullYear(), month: new Date().getMonth() };
-    const sorted = [...events].sort((a, b) => a.startDate.localeCompare(b.startDate));
-    const d = new Date(sorted[0].startDate + "T00:00:00");
-    return { year: d.getFullYear(), month: d.getMonth() };
-  }, [events]);
-
-  const [currentYear, setCurrentYear] = useState(initialMonth.year);
-  const [currentMonth, setCurrentMonth] = useState(initialMonth.month);
-
-  // Modals
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
   const [dayEvents, setDayEvents] = useState<{ events: ScheduleEvent[]; label: string } | null>(null);
 
-  // Derived
   const filtered = useMemo(() => {
     return events.filter((e) => {
       if (typeFilter !== "all" && e.eventType !== typeFilter) return false;
@@ -169,38 +158,18 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
     });
   }, [events, typeFilter, teamFilter]);
 
-  const calendarDays = useMemo(
-    () => getCalendarDays(currentYear, currentMonth),
-    [currentYear, currentMonth]
-  );
-
   const upNext = useMemo(() => getUpcomingEvent(events), [events]);
   const todayStr = useMemo(() => toDateStr(new Date()), []);
-  const monthLabel = new Date(currentYear, currentMonth).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
 
-  // Month navigation
-  const prevMonth = useCallback(() => {
-    setCurrentMonth((m) => {
-      if (m === 0) {
-        setCurrentYear((y) => y - 1);
-        return 11;
-      }
-      return m - 1;
-    });
-  }, []);
-
-  const nextMonth = useCallback(() => {
-    setCurrentMonth((m) => {
-      if (m === 11) {
-        setCurrentYear((y) => y + 1);
-        return 0;
-      }
-      return m + 1;
-    });
-  }, []);
+  // Pre-compute calendar grids for all months
+  const monthGrids = useMemo(
+    () => MONTHS.map((m) => ({
+      ...m,
+      label: new Date(m.year, m.month).toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      days: getCalendarDays(m.year, m.month),
+    })),
+    []
+  );
 
   // Close modals on Escape
   useEffect(() => {
@@ -214,16 +183,12 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Lock body scroll when modal open
   const modalOpen = !!(selectedEvent || dayEvents);
   useEffect(() => {
     document.body.style.overflow = modalOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
+    return () => { document.body.style.overflow = ""; };
   }, [modalOpen]);
 
-  // Click handlers
   const openEvent = useCallback((e: ScheduleEvent) => {
     setDayEvents(null);
     setSelectedEvent(e);
@@ -240,7 +205,7 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
   }, []);
 
   return (
-    <div className="pb-24 sm:pb-32 lg:pb-40 bg-background">
+    <div className="pt-12 sm:pt-16 pb-24 sm:pb-32 lg:pb-40 bg-background">
       <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
         {/* ── Up Next Card ── */}
         {upNext && (
@@ -265,9 +230,7 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
                     {getDayNumber(upNext.startDate)}
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent-blue">
-                      Up Next
-                    </p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent-blue">Up Next</p>
                     <p className="text-base font-bold text-[#1A1A1A]">{upNext.title}</p>
                   </div>
                 </div>
@@ -310,9 +273,7 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
                   {f.value !== "all" && (
                     <span
                       className="inline-block w-2 h-2 rounded-full mr-2"
-                      style={{
-                        backgroundColor: active ? "#fff" : EVENT_COLORS[f.value as EventType],
-                      }}
+                      style={{ backgroundColor: active ? "#fff" : EVENT_COLORS[f.value as EventType] }}
                     />
                   )}
                   {f.label}
@@ -340,129 +301,106 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
           </div>
         </div>
 
-        {/* ── Month Navigation ── */}
-        <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={prevMonth}
-            className="w-10 h-10 rounded-xl border border-[#E5E7EB] bg-white flex items-center justify-center text-[#6B7280] hover:text-[#1A1A1A] hover:border-[#D1D5DB] transition-all duration-200"
-            aria-label="Previous month"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M11 4L6 9l5 5" />
-            </svg>
-          </button>
-
-          <h2 className="text-[1.75rem] sm:text-[2rem] font-bold tracking-tight text-[#1A1A1A]">
-            {monthLabel}
-          </h2>
-
-          <button
-            onClick={nextMonth}
-            className="w-10 h-10 rounded-xl border border-[#E5E7EB] bg-white flex items-center justify-center text-[#6B7280] hover:text-[#1A1A1A] hover:border-[#D1D5DB] transition-all duration-200"
-            aria-label="Next month"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 4l5 5-5 5" />
-            </svg>
-          </button>
-        </div>
-
-        {/* ── Calendar Grid ── */}
-        <div className="rounded-2xl border border-[#E5E7EB] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-          {/* Day-of-week headers */}
-          <div className="grid grid-cols-7 bg-[#F9FAFB] border-b border-[#E5E7EB]">
-            {DAY_NAMES.map((d) => (
-              <div
-                key={d}
-                className="py-2.5 text-center text-[11px] font-semibold uppercase tracking-[0.1em] text-[#9CA3AF]"
-              >
-                {d}
-              </div>
-            ))}
-          </div>
-
-          {/* Day cells */}
-          <div className="grid grid-cols-7">
-            {calendarDays.map((day, i) => {
-              const dayEvts = eventsForDate(filtered, day.dateStr);
-              const isToday = day.dateStr === todayStr;
-              const isWeekEnd = i % 7 === 0 || i % 7 === 6;
-              const showBorderRight = i % 7 !== 6;
-              const showBorderBottom = i < calendarDays.length - 7;
-
-              return (
-                <div
-                  key={day.dateStr + "-" + i}
-                  className={`relative min-h-[72px] sm:min-h-[100px] lg:min-h-[110px] p-1 sm:p-1.5 ${
-                    day.isCurrentMonth ? "bg-white" : "bg-[#FAFBFC]"
-                  } ${showBorderRight ? "border-r border-[#F0F1F3]" : ""} ${
-                    showBorderBottom ? "border-b border-[#F0F1F3]" : ""
-                  } ${isWeekEnd && day.isCurrentMonth ? "bg-[#FDFDFE]" : ""}`}
-                >
-                  {/* Day number */}
-                  <div className="flex justify-end sm:justify-start mb-0.5 sm:mb-1">
-                    <span
-                      className={`inline-flex items-center justify-center w-6 h-6 text-[11px] sm:text-xs font-medium rounded-full ${
-                        isToday
-                          ? "bg-accent-blue text-white font-bold"
-                          : day.isCurrentMonth
-                          ? "text-[#374151]"
-                          : "text-[#D1D5DB]"
-                      }`}
-                    >
-                      {day.day}
-                    </span>
-                  </div>
-
-                  {/* Event pills */}
-                  <div className="space-y-0.5">
-                    {dayEvts.slice(0, MAX_VISIBLE).map((event) => (
-                      <button
-                        key={event.id + day.dateStr}
-                        onClick={() => openEvent(event)}
-                        className="w-full text-left group/pill"
-                      >
-                        {/* Desktop pill */}
-                        <div
-                          className="hidden sm:flex items-center rounded-md px-1.5 py-[3px] text-[10px] lg:text-[11px] font-medium text-white truncate transition-all duration-200 group-hover/pill:brightness-110 group-hover/pill:shadow-sm"
-                          style={{ backgroundColor: EVENT_COLORS[event.eventType] }}
-                        >
-                          <span className="truncate">{event.title}</span>
-                        </div>
-                        {/* Mobile bar */}
-                        <div
-                          className="sm:hidden h-[5px] rounded-full transition-all duration-200 group-hover/pill:brightness-110"
-                          style={{ backgroundColor: EVENT_COLORS[event.eventType] }}
-                        />
-                      </button>
-                    ))}
-                    {dayEvts.length > MAX_VISIBLE && (
-                      <button
-                        onClick={() => openDay(dayEvts, day.dateStr)}
-                        className="w-full text-left px-1 sm:px-1.5"
-                      >
-                        <span className="text-[10px] sm:text-[11px] font-semibold text-accent-blue hover:text-accent-blue-hover transition-colors duration-200">
-                          +{dayEvts.length - MAX_VISIBLE} more
-                        </span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
         {/* ── Color Legend ── */}
-        <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 justify-center">
+        <div className="mb-8 flex flex-wrap items-center gap-x-5 gap-y-2">
           {(Object.entries(EVENT_LABELS) as [EventType, string][]).map(([type, label]) => (
             <div key={type} className="flex items-center gap-1.5">
-              <span
-                className="w-2.5 h-2.5 rounded-sm"
-                style={{ backgroundColor: EVENT_COLORS[type] }}
-              />
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: EVENT_COLORS[type] }} />
               <span className="text-[11px] text-[#9CA3AF] font-medium">{label}</span>
             </div>
+          ))}
+        </div>
+
+        {/* ── Stacked Month Grids ── */}
+        <div className="space-y-14 sm:space-y-16">
+          {monthGrids.map((mg) => (
+            <section key={mg.label}>
+              {/* Month header */}
+              <h2 className="text-[1.75rem] sm:text-[2.25rem] font-bold tracking-tight text-[#1A1A1A] mb-4">
+                {mg.label}
+              </h2>
+
+              <div className="rounded-2xl border border-[#E5E7EB] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+                {/* Day-of-week headers */}
+                <div className="grid grid-cols-7 bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                  {DAY_NAMES.map((d) => (
+                    <div
+                      key={d}
+                      className="py-2.5 text-center text-[11px] font-semibold uppercase tracking-[0.1em] text-[#9CA3AF]"
+                    >
+                      {d}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Day cells */}
+                <div className="grid grid-cols-7">
+                  {mg.days.map((day, i) => {
+                    const dayEvts = eventsForDate(filtered, day.dateStr);
+                    const isToday = day.dateStr === todayStr;
+                    const isWeekEnd = i % 7 === 0 || i % 7 === 6;
+                    const showBorderRight = i % 7 !== 6;
+                    const showBorderBottom = i < mg.days.length - 7;
+
+                    return (
+                      <div
+                        key={day.dateStr + "-" + i}
+                        className={`relative min-h-[72px] sm:min-h-[100px] lg:min-h-[110px] p-1 sm:p-1.5 ${
+                          day.isCurrentMonth ? "bg-white" : "bg-[#FAFBFC]"
+                        } ${showBorderRight ? "border-r border-[#F0F1F3]" : ""} ${
+                          showBorderBottom ? "border-b border-[#F0F1F3]" : ""
+                        } ${isWeekEnd && day.isCurrentMonth ? "bg-[#FDFDFE]" : ""}`}
+                      >
+                        <div className="flex justify-end sm:justify-start mb-0.5 sm:mb-1">
+                          <span
+                            className={`inline-flex items-center justify-center w-6 h-6 text-[11px] sm:text-xs font-medium rounded-full ${
+                              isToday
+                                ? "bg-accent-blue text-white font-bold"
+                                : day.isCurrentMonth
+                                ? "text-[#374151]"
+                                : "text-[#D1D5DB]"
+                            }`}
+                          >
+                            {day.day}
+                          </span>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          {dayEvts.slice(0, MAX_VISIBLE).map((event) => (
+                            <button
+                              key={event.id + day.dateStr}
+                              onClick={() => openEvent(event)}
+                              className="w-full text-left group/pill"
+                            >
+                              <div
+                                className="hidden sm:flex items-center rounded-md px-1.5 py-[3px] text-[10px] lg:text-[11px] font-medium text-white truncate transition-all duration-200 group-hover/pill:brightness-110 group-hover/pill:shadow-sm"
+                                style={{ backgroundColor: EVENT_COLORS[event.eventType] }}
+                              >
+                                <span className="truncate">{event.title}</span>
+                              </div>
+                              <div
+                                className="sm:hidden h-[5px] rounded-full transition-all duration-200 group-hover/pill:brightness-110"
+                                style={{ backgroundColor: EVENT_COLORS[event.eventType] }}
+                              />
+                            </button>
+                          ))}
+                          {dayEvts.length > MAX_VISIBLE && (
+                            <button
+                              onClick={() => openDay(dayEvts, day.dateStr)}
+                              className="w-full text-left px-1 sm:px-1.5"
+                            >
+                              <span className="text-[10px] sm:text-[11px] font-semibold text-accent-blue hover:text-accent-blue-hover transition-colors duration-200">
+                                +{dayEvts.length - MAX_VISIBLE} more
+                              </span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
           ))}
         </div>
       </div>
@@ -479,7 +417,6 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
             style={{ animationDuration: "0.3s" }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close */}
             <button
               onClick={() => setSelectedEvent(null)}
               className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-[#9CA3AF] hover:text-[#1A1A1A] hover:bg-[#F3F4F6] transition-all duration-200 z-10"
@@ -490,14 +427,12 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
               </svg>
             </button>
 
-            {/* Color accent top bar */}
             <div
               className="h-1.5 rounded-t-2xl"
               style={{ backgroundColor: EVENT_COLORS[selectedEvent.eventType] }}
             />
 
             <div className="p-6 sm:p-8">
-              {/* Type badge */}
               <span
                 className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-[0.08em] text-white mb-4"
                 style={{ backgroundColor: EVENT_COLORS[selectedEvent.eventType] }}
@@ -505,14 +440,11 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
                 {EVENT_LABELS[selectedEvent.eventType]}
               </span>
 
-              {/* Title */}
               <h3 className="text-2xl font-bold text-[#1A1A1A] tracking-[-0.01em] mb-5">
                 {selectedEvent.title}
               </h3>
 
-              {/* Details */}
               <div className="space-y-3 mb-6">
-                {/* Date */}
                 <div className="flex items-start gap-3 text-sm">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#9CA3AF" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
                     <rect x="1.5" y="2.5" width="13" height="12" rx="2" />
@@ -523,7 +455,6 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
                   </span>
                 </div>
 
-                {/* Time */}
                 <div className="flex items-start gap-3 text-sm">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#9CA3AF" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
                     <circle cx="8" cy="8" r="6.5" />
@@ -534,7 +465,6 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
                   </span>
                 </div>
 
-                {/* Location */}
                 <div className="flex items-start gap-3 text-sm">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#9CA3AF" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
                     <path d="M8 15S2.5 9.5 2.5 6a5.5 5.5 0 0111 0C13.5 9.5 8 15 8 15z" />
@@ -547,12 +477,10 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
                 </div>
               </div>
 
-              {/* Description */}
               <p className="text-sm text-[#6B7280] leading-relaxed mb-6">
                 {selectedEvent.description}
               </p>
 
-              {/* Teams */}
               <div className="flex flex-wrap gap-1.5 mb-6">
                 {selectedEvent.teams.map((year) => (
                   <span
@@ -564,7 +492,6 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
                 ))}
               </div>
 
-              {/* Add to calendar placeholder */}
               <button
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-[#E5E7EB] text-sm font-semibold text-[#6B7280] hover:text-accent-blue hover:border-accent-blue/30 hover:bg-[#F0F7FF] transition-all duration-200"
                 aria-label="Add to calendar (coming soon)"
@@ -593,7 +520,6 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
             style={{ animationDuration: "0.3s" }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close */}
             <button
               onClick={() => setDayEvents(null)}
               className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-[#9CA3AF] hover:text-[#1A1A1A] hover:bg-[#F3F4F6] transition-all duration-200 z-10"
