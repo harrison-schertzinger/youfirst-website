@@ -37,7 +37,7 @@ export default function ParentPortal() {
             loaded ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-4 blur-sm"
           }`}
         >
-          Parent Portal
+          Player Portal
         </p>
 
         {/* Headline */}
@@ -47,7 +47,7 @@ export default function ParentPortal() {
           }`}
           style={{ transitionDelay: "150ms" }}
         >
-          <span className="gradient-text">Your Account</span>
+          <span className="gradient-text">Player Portal</span>
         </h1>
 
         {/* Subline */}
@@ -57,7 +57,7 @@ export default function ParentPortal() {
           }`}
           style={{ transitionDelay: "300ms" }}
         >
-          Sign in to view your payment history, account balance, and make payments.
+          Sign in to access your player&apos;s profile, schedule, and payment history.
         </p>
 
         {/* Form */}

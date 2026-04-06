@@ -4,9 +4,17 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { NAV_LINKS } from "@/lib/constants";
 
-export default function Navbar() {
+interface NavbarProps {
+  /** "dark" = white text over photo hero (default). "light" = dark text over light background. */
+  initialTheme?: "dark" | "light";
+}
+
+export default function Navbar({ initialTheme = "dark" }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // When light theme or scrolled, use dark text
+  const useDarkText = initialTheme === "light" || scrolled;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -35,20 +43,20 @@ export default function Navbar() {
           <Link href="/" className="flex items-center gap-3">
             <span
               className={`text-xl font-bold tracking-tight transition-colors duration-200 ${
-                scrolled ? "text-[#1A1A1A]" : "text-white"
+                useDarkText ? "text-[#1A1A1A]" : "text-white"
               }`}
             >
               YOU<span className="text-accent-blue">.</span> FIRST
             </span>
             <span
               className={`hidden sm:block w-px h-5 transition-colors duration-200 ${
-                scrolled ? "bg-[#D1D5DB]" : "bg-white/30"
+                useDarkText ? "bg-[#D1D5DB]" : "bg-white/30"
               }`}
               aria-hidden="true"
             />
             <span
               className={`hidden sm:block text-xs font-normal tracking-wide transition-colors duration-200 ${
-                scrolled ? "text-[#9CA3AF]" : "text-white/50"
+                useDarkText ? "text-[#9CA3AF]" : "text-white/50"
               }`}
             >
               Elite Lacrosse Club
@@ -62,7 +70,7 @@ export default function Navbar() {
                 key={link.href}
                 href={link.href}
                 className={`nav-link text-[12px] font-medium uppercase tracking-[0.12em] transition-colors duration-200 ${
-                  scrolled
+                  useDarkText
                     ? "text-[#6B7280] hover:text-[#1A1A1A]"
                     : "text-white/70 hover:text-white"
                 }`}
@@ -90,7 +98,7 @@ export default function Navbar() {
                 className={`block h-[1.5px] rounded-full transition-all duration-300 ${
                   mobileOpen
                     ? "rotate-45 translate-y-[6.5px] bg-[#1A1A1A]"
-                    : scrolled
+                    : useDarkText
                     ? "bg-[#1A1A1A]"
                     : "bg-white"
                 }`}
@@ -99,7 +107,7 @@ export default function Navbar() {
                 className={`block h-[1.5px] rounded-full transition-all duration-300 ${
                   mobileOpen
                     ? "opacity-0 scale-x-0"
-                    : scrolled
+                    : useDarkText
                     ? "bg-[#1A1A1A]"
                     : "bg-white"
                 }`}
@@ -108,7 +116,7 @@ export default function Navbar() {
                 className={`block h-[1.5px] rounded-full transition-all duration-300 ${
                   mobileOpen
                     ? "-rotate-45 -translate-y-[6.5px] bg-[#1A1A1A]"
-                    : scrolled
+                    : useDarkText
                     ? "bg-[#1A1A1A]"
                     : "bg-white"
                 }`}

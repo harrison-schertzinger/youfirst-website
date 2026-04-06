@@ -19,7 +19,7 @@ export default function FeesPage() {
   return (
     <>
       <ScrollProgressBar />
-      <Navbar />
+      <Navbar initialTheme="light" />
       <main>
         <ParentPortal />
       </main>
