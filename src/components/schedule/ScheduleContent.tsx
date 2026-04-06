@@ -12,12 +12,25 @@ import {
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-const MONTHS: { year: number; month: number }[] = [
-  { year: 2026, month: 4 },  // May
-  { year: 2026, month: 5 },  // June
-  { year: 2026, month: 6 },  // July
-  { year: 2026, month: 7 },  // August
-];
+function getMonthRange(events: ScheduleEvent[]): { year: number; month: number }[] {
+  if (events.length === 0) return [];
+  const months = new Set<string>();
+  for (const e of events) {
+    const d = new Date(e.startDate + "T00:00:00");
+    months.add(`${d.getFullYear()}-${d.getMonth()}`);
+    // Also include end-date month for multi-day events
+    if (e.endDate !== e.startDate) {
+      const ed = new Date(e.endDate + "T00:00:00");
+      months.add(`${ed.getFullYear()}-${ed.getMonth()}`);
+    }
+  }
+  return Array.from(months)
+    .map((k) => {
+      const [y, m] = k.split("-").map(Number);
+      return { year: y, month: m };
+    })
+    .sort((a, b) => a.year - b.year || a.month - b.month);
+}
 
 const EVENT_TYPE_FILTERS: { value: EventType | "all"; label: string }[] = [
   { value: "all", label: "All Events" },
@@ -161,14 +174,14 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
   const upNext = useMemo(() => getUpcomingEvent(events), [events]);
   const todayStr = useMemo(() => toDateStr(new Date()), []);
 
-  // Pre-compute calendar grids for all months
+  // Derive month range from events and pre-compute grids
   const monthGrids = useMemo(
-    () => MONTHS.map((m) => ({
+    () => getMonthRange(events).map((m) => ({
       ...m,
       label: new Date(m.year, m.month).toLocaleDateString("en-US", { month: "long", year: "numeric" }),
       days: getCalendarDays(m.year, m.month),
     })),
-    []
+    [events]
   );
 
   // Close modals on Escape

@@ -1,5 +1,6 @@
-// Schedule data layer — swap getEvents() internals for Google Calendar API
-// without changing any component code.
+// Schedule data layer — Google Calendar API integration.
+// Components import getEvents() and the ScheduleEvent type.
+// Nothing downstream changes when the data source changes.
 
 export type EventType = "tournament" | "practice" | "camp" | "showcase" | "meeting";
 
@@ -34,8 +35,168 @@ export const EVENT_LABELS: Record<EventType, string> = {
   meeting: "Meeting",
 };
 
+// ── Google Calendar API types ──
+
+interface GCalDateTime {
+  dateTime?: string; // ISO 8601 for timed events
+  date?: string;     // YYYY-MM-DD for all-day events
+  timeZone?: string;
+}
+
+interface GCalEvent {
+  id: string;
+  summary?: string;
+  start: GCalDateTime;
+  end: GCalDateTime;
+  location?: string;
+  description?: string;
+}
+
+interface GCalResponse {
+  items?: GCalEvent[];
+}
+
+// ── Parsing helpers ──
+
+const EVENT_TYPE_KEYWORDS: { type: EventType; patterns: RegExp }[] = [
+  { type: "tournament", patterns: /tournament|tourney/i },
+  { type: "camp",       patterns: /camp/i },
+  { type: "showcase",   patterns: /showcase/i },
+  { type: "meeting",    patterns: /meeting|parent|info\s*night/i },
+  // practice is the default fallback — no entry needed
+];
+
+function parseEventType(title: string, description: string): EventType {
+  const text = `${title} ${description}`;
+  for (const { type, patterns } of EVENT_TYPE_KEYWORDS) {
+    if (patterns.test(text)) return type;
+  }
+  return "practice";
+}
+
+const GRAD_YEAR_PATTERN = /\b(202[5-9]|203[0-5])\b/g;
+const ALL_TEAMS = [2027, 2028, 2029, 2030, 2031];
+
+function parseTeams(description: string): number[] {
+  const matches = description.match(GRAD_YEAR_PATTERN);
+  if (!matches) return ALL_TEAMS;
+  const years = [...new Set(matches.map(Number))].filter(
+    (y) => y >= 2025 && y <= 2035
+  );
+  return years.length > 0 ? years.sort() : ALL_TEAMS;
+}
+
+function parseLocation(raw: string): { location: string; address: string } {
+  if (!raw) return { location: "", address: "" };
+  // Google Calendar often stores "Venue Name, Full Address"
+  const commaIdx = raw.indexOf(",");
+  if (commaIdx === -1) return { location: raw.trim(), address: "" };
+  return {
+    location: raw.slice(0, commaIdx).trim(),
+    address: raw.slice(commaIdx + 1).trim(),
+  };
+}
+
+function transformEvent(gcal: GCalEvent): ScheduleEvent {
+  const title = gcal.summary || "Event";
+  const description = gcal.description || "";
+  const isAllDay = !!gcal.start.date;
+
+  let startDate: string;
+  let endDate: string;
+  let startTime: string;
+  let endTime: string;
+
+  if (isAllDay) {
+    // All-day: start.date is inclusive, end.date is EXCLUSIVE in Google API
+    startDate = gcal.start.date!;
+    // Subtract 1 day from end to make it inclusive
+    const endExclusive = new Date(gcal.end.date! + "T00:00:00");
+    endExclusive.setDate(endExclusive.getDate() - 1);
+    endDate = endExclusive.toISOString().split("T")[0];
+    startTime = "00:00";
+    endTime = "23:59";
+  } else {
+    // Timed event: parse directly from ISO string to preserve local timezone
+    // e.g. "2026-06-02T17:30:00-04:00" → date "2026-06-02", time "17:30"
+    const [sDate, sRest] = gcal.start.dateTime!.split("T");
+    const [eDate, eRest] = gcal.end.dateTime!.split("T");
+    startDate = sDate;
+    endDate = eDate;
+    startTime = sRest.slice(0, 5);
+    endTime = eRest.slice(0, 5);
+  }
+
+  const { location, address } = parseLocation(gcal.location || "");
+
+  return {
+    id: gcal.id,
+    title,
+    eventType: parseEventType(title, description),
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+    location,
+    address,
+    description: description.replace(/<[^>]*>/g, "").trim(), // strip HTML tags
+    teams: parseTeams(description),
+    isAllDay,
+  };
+}
+
+// ── Fetch ──
+
+/**
+ * Fetch schedule events from Google Calendar API.
+ * Falls back to placeholder data if the API call fails.
+ * Uses Next.js ISR — revalidates every 5 minutes.
+ */
+export async function getEvents(): Promise<ScheduleEvent[]> {
+  const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
+  const calendarId = process.env.GOOGLE_CALENDAR_ID;
+
+  if (!apiKey || !calendarId) {
+    console.warn("[calendar] Missing GOOGLE_CALENDAR_API_KEY or GOOGLE_CALENDAR_ID — using placeholder data");
+    return PLACEHOLDER_EVENTS;
+  }
+
+  try {
+    const params = new URLSearchParams({
+      key: apiKey,
+      timeMin: "2025-01-01T00:00:00Z",
+      timeMax: "2027-12-31T23:59:59Z",
+      singleEvents: "true",
+      orderBy: "startTime",
+      maxResults: "250",
+    });
+
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`;
+
+    const res = await fetch(url, { next: { revalidate: 300 } });
+
+    if (!res.ok) {
+      console.error(`[calendar] Google Calendar API error: ${res.status} ${res.statusText}`);
+      return PLACEHOLDER_EVENTS;
+    }
+
+    const data: GCalResponse = await res.json();
+
+    if (!data.items || data.items.length === 0) {
+      console.warn("[calendar] Google Calendar returned no events — using placeholder data");
+      return PLACEHOLDER_EVENTS;
+    }
+
+    return data.items.map(transformEvent);
+  } catch (err) {
+    console.error("[calendar] Failed to fetch from Google Calendar:", err);
+    return PLACEHOLDER_EVENTS;
+  }
+}
+
+// ── Placeholder fallback data ──
+
 const PLACEHOLDER_EVENTS: ScheduleEvent[] = [
-  // ── JUNE PRACTICES (Tue/Thu) ──
   {
     id: "prac-0603",
     title: "Team Practice",
@@ -64,7 +225,6 @@ const PLACEHOLDER_EVENTS: ScheduleEvent[] = [
     teams: [2027, 2028, 2029, 2030, 2031],
     isAllDay: false,
   },
-  // Camp week
   {
     id: "camp-june",
     title: "Summer Skills Camp",
@@ -75,39 +235,10 @@ const PLACEHOLDER_EVENTS: ScheduleEvent[] = [
     endTime: "15:00",
     location: "The Barn",
     address: "5554 Mount Zion Road, Milford, OH",
-    description: "Four-day intensive skills camp. All positions, all levels. Bring lunch, water, and your best attitude.",
+    description: "Four-day intensive skills camp.",
     teams: [2028, 2029, 2030, 2031],
     isAllDay: false,
   },
-  {
-    id: "prac-0616",
-    title: "Team Practice",
-    eventType: "practice",
-    startDate: "2026-06-16",
-    endDate: "2026-06-16",
-    startTime: "17:30",
-    endTime: "19:30",
-    location: "The Barn",
-    address: "5554 Mount Zion Road, Milford, OH",
-    description: "Full team practice — transition game and clearing.",
-    teams: [2027, 2028, 2029, 2030, 2031],
-    isAllDay: false,
-  },
-  {
-    id: "prac-0618",
-    title: "Team Practice",
-    eventType: "practice",
-    startDate: "2026-06-18",
-    endDate: "2026-06-18",
-    startTime: "17:30",
-    endTime: "19:30",
-    location: "The Barn",
-    address: "5554 Mount Zion Road, Milford, OH",
-    description: "Tournament prep — set plays and game situations.",
-    teams: [2027, 2028, 2029, 2030, 2031],
-    isAllDay: false,
-  },
-  // June tournament
   {
     id: "tourn-june",
     title: "Midwest Showdown",
@@ -118,252 +249,8 @@ const PLACEHOLDER_EVENTS: ScheduleEvent[] = [
     endTime: "18:00",
     location: "Voice of America MetroPark",
     address: "7850 VOA Park Dr, West Chester, OH",
-    description: "Two-day regional tournament. Pool play Saturday, bracket Sunday. Arrive 60 min before first game.",
+    description: "Two-day regional tournament.",
     teams: [2027, 2028, 2029],
-    isAllDay: false,
-  },
-  {
-    id: "prac-0623",
-    title: "Team Practice",
-    eventType: "practice",
-    startDate: "2026-06-23",
-    endDate: "2026-06-23",
-    startTime: "17:30",
-    endTime: "19:30",
-    location: "The Barn",
-    address: "5554 Mount Zion Road, Milford, OH",
-    description: "Recovery practice — film review and light stick work.",
-    teams: [2027, 2028, 2029, 2030, 2031],
-    isAllDay: false,
-  },
-  {
-    id: "prac-0625",
-    title: "Team Practice",
-    eventType: "practice",
-    startDate: "2026-06-25",
-    endDate: "2026-06-25",
-    startTime: "17:30",
-    endTime: "19:30",
-    location: "The Barn",
-    address: "5554 Mount Zion Road, Milford, OH",
-    description: "Full team practice — defensive slides and ground balls.",
-    teams: [2027, 2028, 2029, 2030, 2031],
-    isAllDay: false,
-  },
-  // Showcase
-  {
-    id: "showcase-june",
-    title: "Elite 100 Showcase",
-    eventType: "showcase",
-    startDate: "2026-06-28",
-    endDate: "2026-06-28",
-    startTime: "10:00",
-    endTime: "16:00",
-    location: "Obetz Sports Complex",
-    address: "4390 Lancaster Rd, Obetz, OH",
-    description: "Invite-only showcase with 50+ college coaches in attendance. Wear white uniforms.",
-    teams: [2027, 2028],
-    isAllDay: false,
-  },
-
-  // ── JULY ──
-  {
-    id: "prac-0707",
-    title: "Team Practice",
-    eventType: "practice",
-    startDate: "2026-07-07",
-    endDate: "2026-07-07",
-    startTime: "17:30",
-    endTime: "19:30",
-    location: "The Barn",
-    address: "5554 Mount Zion Road, Milford, OH",
-    description: "Full team practice — man-up and man-down situations.",
-    teams: [2027, 2028, 2029, 2030, 2031],
-    isAllDay: false,
-  },
-  {
-    id: "prac-0709",
-    title: "Team Practice",
-    eventType: "practice",
-    startDate: "2026-07-09",
-    endDate: "2026-07-09",
-    startTime: "17:30",
-    endTime: "19:30",
-    location: "The Barn",
-    address: "5554 Mount Zion Road, Milford, OH",
-    description: "Pre-tournament practice — high tempo scrimmage.",
-    teams: [2027, 2028, 2029, 2030, 2031],
-    isAllDay: false,
-  },
-  // July tournament
-  {
-    id: "tourn-july",
-    title: "Queen City Classic",
-    eventType: "tournament",
-    startDate: "2026-07-11",
-    endDate: "2026-07-12",
-    startTime: "08:00",
-    endTime: "17:00",
-    location: "Spooky Nook Sports Champion Mill",
-    address: "101 E High St, Hamilton, OH",
-    description: "Premier summer tournament. College coaches will be scouting. Pool play both days, championship bracket Sunday afternoon.",
-    teams: [2027, 2028, 2029, 2030],
-    isAllDay: false,
-  },
-  {
-    id: "prac-0714",
-    title: "Team Practice",
-    eventType: "practice",
-    startDate: "2026-07-14",
-    endDate: "2026-07-14",
-    startTime: "17:30",
-    endTime: "19:30",
-    location: "The Barn",
-    address: "5554 Mount Zion Road, Milford, OH",
-    description: "Post-tournament review and position-specific work.",
-    teams: [2027, 2028, 2029, 2030, 2031],
-    isAllDay: false,
-  },
-  {
-    id: "prac-0716",
-    title: "Team Practice",
-    eventType: "practice",
-    startDate: "2026-07-16",
-    endDate: "2026-07-16",
-    startTime: "17:30",
-    endTime: "19:30",
-    location: "The Barn",
-    address: "5554 Mount Zion Road, Milford, OH",
-    description: "Full team practice — fast breaks and ride packages.",
-    teams: [2027, 2028, 2029, 2030, 2031],
-    isAllDay: false,
-  },
-  // Parent meeting
-  {
-    id: "meeting-july",
-    title: "Parent Info Night",
-    eventType: "meeting",
-    startDate: "2026-07-20",
-    endDate: "2026-07-20",
-    startTime: "18:30",
-    endTime: "20:00",
-    location: "The Barn",
-    address: "5554 Mount Zion Road, Milford, OH",
-    description: "Fall season preview, recruiting timeline updates, and Q&A with coaching staff. All families encouraged to attend.",
-    teams: [2027, 2028, 2029, 2030, 2031],
-    isAllDay: false,
-  },
-  {
-    id: "prac-0721",
-    title: "Team Practice",
-    eventType: "practice",
-    startDate: "2026-07-21",
-    endDate: "2026-07-21",
-    startTime: "17:30",
-    endTime: "19:30",
-    location: "The Barn",
-    address: "5554 Mount Zion Road, Milford, OH",
-    description: "Full team practice — draw controls and ride/clear.",
-    teams: [2027, 2028, 2029, 2030, 2031],
-    isAllDay: false,
-  },
-  {
-    id: "prac-0723",
-    title: "Team Practice",
-    eventType: "practice",
-    startDate: "2026-07-23",
-    endDate: "2026-07-23",
-    startTime: "17:30",
-    endTime: "19:30",
-    location: "The Barn",
-    address: "5554 Mount Zion Road, Milford, OH",
-    description: "Showcase prep — individual skills and highlight reel situations.",
-    teams: [2027, 2028, 2029, 2030, 2031],
-    isAllDay: false,
-  },
-  // Showcase
-  {
-    id: "showcase-july",
-    title: "Under Armour Highlight",
-    eventType: "showcase",
-    startDate: "2026-07-25",
-    endDate: "2026-07-26",
-    startTime: "09:00",
-    endTime: "17:00",
-    location: "SPIRE Institute",
-    address: "5201 SPIRE Cir, Geneva, OH",
-    description: "National-level recruiting showcase. Two days of games in front of D1, D2, and D3 coaches. Blue uniforms.",
-    teams: [2027, 2028, 2029],
-    isAllDay: false,
-  },
-
-  // ── AUGUST ──
-  {
-    id: "prac-0804",
-    title: "Team Practice",
-    eventType: "practice",
-    startDate: "2026-08-04",
-    endDate: "2026-08-04",
-    startTime: "17:30",
-    endTime: "19:30",
-    location: "The Barn",
-    address: "5554 Mount Zion Road, Milford, OH",
-    description: "Full team practice — zone defense and settled offense.",
-    teams: [2027, 2028, 2029, 2030, 2031],
-    isAllDay: false,
-  },
-  {
-    id: "prac-0806",
-    title: "Team Practice",
-    eventType: "practice",
-    startDate: "2026-08-06",
-    endDate: "2026-08-06",
-    startTime: "17:30",
-    endTime: "19:30",
-    location: "The Barn",
-    address: "5554 Mount Zion Road, Milford, OH",
-    description: "End-of-summer tournament prep. Full scrimmage format.",
-    teams: [2027, 2028, 2029, 2030, 2031],
-    isAllDay: false,
-  },
-  // August tournament
-  {
-    id: "tourn-aug",
-    title: "Buckeye Cup",
-    eventType: "tournament",
-    startDate: "2026-08-08",
-    endDate: "2026-08-09",
-    startTime: "08:00",
-    endTime: "17:00",
-    location: "Darby Creek Metro Park",
-    address: "1775 Darby Creek Dr, Galloway, OH",
-    description: "Season-ending tournament. All teams competing. Family tailgate Sunday morning.",
-    teams: [2027, 2028, 2029, 2030, 2031],
-    isAllDay: false,
-  },
-  {
-    id: "prac-0811",
-    title: "Team Practice",
-    eventType: "practice",
-    startDate: "2026-08-11",
-    endDate: "2026-08-11",
-    startTime: "17:30",
-    endTime: "19:30",
-    location: "The Barn",
-    address: "5554 Mount Zion Road, Milford, OH",
-    description: "Final summer practice. Awards, recognition, and fall preview.",
-    teams: [2027, 2028, 2029, 2030, 2031],
     isAllDay: false,
   },
 ];
-
-/**
- * Fetch schedule events. Currently returns hardcoded data.
- * Replace internals with Google Calendar API call — the return type stays the same.
- */
-export async function getEvents(): Promise<ScheduleEvent[]> {
-  // TODO: Replace with Google Calendar API fetch
-  // const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${CALENDAR_ID}/events?key=${API_KEY}`);
-  // return transformGoogleEvents(await res.json());
-  return PLACEHOLDER_EVENTS;
-}
