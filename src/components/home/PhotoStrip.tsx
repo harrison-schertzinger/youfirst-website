@@ -1,10 +1,32 @@
+import Image from "next/image";
+
 const PHOTOS = [
-  { label: "Game Day", aspect: "aspect-[4/3]" },
-  { label: "Training", aspect: "aspect-[3/4]" },
-  { label: "Team", aspect: "aspect-[4/3]" },
-  { label: "Tournament", aspect: "aspect-[3/4]" },
-  { label: "Celebration", aspect: "aspect-[4/3]" },
-] as const;
+  {
+    src: "/images/team/DWW07274.JPG",
+    alt: "Team raising lacrosse sticks skyward in unison before a game",
+    aspect: "aspect-[3/4]",
+  },
+  {
+    src: "/images/players/DSC05831.JPG",
+    alt: "Player sprinting full speed with her stick cradled during a late afternoon practice",
+    aspect: "aspect-[3/4]",
+  },
+  {
+    src: "/images/staff/IMG_0540.JPG",
+    alt: "Coach directing players during an indoor training session",
+    aspect: "aspect-[3/4]",
+  },
+  {
+    src: "/images/players/AE6E22F6-98AF-490C-8D3A-ADB96129AF19_Original.jpg",
+    alt: "Two players arm-in-arm looking out at the field together",
+    aspect: "aspect-[3/4]",
+  },
+  {
+    src: "/images/players/DSC02626.JPG",
+    alt: "Coach and players laughing together at golden hour on the practice field",
+    aspect: "aspect-[3/4]",
+  },
+];
 
 export default function PhotoStrip() {
   return (
@@ -13,19 +35,19 @@ export default function PhotoStrip() {
         <div className="flex gap-3 sm:gap-4 items-end">
           {PHOTOS.map((photo, i) => (
             <div
-              key={photo.label}
+              key={photo.src}
               className={`flex-1 min-w-0 ${photo.aspect} ${
                 i % 2 === 1 ? "mt-6 sm:mt-8" : ""
               }`}
             >
-              <div
-                className="photo-placeholder rounded-xl sm:rounded-2xl w-full h-full group cursor-pointer overflow-hidden"
-                role="img"
-                aria-label={`${photo.label} photo — coming soon`}
-              >
-                <div className="w-full h-full flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
-                  <span className="text-[10px] sm:text-xs">{photo.label.toUpperCase()}</span>
-                </div>
+              <div className="relative rounded-xl sm:rounded-2xl w-full h-full group cursor-pointer overflow-hidden">
+                <Image
+                  src={photo.src}
+                  alt={photo.alt}
+                  fill
+                  className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  sizes="(max-width: 768px) 50vw, 20vw"
+                />
               </div>
             </div>
           ))}

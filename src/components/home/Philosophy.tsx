@@ -1,21 +1,19 @@
+import Image from "next/image";
+
 export default function Philosophy() {
   return (
     <section className="relative py-32 sm:py-40 lg:py-48 overflow-hidden" id="philosophy">
-      {/* Full-bleed dark background — photo placeholder */}
+      {/* Full-bleed background photo */}
       <div className="absolute inset-0">
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(160deg, #0f1923 0%, #1a2332 50%, #2d3748 100%)",
-          }}
+        <Image
+          src="/images/players/DSC00480.jpeg"
+          alt="Silhouettes of players walking across a field at night toward a single light"
+          fill
+          className="object-cover"
+          sizes="100vw"
         />
-        {/* Overlay for when real photo is added */}
-        <div className="absolute inset-0 bg-black/55" />
-        {/* Photo indicator */}
-        <div className="absolute top-6 right-6 text-white/15 text-xs font-semibold uppercase tracking-[0.2em]">
-          PHOTO
-        </div>
+        {/* Dark overlay for text readability */}
+        <div className="absolute inset-0 bg-black/50" />
       </div>
 
       {/* Content */}

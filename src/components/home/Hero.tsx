@@ -1,37 +1,27 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Hero() {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Background — photo placeholder */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(135deg, #0f1923 0%, #1a2332 40%, #2d3748 100%)",
-        }}
-      >
-        {/* Subtle texture overlay */}
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
-            backgroundSize: "40px 40px",
-          }}
+      {/* Background photo */}
+      <div className="absolute inset-0">
+        <Image
+          src="/images/team/DSC09932_Original.JPG"
+          alt="You. First Elite Lacrosse team huddled together on the field before a game"
+          fill
+          className="object-cover"
+          sizes="100vw"
+          priority
         />
-        {/* Photo indicator */}
-        <div className="absolute top-6 right-6 text-white/15 text-xs font-semibold uppercase tracking-[0.2em]">
-          PHOTO
-        </div>
       </div>
 
-      {/* Gradient overlay for depth */}
+      {/* Dark gradient overlay for text readability */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.4) 100%)",
+            "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 40%, rgba(0,0,0,0.5) 100%)",
         }}
       />
 

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import ScrollReveal from "./ScrollReveal";
 
 export default function Mission() {
@@ -5,14 +6,16 @@ export default function Mission() {
     <section className="py-24 sm:py-32 lg:py-40" id="mission">
       <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Image placeholder */}
+          {/* Photo */}
           <ScrollReveal>
-            <div
-              className="photo-placeholder rounded-2xl aspect-[4/5] max-h-[560px] w-full"
-              role="img"
-              aria-label="Player in action — photo coming soon"
-            >
-              <span>PHOTO</span>
+            <div className="relative rounded-2xl overflow-hidden aspect-[4/5] max-h-[560px] w-full">
+              <Image
+                src="/images/team/IMG_7486.JPEG"
+                alt="Athlete pulling a training sled with intensity during an indoor workout session"
+                fill
+                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+              />
             </div>
           </ScrollReveal>
 
