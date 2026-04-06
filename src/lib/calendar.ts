@@ -75,7 +75,7 @@ function parseEventType(title: string, description: string): EventType {
 }
 
 const GRAD_YEAR_PATTERN = /\b(202[5-9]|203[0-5])\b/g;
-const ALL_TEAMS = [2027, 2028, 2029, 2030, 2031];
+const ALL_TEAMS = [2027, 2028, 2029, 2030];
 
 function parseTeams(description: string): number[] {
   const matches = description.match(GRAD_YEAR_PATTERN);
@@ -208,7 +208,7 @@ const PLACEHOLDER_EVENTS: ScheduleEvent[] = [
     location: "The Barn",
     address: "5554 Mount Zion Road, Milford, OH",
     description: "Full team practice — stick work, team defense, and conditioning.",
-    teams: [2027, 2028, 2029, 2030, 2031],
+    teams: [2027, 2028, 2029, 2030],
     isAllDay: false,
   },
   {
@@ -222,7 +222,7 @@ const PLACEHOLDER_EVENTS: ScheduleEvent[] = [
     location: "The Barn",
     address: "5554 Mount Zion Road, Milford, OH",
     description: "Full team practice — offensive sets and shooting.",
-    teams: [2027, 2028, 2029, 2030, 2031],
+    teams: [2027, 2028, 2029, 2030],
     isAllDay: false,
   },
   {
@@ -236,7 +236,7 @@ const PLACEHOLDER_EVENTS: ScheduleEvent[] = [
     location: "The Barn",
     address: "5554 Mount Zion Road, Milford, OH",
     description: "Four-day intensive skills camp.",
-    teams: [2028, 2029, 2030, 2031],
+    teams: [2028, 2029, 2030],
     isAllDay: false,
   },
   {

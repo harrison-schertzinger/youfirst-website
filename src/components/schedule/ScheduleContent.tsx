@@ -47,7 +47,6 @@ const TEAM_FILTERS = [
   { value: 2028, label: "2028" },
   { value: 2029, label: "2029" },
   { value: 2030, label: "2030" },
-  { value: 2031, label: "2031" },
 ];
 
 const MAX_VISIBLE = 2;

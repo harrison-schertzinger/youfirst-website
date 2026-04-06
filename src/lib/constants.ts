@@ -10,7 +10,7 @@ export const SITE_CONFIG = {
 
 export const NAV_LINKS = [
   { label: "Schedule", href: "/schedule" },
-  { label: "My Account", href: "/fees" },
+  { label: "Player Portal", href: "/fees" },
 ] as const;
 
 export const COLLEGE_COMMITMENTS = [
