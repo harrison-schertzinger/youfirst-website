@@ -18,8 +18,8 @@ export default function Hero() {
       <div className="absolute inset-0">
         <div className="absolute inset-0 animate-ken-burns">
           <Image
-            src="/images/team/DWW07274.JPG"
-            alt="You. First Elite Lacrosse players in light blue jerseys raising their sticks to the sky"
+            src="/images/team/DSC09932_Original.JPG"
+            alt="You. First team in blue jerseys huddled arm-in-arm on the field"
             fill
             className="object-cover object-[center_40%]"
             sizes="100vw"
@@ -34,11 +34,11 @@ export default function Hero() {
         style={{
           background: `
             linear-gradient(to bottom,
-              rgba(0,0,0,0.75) 0%,
-              rgba(0,0,0,0.65) 25%,
-              rgba(0,0,0,0.55) 50%,
-              rgba(0,0,0,0.3) 75%,
-              rgba(0,0,0,0.45) 100%
+              rgba(0,0,0,0.78) 0%,
+              rgba(0,0,0,0.68) 25%,
+              rgba(0,0,0,0.62) 50%,
+              rgba(0,0,0,0.55) 75%,
+              rgba(0,0,0,0.65) 100%
             )
           `,
         }}

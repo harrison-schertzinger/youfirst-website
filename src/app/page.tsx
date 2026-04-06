@@ -5,6 +5,7 @@ import Hero from "@/components/home/Hero";
 import Mission from "@/components/home/Mission";
 import CompetitiveEdge from "@/components/home/CompetitiveEdge";
 import CollegeCommitments from "@/components/home/CollegeCommitments";
+import AllAmerican from "@/components/home/AllAmerican";
 import Philosophy from "@/components/home/Philosophy";
 import PhotoStrip from "@/components/home/PhotoStrip";
 import PlayerJourney from "@/components/home/PlayerJourney";
@@ -20,6 +21,7 @@ export default function Home() {
         <Mission />
         <CompetitiveEdge />
         <CollegeCommitments />
+        <AllAmerican />
         <Philosophy />
         <PhotoStrip />
         <PlayerJourney />
