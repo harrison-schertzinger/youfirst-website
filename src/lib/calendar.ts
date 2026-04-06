@@ -50,6 +50,7 @@ interface GCalEvent {
   end: GCalDateTime;
   location?: string;
   description?: string;
+  colorId?: string;
 }
 
 interface GCalResponse {
@@ -58,20 +59,38 @@ interface GCalResponse {
 
 // ── Parsing helpers ──
 
+// Layer 1: Google Calendar colorId → event type
+const COLOR_ID_MAP: Record<string, EventType> = {
+  "9":  "tournament", // Blueberry
+  "2":  "practice",   // Sage
+  "3":  "camp",       // Grape
+  "1":  "camp",       // Lavender (alt camp color)
+  "11": "showcase",   // Tomato
+  "4":  "showcase",   // Flamingo (alt showcase)
+  "8":  "meeting",    // Graphite
+};
+
+// Layer 2: title/description keyword fallback
 const EVENT_TYPE_KEYWORDS: { type: EventType; patterns: RegExp }[] = [
-  { type: "tournament", patterns: /tournament|tourney/i },
-  { type: "camp",       patterns: /camp/i },
+  { type: "tournament", patterns: /tournament|tourney|cup|championship|league|showdown|genesis/i },
+  { type: "camp",       patterns: /camp|clinic/i },
   { type: "showcase",   patterns: /showcase/i },
   { type: "meeting",    patterns: /meeting|parent|info\s*night/i },
-  // practice is the default fallback — no entry needed
+  { type: "practice",   patterns: /practice|training/i },
 ];
 
-function parseEventType(title: string, description: string): EventType {
+function parseEventType(title: string, description: string, colorId?: string): EventType {
+  // Layer 1: colorId is most reliable
+  if (colorId && COLOR_ID_MAP[colorId]) {
+    return COLOR_ID_MAP[colorId];
+  }
+  // Layer 2: keyword matching
   const text = `${title} ${description}`;
   for (const { type, patterns } of EVENT_TYPE_KEYWORDS) {
     if (patterns.test(text)) return type;
   }
-  return "practice";
+  // Default to tournament (special events are more likely than practice)
+  return "tournament";
 }
 
 const GRAD_YEAR_PATTERN = /\b(202[5-9]|203[0-5])\b/g;
@@ -132,7 +151,7 @@ function transformEvent(gcal: GCalEvent): ScheduleEvent {
   return {
     id: gcal.id,
     title,
-    eventType: parseEventType(title, description),
+    eventType: parseEventType(title, description, gcal.colorId),
     startDate,
     endDate,
     startTime,
