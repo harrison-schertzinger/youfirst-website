@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
+import RegistrationModal from "@/components/portal/RegistrationModal";
 
 export default function ParentPortal() {
   const [loaded, setLoaded] = useState(false);
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [showRegister, setShowRegister] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setLoaded(true), 100);
@@ -159,7 +161,32 @@ export default function ParentPortal() {
             </p>
           </>
         )}
+
+        {/* ─── Register divider ─── */}
+        <div
+          className={`mt-14 transition-all duration-800 ${
+            loaded ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-4 blur-sm"
+          }`}
+          style={{ transitionDelay: "750ms" }}
+        >
+          <div className="gradient-divider mb-8" />
+          <p className="text-sm font-semibold text-[#1A1A1A] mb-3">
+            New to You. First?
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowRegister(true)}
+            className="px-8 py-3.5 bg-white text-accent-blue text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl border-2 border-accent-blue hover:bg-accent-blue hover:text-white hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300"
+          >
+            Register Your Player
+          </button>
+        </div>
       </div>
+
+      {/* Registration modal */}
+      {showRegister && (
+        <RegistrationModal onClose={() => setShowRegister(false)} />
+      )}
     </section>
   );
 }

@@ -78,12 +78,6 @@ export default function Navbar({ initialTheme = "dark" }: NavbarProps) {
                 {link.label}
               </Link>
             ))}
-            <Link
-              href="/register"
-              className="ml-2 px-5 py-2 bg-accent-blue text-white text-[11px] font-semibold uppercase tracking-[0.12em] rounded-lg shadow-[0_4px_14px_rgba(74,144,217,0.35)] hover:shadow-[0_4px_20px_rgba(74,144,217,0.5)] hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
-            >
-              Join Us
-            </Link>
           </div>
 
           {/* Mobile hamburger */}
@@ -150,18 +144,6 @@ export default function Navbar({ initialTheme = "dark" }: NavbarProps) {
               {link.label}
             </Link>
           ))}
-          <Link
-            href="/register"
-            onClick={() => setMobileOpen(false)}
-            className="mt-4 px-8 py-3.5 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(74,144,217,0.35)] transition-all duration-300"
-            style={{
-              opacity: mobileOpen ? 1 : 0,
-              transform: mobileOpen ? "translateY(0)" : "translateY(12px)",
-              transition: `opacity 0.3s 0.4s, transform 0.3s 0.4s`,
-            }}
-          >
-            Join Us
-          </Link>
         </div>
       </div>
     </nav>
