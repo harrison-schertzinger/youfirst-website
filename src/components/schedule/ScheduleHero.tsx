@@ -16,8 +16,8 @@ export default function ScheduleHero() {
       {/* Background photo */}
       <div className="absolute inset-0">
         <Image
-          src="/images/players/5CFB272B-41A2-4598-A063-D04E5DD9162D.JPG"
-          alt="You. First players standing arm-in-arm at golden hour with a lacrosse goal behind them"
+          src="/images/team/DSC09932_Original.JPG"
+          alt="You. First team in blue jerseys huddled arm-in-arm on the field at St. Paul's School"
           fill
           className="object-cover object-[center_40%]"
           sizes="100vw"
