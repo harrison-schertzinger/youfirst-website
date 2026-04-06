@@ -38,7 +38,7 @@ export default function CallToAction() {
         </ScrollReveal>
 
         <ScrollReveal delay={100}>
-          <h2 className="text-[2.25rem] sm:text-[3rem] lg:text-[3.5rem] xl:text-[4.5rem] font-bold leading-[1.05] mb-6 tracking-tight">
+          <h2 className="text-[2.5rem] sm:text-[3.5rem] lg:text-[4rem] xl:text-[5rem] font-bold leading-[1.0] mb-6 tracking-tight">
             <span className="text-white">Ready to Compete at the</span>
             <br />
             <span className="gradient-text-light"> Next Level?</span>

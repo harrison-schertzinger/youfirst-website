@@ -5,10 +5,10 @@ export default function Philosophy() {
   return (
     <section className="py-24 sm:py-32 lg:py-40 bg-background" id="philosophy">
       <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Photo — golden hour team shot */}
-          <ScrollReveal>
-            <div className="relative rounded-2xl overflow-hidden aspect-[4/5] max-h-[640px] w-full shadow-[0_8px_40px_rgba(0,0,0,0.12)]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-stretch">
+          {/* Photo — fills to match content height */}
+          <ScrollReveal className="min-h-[400px] lg:min-h-0">
+            <div className="relative rounded-2xl overflow-hidden w-full h-full shadow-[0_8px_40px_rgba(0,0,0,0.12)]">
               <Image
                 src="/images/team/DWW07615NEW.jpg"
                 alt="You. First team at golden hour on the practice field"
@@ -20,18 +20,17 @@ export default function Philosophy() {
           </ScrollReveal>
 
           {/* Content — lacrosse-focused philosophy */}
-          <div className="max-w-lg">
+          <div className="flex flex-col justify-center">
             <ScrollReveal>
               <p className="section-label mb-5">The Philosophy</p>
             </ScrollReveal>
 
             <ScrollReveal delay={100}>
-              <h2 className="text-[2.25rem] md:text-[3rem] lg:text-[3.5rem] font-bold leading-[1.05] mb-8 tracking-tight">
-                <span className="text-[#1A1A1A]">Founded on Passion.</span>
+              <h2 className="text-[2.5rem] md:text-[3.5rem] lg:text-[4rem] font-bold leading-[1.0] mb-8 tracking-tight">
+                <span className="text-[#1A1A1A]">Every Player Has</span>
                 <br />
-                <span className="text-[#1A1A1A]">Built on Purpose.</span>
-                <br />
-                <span className="gradient-text-accent">Measured on Progress.</span>
+                <span className="text-[#1A1A1A]">a Dream. </span>
+                <span className="gradient-text-accent">We Build the Path.</span>
               </h2>
             </ScrollReveal>
 

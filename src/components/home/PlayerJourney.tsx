@@ -72,7 +72,7 @@ export default function PlayerJourney() {
         <ScrollReveal>
           <div className="text-center mb-16 lg:mb-20">
             <p className="section-label mb-5">The Player Development Path</p>
-            <h2 className="text-[2.25rem] md:text-[3rem] lg:text-[3.5rem] font-bold tracking-tight leading-[1.05]">
+            <h2 className="text-[2.5rem] md:text-[3.5rem] lg:text-[4rem] font-bold tracking-tight leading-[1.0]">
               <span className="text-white">From Tryout to </span>
               <span className="gradient-text-blue">College Commitment</span>
             </h2>

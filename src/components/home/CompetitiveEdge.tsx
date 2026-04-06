@@ -21,7 +21,7 @@ const CARDS = [
     description:
       "You will find friends who make working hard second nature, fun, and cool. Community is the key ingredient to consistency — and consistency is what separates good from great.",
     link: "/about",
-    linkText: "Meet the family",
+    linkText: "See our community",
   },
 ];
 
@@ -33,7 +33,7 @@ export default function CompetitiveEdge() {
         <ScrollReveal>
           <div className="text-center mb-16 lg:mb-20">
             <p className="section-label mb-5">The Competitive Edge</p>
-            <h2 className="text-[2.25rem] md:text-[3rem] lg:text-[3.5rem] font-bold tracking-tight leading-[1.05]">
+            <h2 className="text-[2.5rem] md:text-[3.5rem] lg:text-[4rem] font-bold tracking-tight leading-[1.0]">
               <span className="text-[#1A1A1A]">Your </span>
               <span className="gradient-text-accent">Competitive Edge</span>
             </h2>

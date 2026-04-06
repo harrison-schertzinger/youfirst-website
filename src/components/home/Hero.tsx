@@ -46,7 +46,7 @@ export default function Hero() {
 
       {/* Content — staggered reveal */}
       <div className="relative z-10 text-center px-6 max-w-5xl mx-auto">
-        {/* Pill badge — matches youprjct "DEFAULT MODE: EXCELLENCE" */}
+        {/* Pill badge */}
         <div
           className={`inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm mb-10 transition-all duration-700 ${
             loaded
@@ -56,34 +56,34 @@ export default function Hero() {
         >
           <span className="w-2 h-2 rounded-full bg-accent-blue animate-pulse" />
           <span className="text-[13px] text-white/80 tracking-[0.15em] uppercase font-semibold">
-            Southern Ohio&apos;s Premier College Prep Club
+            Premier College Prep Club
           </span>
         </div>
 
         {/* Main headline — MASSIVE */}
         <h1
-          className={`mb-6 transition-all duration-800 ${
+          className={`mb-5 transition-all duration-800 ${
             loaded
               ? "opacity-100 translate-y-0 blur-0"
               : "opacity-0 translate-y-4 blur-sm"
           }`}
           style={{ transitionDelay: "200ms", textShadow: "0 2px 40px rgba(0,0,0,0.5)" }}
         >
-          <span className="block text-[3.5rem] sm:text-[4.5rem] md:text-[5.5rem] lg:text-[7rem] font-extrabold text-white tracking-[-0.02em] leading-[0.9]">
+          <span className="block text-[3.5rem] sm:text-[5rem] md:text-[6rem] lg:text-[8rem] font-extrabold text-white tracking-[-0.03em] leading-[0.85]">
             YOU
             <span className="text-accent-blue">.</span>
             {" "}FIRST
           </span>
         </h1>
 
-        {/* Elite Lacrosse — bigger, more visible */}
+        {/* Elite Lacrosse — BOLDER, more present */}
         <p
-          className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extralight text-white/70 tracking-[0.2em] uppercase mb-6 transition-all duration-800 ${
+          className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white/90 tracking-[0.2em] uppercase mb-6 transition-all duration-800 ${
             loaded
               ? "opacity-100 translate-y-0 blur-0"
               : "opacity-0 translate-y-4 blur-sm"
           }`}
-          style={{ transitionDelay: "350ms", textShadow: "0 2px 20px rgba(0,0,0,0.4)" }}
+          style={{ transitionDelay: "350ms", textShadow: "0 2px 30px rgba(0,0,0,0.5)" }}
         >
           Elite Lacrosse
         </p>

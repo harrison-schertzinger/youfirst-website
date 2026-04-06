@@ -59,45 +59,42 @@ export default function CollegeCommitments() {
   const row2Doubled = [...row2, ...row2];
 
   return (
-    <section className="py-24 sm:py-32 lg:py-40 bg-section-alt" id="commitments">
+    <section className="py-24 sm:py-32 lg:py-40 bg-[#0A0A0B] overflow-hidden" id="commitments">
       <ScrollReveal>
         <div className="mx-auto max-w-[1280px] px-6 lg:px-8 text-center mb-14 lg:mb-20">
           <p className="section-label mb-5">Where Our Players Compete</p>
-          <h2 className="text-[2.25rem] md:text-[3rem] lg:text-[3.5rem] font-bold tracking-tight leading-[1.05] mb-5">
-            <span className="text-[#1A1A1A]">Our Players. Their Dreams.</span>
+          <h2 className="text-[2.5rem] md:text-[3.5rem] lg:text-[4rem] font-bold tracking-tight leading-[1.0] mb-5">
+            <span className="text-white">Our Players. Their Dreams.</span>
             <br />
-            <span className="gradient-text-accent">Real Results.</span>
+            <span className="gradient-text-blue">Real Results.</span>
           </h2>
-          <p className="text-lg text-[#6B7280] max-w-xl mx-auto leading-[1.75]">
+          <p className="text-lg text-white/50 max-w-xl mx-auto leading-[1.75]">
             From Cincinnati fields to the nation&apos;s top programs — our athletes
             earn their spots at the highest level.
           </p>
         </div>
       </ScrollReveal>
 
-      {/* Two-row logo carousel — full color on LARGE white tiles */}
+      {/* Two-row logo carousel — dark tiles that embrace the mixed backgrounds */}
       <div className="relative overflow-hidden py-6 space-y-5">
         {/* Gradient fade edges */}
-        <div className="absolute left-0 top-0 bottom-0 w-24 sm:w-40 bg-gradient-to-r from-section-alt to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-24 sm:w-40 bg-gradient-to-l from-section-alt to-transparent z-10 pointer-events-none" />
+        <div className="absolute left-0 top-0 bottom-0 w-24 sm:w-40 bg-gradient-to-r from-[#0A0A0B] to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-24 sm:w-40 bg-gradient-to-l from-[#0A0A0B] to-transparent z-10 pointer-events-none" />
 
         {/* Row 1 */}
         <div className="animate-marquee flex items-center gap-5 sm:gap-6 w-max">
           {row1Doubled.map((src, i) => (
             <div
               key={`r1-${i}`}
-              className="flex-shrink-0 w-[120px] h-[120px] sm:w-[140px] sm:h-[140px] rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)] flex items-center justify-center border border-[#E5E7EB] p-5 sm:p-6 hover:shadow-[0_8px_30px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-300"
+              className="flex-shrink-0 w-[120px] h-[120px] sm:w-[140px] sm:h-[140px] rounded-2xl bg-[#111318] flex items-center justify-center border border-white/[0.08] p-4 sm:p-5 hover:border-white/20 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.3)] transition-all duration-300"
             >
-              <div className="w-full h-full relative bg-white">
-                <Image
-                  src={src}
-                  alt="College program logo"
-                  width={200}
-                  height={200}
-                  className="w-full h-full object-contain"
-                  style={{ background: "white" }}
-                />
-              </div>
+              <Image
+                src={src}
+                alt="College program logo"
+                width={200}
+                height={200}
+                className="w-full h-full object-contain"
+              />
             </div>
           ))}
         </div>
@@ -107,18 +104,15 @@ export default function CollegeCommitments() {
           {row2Doubled.map((src, i) => (
             <div
               key={`r2-${i}`}
-              className="flex-shrink-0 w-[120px] h-[120px] sm:w-[140px] sm:h-[140px] rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)] flex items-center justify-center border border-[#E5E7EB] p-5 sm:p-6 hover:shadow-[0_8px_30px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-300"
+              className="flex-shrink-0 w-[120px] h-[120px] sm:w-[140px] sm:h-[140px] rounded-2xl bg-[#111318] flex items-center justify-center border border-white/[0.08] p-4 sm:p-5 hover:border-white/20 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.3)] transition-all duration-300"
             >
-              <div className="w-full h-full relative bg-white">
-                <Image
-                  src={src}
-                  alt="College program logo"
-                  width={200}
-                  height={200}
-                  className="w-full h-full object-contain"
-                  style={{ background: "white" }}
-                />
-              </div>
+              <Image
+                src={src}
+                alt="College program logo"
+                width={200}
+                height={200}
+                className="w-full h-full object-contain"
+              />
             </div>
           ))}
         </div>
@@ -129,28 +123,28 @@ export default function CollegeCommitments() {
         <div className="mx-auto max-w-[1280px] px-6 lg:px-8 mt-14 lg:mt-20">
           <div className="flex flex-wrap items-center justify-center gap-x-16 gap-y-8 text-center">
             <div>
-              <p className="text-5xl sm:text-6xl font-bold text-[#1A1A1A] tracking-tight">
+              <p className="text-5xl sm:text-6xl font-bold text-white tracking-tight">
                 <AnimatedCounter end={30} suffix="+" />
               </p>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9CA3AF] mt-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40 mt-2">
                 Players Committed
               </p>
             </div>
-            <div className="w-px h-14 bg-[#E5E7EB] hidden sm:block" />
+            <div className="w-px h-14 bg-white/10 hidden sm:block" />
             <div>
-              <p className="text-5xl sm:text-6xl font-bold text-[#1A1A1A] tracking-tight">
+              <p className="text-5xl sm:text-6xl font-bold text-white tracking-tight">
                 <AnimatedCounter end={20} />
               </p>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9CA3AF] mt-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40 mt-2">
                 College Programs
               </p>
             </div>
-            <div className="w-px h-14 bg-[#E5E7EB] hidden sm:block" />
+            <div className="w-px h-14 bg-white/10 hidden sm:block" />
             <div>
-              <p className="text-5xl sm:text-6xl font-bold text-[#1A1A1A] tracking-tight">
+              <p className="text-5xl sm:text-6xl font-bold text-white tracking-tight">
                 D1 · D2 · D3
               </p>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9CA3AF] mt-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40 mt-2">
                 All Levels
               </p>
             </div>

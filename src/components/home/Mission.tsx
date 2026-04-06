@@ -4,10 +4,7 @@ import ScrollReveal from "./ScrollReveal";
 
 export default function Mission() {
   return (
-    <section className="py-24 sm:py-32 lg:py-40" id="mission">
-      {/* Gradient divider at top */}
-      <div className="gradient-divider mb-24 sm:mb-32 lg:mb-40" />
-
+    <section className="py-20 sm:py-28 lg:py-36" id="mission">
       <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
           {/* Photo with premium treatment */}
@@ -30,8 +27,10 @@ export default function Mission() {
             </ScrollReveal>
 
             <ScrollReveal delay={100}>
-              <h2 className="text-[2.25rem] md:text-[3rem] lg:text-[3.5rem] font-bold leading-[1.05] mb-8 tracking-tight">
-                <span className="text-[#1A1A1A]">Train to Be the Best </span>
+              <h2 className="text-[2.5rem] md:text-[3.5rem] lg:text-[4rem] font-bold leading-[1.0] mb-8 tracking-tight">
+                <span className="text-[#1A1A1A]">Train to Be</span>
+                <br />
+                <span className="text-[#1A1A1A]">the Best </span>
                 <span className="gradient-text-accent">You.</span>
               </h2>
             </ScrollReveal>
@@ -62,6 +61,9 @@ export default function Mission() {
           </div>
         </div>
       </div>
+
+      {/* Gradient divider at bottom */}
+      <div className="gradient-divider mt-20 sm:mt-28 lg:mt-36" />
     </section>
   );
 }
