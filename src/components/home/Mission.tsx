@@ -10,8 +10,8 @@ export default function Mission() {
           <ScrollReveal>
             <div className="relative rounded-2xl overflow-hidden aspect-[4/5] max-h-[560px] w-full">
               <Image
-                src="/images/team/IMG_7486.JPEG"
-                alt="Athlete pulling a training sled with intensity during an indoor workout session"
+                src="/images/training/8746A0BD-0B75-4A2B-8754-EDB89F150FE1_Original.jpg"
+                alt="Coach guiding two athletes through resistance band training inside The Barn"
                 fill
                 className="object-cover"
                 sizes="(max-width: 1024px) 100vw, 50vw"
