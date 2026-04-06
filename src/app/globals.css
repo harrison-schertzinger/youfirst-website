@@ -261,3 +261,13 @@ button:focus-visible {
 .nav-link:hover::after {
   width: 100%;
 }
+
+/* ─── Scrollbar Hide (mobile filter overflow) ─── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
