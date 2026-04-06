@@ -7,10 +7,10 @@ export default function Hero() {
       {/* Background photo */}
       <div className="absolute inset-0">
         <Image
-          src="/images/team/DSC09932_Original.JPG"
-          alt="You. First Elite Lacrosse team huddled together on the field before a game"
+          src="/images/team/DWW07274.JPG"
+          alt="You. First Elite Lacrosse players in light blue jerseys raising their sticks to the sky"
           fill
-          className="object-cover"
+          className="object-cover object-[center_40%]"
           sizes="100vw"
           priority
         />
@@ -21,7 +21,7 @@ export default function Hero() {
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 40%, rgba(0,0,0,0.5) 100%)",
+            "linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.4) 100%)",
         }}
       />
 
