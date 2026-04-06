@@ -4,7 +4,7 @@ import ScrollReveal from "./ScrollReveal";
 
 export default function Mission() {
   return (
-    <section className="py-20 sm:py-28 lg:py-36" id="mission">
+    <section className="py-24 sm:py-32 lg:py-40" id="mission">
       <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
           {/* Photo with premium treatment */}
@@ -63,7 +63,7 @@ export default function Mission() {
       </div>
 
       {/* Gradient divider at bottom */}
-      <div className="gradient-divider mt-20 sm:mt-28 lg:mt-36" />
+      <div className="gradient-divider mt-24 sm:mt-32 lg:mt-40" />
     </section>
   );
 }

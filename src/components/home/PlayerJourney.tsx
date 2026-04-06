@@ -26,7 +26,7 @@ const STAGES = [
     number: "04",
     title: "Commitment",
     description: "Earn your spot. 30+ players have committed to 20 college programs — and counting.",
-    color: "#F59E0B",
+    color: "#3B82F6",
   },
 ];
 
@@ -34,7 +34,7 @@ function AnimatedPath({ visible }: { visible: boolean }) {
   return (
     <div className="hidden lg:block absolute top-[60px] left-0 right-0 h-[2px] z-0">
       <div
-        className="h-full bg-gradient-to-r from-[#4A90D9] via-[#8B5CF6] via-[#10B981] to-[#F59E0B] rounded-full transition-all duration-[1.5s] ease-out origin-left"
+        className="h-full bg-gradient-to-r from-[#4A90D9] via-[#8B5CF6] via-[#10B981] to-[#3B82F6] rounded-full transition-all duration-[1.5s] ease-out origin-left"
         style={{
           transform: visible ? "scaleX(1)" : "scaleX(0)",
           opacity: visible ? 0.3 : 0,

@@ -39,5 +39,26 @@ export const COLLEGE_COMMITMENTS = [
   { name: "Shippensburg University", abbr: "SHIPPENSBURG", count: 1 },
 ] as const;
 
-// Logo files: 1.png through 20.png in public/images/logos/
-export const COLLEGE_LOGO_FILES = Array.from({ length: 20 }, (_, i) => `/images/logos/${i + 1}.png`);
+// Logo files with school names for alt text
+export const COLLEGE_LOGOS = [
+  { src: "/images/logos/1.png", name: "You. First Elite Lacrosse" },
+  { src: "/images/logos/2.png", name: "Walsh University" },
+  { src: "/images/logos/3.png", name: "University of Cincinnati" },
+  { src: "/images/logos/4.png", name: "Temple University" },
+  { src: "/images/logos/5.png", name: "Stetson University" },
+  { src: "/images/logos/6.png", name: "Longwood University" },
+  { src: "/images/logos/7.png", name: "Lindenwood University" },
+  { src: "/images/logos/8.png", name: "Jacksonville University" },
+  { src: "/images/logos/9.png", name: "Winthrop University" },
+  { src: "/images/logos/10.png", name: "Shippensburg University" },
+  { src: "/images/logos/11.png", name: "Malone University" },
+  { src: "/images/logos/12.png", name: "Otterbein College" },
+  { src: "/images/logos/13.png", name: "University of Indianapolis" },
+  { src: "/images/logos/14.png", name: "Akron University" },
+  { src: "/images/logos/15.png", name: "High Point University" },
+  { src: "/images/logos/16.png", name: "Flagler College" },
+  { src: "/images/logos/17.png", name: "Eastern Michigan University" },
+  { src: "/images/logos/18.png", name: "Barton College" },
+  { src: "/images/logos/19.png", name: "Elon University" },
+  { src: "/images/logos/20.png", name: "Kent State University" },
+] as const;

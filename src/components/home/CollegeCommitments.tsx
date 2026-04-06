@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { COLLEGE_LOGO_FILES } from "@/lib/constants";
+import { COLLEGE_LOGOS } from "@/lib/constants";
 import ScrollReveal from "./ScrollReveal";
 
 function AnimatedCounter({ end, suffix = "", duration = 2000 }: { end: number; suffix?: string; duration?: number }) {
@@ -52,8 +52,8 @@ function AnimatedCounter({ end, suffix = "", duration = 2000 }: { end: number; s
 }
 
 export default function CollegeCommitments() {
-  const row1 = COLLEGE_LOGO_FILES.slice(0, 10);
-  const row2 = COLLEGE_LOGO_FILES.slice(10);
+  const row1 = COLLEGE_LOGOS.slice(0, 10);
+  const row2 = COLLEGE_LOGOS.slice(10);
 
   const row1Doubled = [...row1, ...row1];
   const row2Doubled = [...row2, ...row2];
@@ -83,17 +83,17 @@ export default function CollegeCommitments() {
 
         {/* Row 1 */}
         <div className="animate-marquee flex items-center gap-5 sm:gap-6 w-max">
-          {row1Doubled.map((src, i) => (
+          {row1Doubled.map((logo, i) => (
             <div
               key={`r1-${i}`}
-              className="flex-shrink-0 w-[120px] h-[120px] sm:w-[140px] sm:h-[140px] rounded-2xl overflow-hidden bg-[#FFFFFF] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-[#E5E7EB] hover:shadow-[0_8px_30px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-300"
+              className="flex-shrink-0 w-[120px] h-[120px] sm:w-[140px] sm:h-[140px] rounded-2xl bg-[#FFFFFF] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-[#E5E7EB] p-4 sm:p-5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-300"
             >
               <Image
-                src={src}
-                alt="College program logo"
+                src={logo.src}
+                alt={`${logo.name} logo`}
                 width={200}
                 height={200}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
             </div>
           ))}
@@ -101,17 +101,17 @@ export default function CollegeCommitments() {
 
         {/* Row 2 — slightly different speed */}
         <div className="animate-marquee-slow flex items-center gap-5 sm:gap-6 w-max">
-          {row2Doubled.map((src, i) => (
+          {row2Doubled.map((logo, i) => (
             <div
               key={`r2-${i}`}
-              className="flex-shrink-0 w-[120px] h-[120px] sm:w-[140px] sm:h-[140px] rounded-2xl overflow-hidden bg-[#FFFFFF] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-[#E5E7EB] hover:shadow-[0_8px_30px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-300"
+              className="flex-shrink-0 w-[120px] h-[120px] sm:w-[140px] sm:h-[140px] rounded-2xl bg-[#FFFFFF] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-[#E5E7EB] p-4 sm:p-5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-300"
             >
               <Image
-                src={src}
-                alt="College program logo"
+                src={logo.src}
+                alt={`${logo.name} logo`}
                 width={200}
                 height={200}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
             </div>
           ))}
