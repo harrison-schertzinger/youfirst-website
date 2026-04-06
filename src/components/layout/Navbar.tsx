@@ -35,32 +35,11 @@ export default function Navbar() {
           {/* Wordmark — brand mark, not a text label */}
           <Link
             href="/"
-            className="flex items-baseline gap-[3px] tracking-[0.03em]"
+            className={`text-[17px] font-extrabold tracking-[0.04em] transition-colors ${
+              scrolled ? "text-text-primary" : "text-white"
+            }`}
           >
-            <span
-              className={`text-[19px] font-extrabold transition-colors ${
-                scrolled ? "text-text-primary" : "text-white"
-              }`}
-            >
-              YOU
-            </span>
-            <span className="text-[19px] font-extrabold text-accent-blue">
-              .
-            </span>
-            <span
-              className={`text-[19px] font-medium tracking-[0.05em] transition-colors ml-[2px] ${
-                scrolled ? "text-text-primary" : "text-white"
-              }`}
-            >
-              FIRST
-            </span>
-            <span
-              className={`text-[13px] font-medium tracking-[0.08em] transition-colors ml-2 ${
-                scrolled ? "text-text-secondary" : "text-white/60"
-              }`}
-            >
-              ELITE LACROSSE
-            </span>
+            YOU<span className="text-accent-blue">.</span> FIRST ELITE LACROSSE
           </Link>
 
           {/* Desktop nav */}
