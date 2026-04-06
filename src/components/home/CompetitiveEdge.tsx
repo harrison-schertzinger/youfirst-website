@@ -27,7 +27,7 @@ const CARDS = [
 
 export default function CompetitiveEdge() {
   return (
-    <section className="py-24 sm:py-32 lg:py-40 bg-background" id="competitive-edge">
+    <section className="py-20 sm:py-24 lg:py-32 bg-background" id="competitive-edge">
       <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
         {/* Section header */}
         <ScrollReveal>
@@ -82,7 +82,7 @@ export default function CompetitiveEdge() {
       </div>
 
       {/* Gradient divider at bottom */}
-      <div className="gradient-divider mt-24 sm:mt-32 lg:mt-40" />
+      <div className="gradient-divider mt-16 sm:mt-20 lg:mt-24" />
     </section>
   );
 }

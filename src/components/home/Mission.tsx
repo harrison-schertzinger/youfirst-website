@@ -63,7 +63,7 @@ export default function Mission() {
       </div>
 
       {/* Gradient divider at bottom */}
-      <div className="gradient-divider mt-24 sm:mt-32 lg:mt-40" />
+      <div className="gradient-divider mt-16 sm:mt-20 lg:mt-24" />
     </section>
   );
 }
