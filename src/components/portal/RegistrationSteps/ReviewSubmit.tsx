@@ -185,7 +185,6 @@ export default function ReviewSubmit({ data, onChange, errors, onEditStep }: Pro
               <p className="text-xs text-[#6B7280]">
                 Class of {data.graduationYear}
                 {data.position && ` · ${data.position}`}
-                {data.jerseyNumber && ` · #${data.jerseyNumber}`}
               </p>
             </div>
           </div>

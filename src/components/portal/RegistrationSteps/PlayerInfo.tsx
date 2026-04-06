@@ -150,20 +150,6 @@ export default function PlayerInfo({ data, onChange, errors }: Props) {
         </div>
       </div>
 
-      {/* Jersey */}
-      <div className="max-w-[140px]">
-        <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">
-          Jersey Number
-        </label>
-        <input
-          type="text"
-          value={data.jerseyNumber}
-          onChange={(e) => onChange({ jerseyNumber: e.target.value })}
-          className="w-full px-4 py-3 rounded-xl border border-[#E5E7EB] text-sm text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-accent-blue/30 focus:border-accent-blue transition-all duration-200"
-          placeholder="#"
-          maxLength={3}
-        />
-      </div>
     </div>
   );
 }
