@@ -44,9 +44,7 @@ export default function Navbar() {
             >
               YOU
             </span>
-            <span
-              className={`text-[19px] font-extrabold transition-colors text-accent-blue`}
-            >
+            <span className="text-[19px] font-extrabold text-accent-blue">
               .
             </span>
             <span
@@ -55,6 +53,13 @@ export default function Navbar() {
               }`}
             >
               FIRST
+            </span>
+            <span
+              className={`text-[13px] font-medium tracking-[0.08em] transition-colors ml-2 ${
+                scrolled ? "text-text-secondary" : "text-white/60"
+              }`}
+            >
+              ELITE LACROSSE
             </span>
           </Link>
 
