@@ -1,105 +1,79 @@
-"use client";
-
 import Image from "next/image";
 import ScrollReveal from "./ScrollReveal";
 
 export default function Philosophy() {
   return (
-    <section className="relative py-32 sm:py-40 lg:py-52 overflow-hidden" id="philosophy">
-      {/* Full-bleed background with CSS parallax */}
-      <div
-        className="absolute inset-0"
-        style={{
-          transform: "translateZ(-1px) scale(1.5)",
-          transformOrigin: "center center",
-        }}
-      >
-        <Image
-          src="/images/players/DSC00480.jpeg"
-          alt="Silhouettes of players walking across a field at night toward a single light"
-          fill
-          className="object-cover"
-          sizes="100vw"
-        />
-      </div>
-
-      {/* Multi-layer dark overlay — heavier at top and bottom, softer in the middle */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: `
-            linear-gradient(to bottom,
-              rgba(0,0,0,0.65) 0%,
-              rgba(0,0,0,0.45) 40%,
-              rgba(0,0,0,0.45) 60%,
-              rgba(0,0,0,0.7) 100%
-            )
-          `,
-        }}
-      />
-
-      {/* Content */}
-      <div className="relative z-10 mx-auto max-w-3xl px-6 lg:px-8 text-center">
-        <ScrollReveal>
-          <p className="section-label text-white/40 mb-10">
-            The Philosophy
-          </p>
-        </ScrollReveal>
-
-        <ScrollReveal delay={150}>
-          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white/95 mb-12 leading-[1.1] tracking-[-0.02em]">
-            Why is the{" "}
-            <span className="text-accent-blue">You.</span>{" "}
-            backwards?
-          </h2>
-        </ScrollReveal>
-
-        <div className="space-y-8">
-          <ScrollReveal delay={300}>
-            <p className="text-xl sm:text-2xl text-white/80 leading-relaxed font-light">
-              So it can only be read in the mirror — because that is what we care
-              about.
-            </p>
+    <section className="py-24 sm:py-32 lg:py-40 bg-background" id="philosophy">
+      <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+          {/* Photo — golden hour team shot */}
+          <ScrollReveal>
+            <div className="relative rounded-2xl overflow-hidden aspect-[4/5] max-h-[640px] w-full shadow-[0_8px_40px_rgba(0,0,0,0.12)]">
+              <Image
+                src="/images/team/DWW07615NEW.jpg"
+                alt="You. First team at golden hour on the practice field"
+                fill
+                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+              />
+            </div>
           </ScrollReveal>
 
-          <ScrollReveal delay={450}>
-            <p className="text-2xl sm:text-3xl text-white/95 leading-relaxed font-medium tracking-[-0.01em]">
-              Who do <em className="not-italic text-white">you</em>{" "}
-              see staring back at you?
-            </p>
-          </ScrollReveal>
+          {/* Content — lacrosse-focused philosophy */}
+          <div className="max-w-lg">
+            <ScrollReveal>
+              <p className="section-label mb-5">The Philosophy</p>
+            </ScrollReveal>
 
-          <ScrollReveal delay={600}>
-            <p className="text-xl sm:text-2xl text-white/70 leading-relaxed font-light">
-              Are you proud of that person? Do you love that person? Are you
-              oriented towards the best for yourself?
-            </p>
-          </ScrollReveal>
+            <ScrollReveal delay={100}>
+              <h2 className="text-[2.25rem] md:text-[3rem] lg:text-[3.5rem] font-bold leading-[1.05] mb-8 tracking-tight">
+                <span className="text-[#1A1A1A]">Founded on Passion.</span>
+                <br />
+                <span className="text-[#1A1A1A]">Built on Purpose.</span>
+                <br />
+                <span className="gradient-text-accent">Measured on Progress.</span>
+              </h2>
+            </ScrollReveal>
+
+            <ScrollReveal delay={200}>
+              <div className="space-y-5 max-w-md">
+                <p className="text-lg text-[#6B7280] leading-[1.75]">
+                  Every player who walks into this club has a dream. For some,
+                  it&apos;s playing college lacrosse. For others, it&apos;s becoming the
+                  kind of person who earns that opportunity.
+                </p>
+                <p className="text-lg text-[#6B7280] leading-[1.75]">
+                  We build the plan. We run the schedule. We create the
+                  environment where working hard is the norm and excellence is the
+                  expectation. The college commitment is the outcome — the
+                  transformation is the real win.
+                </p>
+              </div>
+            </ScrollReveal>
+
+            {/* Brand mark + You.Prjct connection */}
+            <ScrollReveal delay={350}>
+              <div className="mt-10 pt-8 border-t border-[#E5E7EB]">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-2xl font-bold tracking-tight text-[#1A1A1A]">
+                    YOU<span className="text-accent-blue">.</span> FIRST
+                  </span>
+                  <span className="w-px h-5 bg-[#D1D5DB]" aria-hidden="true" />
+                  <span className="text-xs font-normal tracking-wide text-[#9CA3AF]">
+                    Elite Lacrosse Club
+                  </span>
+                </div>
+                <p className="text-sm text-[#9CA3AF] leading-relaxed">
+                  Powered by{" "}
+                  <span className="font-semibold text-[#6B7280]">
+                    YOU<span className="text-accent-blue">.</span>PRJCT
+                  </span>{" "}
+                  — The Operating System for Elite Performance
+                </p>
+              </div>
+            </ScrollReveal>
+          </div>
         </div>
-
-        {/* Closing statement — the emotional peak */}
-        <ScrollReveal delay={750}>
-          <div className="mt-16 pt-12 border-t border-white/10">
-            <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-snug tracking-[-0.01em]">
-              This club is about{" "}
-              <span className="text-accent-blue">You.</span>
-            </p>
-            <p className="text-xl sm:text-2xl md:text-3xl font-light text-white/60 mt-3">
-              Build the best You. — with us.
-            </p>
-          </div>
-        </ScrollReveal>
-
-        {/* Mirrored .uoY watermark */}
-        <ScrollReveal delay={900}>
-          <div
-            className="mt-20 text-7xl sm:text-8xl font-bold text-white/[0.04] select-none"
-            aria-hidden="true"
-            style={{ transform: "scaleX(-1)" }}
-          >
-            You.
-          </div>
-        </ScrollReveal>
       </div>
     </section>
   );

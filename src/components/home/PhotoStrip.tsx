@@ -28,18 +28,18 @@ const PHOTOS = [
 
 export default function PhotoStrip() {
   return (
-    <section className="py-20 sm:py-28 overflow-hidden">
+    <section className="py-16 sm:py-24 overflow-hidden">
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6">
-        <div className="flex gap-3 sm:gap-5 items-end">
+        <div className="flex gap-4 sm:gap-6 items-end">
           {PHOTOS.map((photo, i) => (
             <ScrollReveal
               key={photo.src}
               delay={i * 150}
-              className={`flex-1 min-w-0 aspect-[3/4] ${
-                i % 2 === 1 ? "mt-8 sm:mt-12" : ""
+              className={`flex-1 min-w-0 ${
+                i % 2 === 1 ? "mt-10 sm:mt-16" : ""
               }`}
             >
-              <div className="relative rounded-2xl w-full h-full group cursor-pointer overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.1)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.15)] transition-shadow duration-500">
+              <div className="relative rounded-2xl w-full group cursor-pointer overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.1)] hover:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition-shadow duration-500" style={{ aspectRatio: "3/4.5" }}>
                 <Image
                   src={photo.src}
                   alt={photo.alt}

@@ -34,20 +34,19 @@ export default function CallToAction() {
       {/* Content */}
       <div className="relative z-10 mx-auto max-w-[1280px] px-6 lg:px-8 text-center">
         <ScrollReveal>
-          {/* Accent line */}
           <div className="w-12 h-[2px] bg-accent-blue mx-auto mb-10 rounded-full" />
         </ScrollReveal>
 
         <ScrollReveal delay={100}>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-white leading-tight mb-6 tracking-[-0.02em]">
-            Ready to Compete at the
-            <br className="hidden sm:block" />
-            {" "}Next Level?
+          <h2 className="text-[2.25rem] sm:text-[3rem] lg:text-[3.5rem] xl:text-[4.5rem] font-bold leading-[1.05] mb-6 tracking-tight">
+            <span className="text-white">Ready to Compete at the</span>
+            <br />
+            <span className="gradient-text-light"> Next Level?</span>
           </h2>
         </ScrollReveal>
 
         <ScrollReveal delay={200}>
-          <p className="text-lg sm:text-xl text-white/50 max-w-xl mx-auto mb-12 font-light">
+          <p className="text-lg sm:text-xl text-white/50 max-w-xl mx-auto mb-12 font-light leading-[1.75]">
             Join Southern Ohio&apos;s most ambitious lacrosse community.
           </p>
         </ScrollReveal>

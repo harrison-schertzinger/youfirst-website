@@ -7,6 +7,7 @@ import CompetitiveEdge from "@/components/home/CompetitiveEdge";
 import CollegeCommitments from "@/components/home/CollegeCommitments";
 import Philosophy from "@/components/home/Philosophy";
 import PhotoStrip from "@/components/home/PhotoStrip";
+import PlayerJourney from "@/components/home/PlayerJourney";
 import CallToAction from "@/components/home/CallToAction";
 
 export default function Home() {
@@ -21,6 +22,7 @@ export default function Home() {
         <CollegeCommitments />
         <Philosophy />
         <PhotoStrip />
+        <PlayerJourney />
         <CallToAction />
       </main>
       <Footer />

@@ -8,7 +8,6 @@ export default function Hero() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    // Trigger staggered reveal after mount
     const timer = setTimeout(() => setLoaded(true), 100);
     return () => clearTimeout(timer);
   }, []);
@@ -29,70 +28,74 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* Multi-layer gradient overlay — heavy on sky, light on players */}
+      {/* Heavy gradient overlay — text area gets maximum coverage */}
       <div
         className="absolute inset-0"
         style={{
           background: `
             linear-gradient(to bottom,
-              rgba(0,0,0,0.7) 0%,
-              rgba(0,0,0,0.55) 30%,
-              rgba(0,0,0,0.3) 60%,
-              rgba(0,0,0,0.15) 80%,
-              rgba(0,0,0,0.35) 100%
+              rgba(0,0,0,0.75) 0%,
+              rgba(0,0,0,0.65) 25%,
+              rgba(0,0,0,0.55) 50%,
+              rgba(0,0,0,0.3) 75%,
+              rgba(0,0,0,0.45) 100%
             )
           `,
         }}
       />
-      {/* Radial glow behind text for depth */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse 60% 40% at 50% 40%, rgba(74, 144, 217, 0.06), transparent)",
-        }}
-      />
 
       {/* Content — staggered reveal */}
-      <div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
-        {/* Top label */}
-        <p
-          className={`section-label text-white/50 mb-8 transition-all duration-700 ${
+      <div className="relative z-10 text-center px-6 max-w-5xl mx-auto">
+        {/* Pill badge — matches youprjct "DEFAULT MODE: EXCELLENCE" */}
+        <div
+          className={`inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm mb-10 transition-all duration-700 ${
             loaded
               ? "opacity-100 translate-y-0 blur-0"
               : "opacity-0 translate-y-4 blur-sm"
           }`}
         >
-          Southern Ohio&apos;s Premier College Prep Club
-        </p>
+          <span className="w-2 h-2 rounded-full bg-accent-blue animate-pulse" />
+          <span className="text-[13px] text-white/80 tracking-[0.15em] uppercase font-semibold">
+            Southern Ohio&apos;s Premier College Prep Club
+          </span>
+        </div>
 
-        {/* Main headline */}
+        {/* Main headline — MASSIVE */}
         <h1
           className={`mb-6 transition-all duration-800 ${
             loaded
               ? "opacity-100 translate-y-0 blur-0"
               : "opacity-0 translate-y-4 blur-sm"
           }`}
-          style={{ transitionDelay: "200ms" }}
+          style={{ transitionDelay: "200ms", textShadow: "0 2px 40px rgba(0,0,0,0.5)" }}
         >
-          <span className="block text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold text-white tracking-[-0.02em] leading-[0.9]">
+          <span className="block text-[3.5rem] sm:text-[4.5rem] md:text-[5.5rem] lg:text-[7rem] font-extrabold text-white tracking-[-0.02em] leading-[0.9]">
             YOU
             <span className="text-accent-blue">.</span>
             {" "}FIRST
           </span>
-          <span className="block text-2xl sm:text-3xl md:text-4xl font-extralight text-white/50 tracking-[0.2em] uppercase mt-4">
-            Elite Lacrosse
-          </span>
         </h1>
 
-        {/* Tagline */}
+        {/* Elite Lacrosse — bigger, more visible */}
         <p
-          className={`text-sm sm:text-base text-white/40 font-light tracking-[0.2em] uppercase max-w-xl mx-auto mb-14 transition-all duration-800 ${
+          className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extralight text-white/70 tracking-[0.2em] uppercase mb-6 transition-all duration-800 ${
             loaded
               ? "opacity-100 translate-y-0 blur-0"
               : "opacity-0 translate-y-4 blur-sm"
           }`}
-          style={{ transitionDelay: "400ms" }}
+          style={{ transitionDelay: "350ms", textShadow: "0 2px 20px rgba(0,0,0,0.4)" }}
+        >
+          Elite Lacrosse
+        </p>
+
+        {/* Tagline — readable */}
+        <p
+          className={`text-base sm:text-lg text-white/60 font-light tracking-[0.15em] uppercase max-w-xl mx-auto mb-14 transition-all duration-800 ${
+            loaded
+              ? "opacity-100 translate-y-0 blur-0"
+              : "opacity-0 translate-y-4 blur-sm"
+          }`}
+          style={{ transitionDelay: "500ms", textShadow: "0 1px 12px rgba(0,0,0,0.4)" }}
         >
           Build &amp; Bring the Best Together
         </p>
@@ -104,7 +107,7 @@ export default function Hero() {
               ? "opacity-100 translate-y-0 blur-0"
               : "opacity-0 translate-y-4 blur-sm"
           }`}
-          style={{ transitionDelay: "600ms" }}
+          style={{ transitionDelay: "650ms" }}
         >
           <Link
             href="/schedule"
@@ -132,20 +135,8 @@ export default function Hero() {
           <span className="text-[10px] uppercase tracking-[0.2em] text-white/30 font-medium">
             Scroll
           </span>
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 20 20"
-            fill="none"
-            className="text-white/30"
-          >
-            <path
-              d="M4 8L10 14L16 8"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-white/30">
+            <path d="M4 8L10 14L16 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
       </div>

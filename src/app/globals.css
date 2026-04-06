@@ -53,13 +53,13 @@ body {
 ::-webkit-scrollbar-thumb { background: #C4C4C4; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #A0A0A0; }
 
-/* ─── Section Label — reusable uppercase pill ─── */
+/* ─── Section Label — accent blue, tracked, designed ─── */
 .section-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: #6B7280;
+  color: #4A90D9;
 }
 
 /* ─── Gradient Text Utility ─── */
@@ -78,10 +78,28 @@ body {
 }
 
 .gradient-text-accent {
-  background: linear-gradient(135deg, #4A90D9 0%, #10B981 100%);
+  background: linear-gradient(to left, #4A90D9, #4A90D9 50%, #1A1A1A 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Accent gradient for light backgrounds — blue standalone */
+.gradient-text-blue {
+  background: linear-gradient(135deg, #4A90D9 0%, #3A7BC8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Arrow link hover animation */
+.arrow-link .arrow {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.arrow-link:hover .arrow {
+  transform: translateX(4px);
 }
 
 /* ─── Gradient Divider ─── */

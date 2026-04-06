@@ -31,14 +31,28 @@ export default function Navbar() {
     >
       <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          {/* Brand mark */}
-          <Link
-            href="/"
-            className={`text-[15px] font-extrabold tracking-tight transition-colors duration-200 ${
-              scrolled ? "text-[#1A1A1A]" : "text-white"
-            }`}
-          >
-            YOU<span className="text-accent-blue">.</span> FIRST
+          {/* Brand mark with pipe separator */}
+          <Link href="/" className="flex items-center gap-3">
+            <span
+              className={`text-xl font-bold tracking-tight transition-colors duration-200 ${
+                scrolled ? "text-[#1A1A1A]" : "text-white"
+              }`}
+            >
+              YOU<span className="text-accent-blue">.</span> FIRST
+            </span>
+            <span
+              className={`hidden sm:block w-px h-5 transition-colors duration-200 ${
+                scrolled ? "bg-[#D1D5DB]" : "bg-white/30"
+              }`}
+              aria-hidden="true"
+            />
+            <span
+              className={`hidden sm:block text-xs font-normal tracking-wide transition-colors duration-200 ${
+                scrolled ? "text-[#9CA3AF]" : "text-white/50"
+              }`}
+            >
+              Elite Lacrosse Club
+            </span>
           </Link>
 
           {/* Desktop nav */}
