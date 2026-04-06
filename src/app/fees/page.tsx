@@ -3,11 +3,10 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ScrollProgressBar from "@/components/layout/ScrollProgressBar";
 import PricingCards from "@/components/fees/PricingCards";
-import WhatsIncluded from "@/components/fees/WhatsIncluded";
-import PaymentFAQ from "@/components/fees/PaymentFAQ";
 import TrustBadge from "@/components/fees/TrustBadge";
 import FeesHero from "@/components/fees/FeesHero";
 import CheckoutToast from "@/components/fees/CheckoutToast";
+import MemberSignIn from "@/components/fees/MemberSignIn";
 
 export const metadata: Metadata = {
   title: "Team Fees & Payment Plans | YOU. FIRST Elite Lacrosse",
@@ -36,8 +35,7 @@ export default async function FeesPage({
         {params.canceled && <CheckoutToast type="canceled" />}
         <FeesHero />
         <PricingCards />
-        <WhatsIncluded />
-        <PaymentFAQ />
+        <MemberSignIn />
         <TrustBadge />
       </main>
       <Footer />
