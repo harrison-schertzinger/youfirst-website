@@ -9,24 +9,89 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "You. First Elite Lacrosse | Southern Ohio's Premier College Prep Club",
+  title: "YOU. FIRST Elite Lacrosse | Southern Ohio's Premier College Prep Club",
   description:
-    "You. First Elite Lacrosse is Cincinnati's premier girls' lacrosse club, developing elite players and young women who compete at the highest level. Part of the Cincinnati Lacrosse Academy.",
+    "Elite girls' lacrosse club in Cincinnati, Ohio. College prep training, recruiting support, and personal development for competitive female athletes. Part of the Cincinnati Lacrosse Academy.",
   keywords: [
-    "girls lacrosse",
-    "Cincinnati lacrosse",
-    "elite lacrosse club",
+    "girls lacrosse Cincinnati",
+    "elite lacrosse club Ohio",
     "college prep lacrosse",
-    "Southern Ohio lacrosse",
-    "youth lacrosse",
+    "lacrosse recruiting",
     "Cincinnati Lacrosse Academy",
+    "youth lacrosse training",
+    "competitive girls lacrosse",
+    "Southern Ohio lacrosse",
+    "girls club lacrosse",
   ],
+  metadataBase: new URL("https://youfirst-website.vercel.app"),
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
-    title: "You. First Elite Lacrosse",
+    title: "YOU. FIRST Elite Lacrosse",
     description:
       "Southern Ohio's premier college prep girls' lacrosse club. Build & Bring the Best Together.",
     type: "website",
+    locale: "en_US",
+    siteName: "YOU. FIRST Elite Lacrosse",
+    url: "https://youfirst-website.vercel.app",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "YOU. FIRST Elite Lacrosse",
+    description:
+      "Southern Ohio's premier college prep girls' lacrosse club. Build & Bring the Best Together.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/apple-touch-icon.png",
+  },
+};
+
+// JSON-LD structured data
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SportsTeam",
+      name: "YOU. FIRST Elite Lacrosse",
+      alternateName: "You. First Elite Lacrosse Club",
+      sport: "Lacrosse",
+      url: "https://youfirst-website.vercel.app",
+      description:
+        "Elite girls' lacrosse club in Cincinnati, Ohio. College prep training, recruiting support, and personal development for competitive female athletes.",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "Cincinnati",
+        addressRegion: "OH",
+        addressCountry: "US",
+      },
+      parentOrganization: {
+        "@type": "SportsOrganization",
+        name: "Cincinnati Lacrosse Academy",
+      },
+      contactPoint: {
+        "@type": "ContactPoint",
+        email: "kathleen@youfirstelitelacrosseclub.com",
+        contactType: "general",
+      },
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Home",
+          item: "https://youfirst-website.vercel.app",
+        },
+      ],
+    },
+  ],
 };
 
 export default function RootLayout({
@@ -36,6 +101,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} h-full`}>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body className="min-h-full flex flex-col antialiased">{children}</body>
     </html>
   );

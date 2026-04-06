@@ -38,20 +38,24 @@ export default function Hero() {
       {/* Content */}
       <div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
         {/* Top label */}
-        <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-white/60 mb-6">
+        <p className="section-label text-white/50 mb-8">
           Southern Ohio&apos;s Premier College Prep Club
         </p>
 
         {/* Main headline */}
-        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-[1.05] mb-6">
-          <span className="block">You. First</span>
-          <span className="block font-light text-[0.75em] mt-1">
+        <h1 className="mb-6">
+          <span className="block text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold text-white tracking-[0.02em] leading-none">
+            YOU
+            <span className="text-accent-blue">.</span>
+            {" "}FIRST
+          </span>
+          <span className="block text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white/60 tracking-[0.15em] uppercase mt-3">
             Elite Lacrosse
           </span>
         </h1>
 
-        {/* Subline */}
-        <p className="text-lg sm:text-xl text-white/70 font-light max-w-xl mx-auto mb-10">
+        {/* Tagline */}
+        <p className="text-sm sm:text-base text-white/45 font-light tracking-[0.2em] uppercase max-w-xl mx-auto mb-12">
           Build &amp; Bring the Best Together
         </p>
 
@@ -59,13 +63,13 @@ export default function Hero() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
             href="/schedule"
-            className="inline-flex items-center justify-center px-8 py-3.5 bg-accent-blue text-white text-sm font-semibold uppercase tracking-[0.08em] rounded-lg hover:bg-accent-blue-hover transition-colors min-w-[200px]"
+            className="inline-flex items-center justify-center px-8 py-3.5 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-lg hover:bg-accent-blue-hover transition-colors min-w-[200px]"
           >
             View Schedule
           </Link>
           <Link
             href="/register"
-            className="inline-flex items-center justify-center px-8 py-3.5 border-2 border-white/30 text-white text-sm font-semibold uppercase tracking-[0.08em] rounded-lg hover:bg-white/10 hover:border-white/50 transition-all min-w-[200px]"
+            className="inline-flex items-center justify-center px-8 py-3.5 border-2 border-white/30 text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-lg hover:bg-white/10 hover:border-white/50 transition-all min-w-[200px]"
           >
             Join the Family
           </Link>

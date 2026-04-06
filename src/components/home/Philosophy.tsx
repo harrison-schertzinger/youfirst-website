@@ -20,11 +20,11 @@ export default function Philosophy() {
 
       {/* Content */}
       <div className="relative z-10 mx-auto max-w-3xl px-6 lg:px-8 text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40 mb-10">
+        <p className="section-label text-white/50 mb-10">
           The Philosophy
         </p>
 
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white/90 mb-10 leading-tight">
+        <h2 className="text-3xl sm:text-4xl font-bold text-white/90 mb-10 leading-tight">
           Why is the{" "}
           <span className="text-accent-blue">You.</span>{" "}
           backwards?
@@ -52,7 +52,7 @@ export default function Philosophy() {
             <span className="text-accent-blue">You.</span>
             <br />
             <span className="font-light text-white/80">
-              Build the best You. with us.
+              Build the best You. — with us.
             </span>
           </p>
         </div>

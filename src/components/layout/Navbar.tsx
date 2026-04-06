@@ -17,7 +17,9 @@ export default function Navbar() {
   // Lock body scroll when mobile menu is open
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [mobileOpen]);
 
   return (
@@ -30,21 +32,29 @@ export default function Navbar() {
     >
       <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between lg:h-20">
-          {/* Wordmark */}
-          <Link href="/" className="flex items-baseline gap-1 group">
+          {/* Wordmark — brand mark, not a text label */}
+          <Link
+            href="/"
+            className="flex items-baseline gap-[3px] tracking-[0.03em]"
+          >
             <span
-              className={`text-xl font-bold tracking-tight transition-colors ${
+              className={`text-[19px] font-extrabold transition-colors ${
                 scrolled ? "text-text-primary" : "text-white"
               }`}
             >
-              You.
+              YOU
             </span>
             <span
-              className={`text-xl font-light tracking-tight transition-colors ${
+              className={`text-[19px] font-extrabold transition-colors text-accent-blue`}
+            >
+              .
+            </span>
+            <span
+              className={`text-[19px] font-medium tracking-[0.05em] transition-colors ml-[2px] ${
                 scrolled ? "text-text-primary" : "text-white"
               }`}
             >
-              First
+              FIRST
             </span>
           </Link>
 
@@ -54,8 +64,10 @@ export default function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`text-[13px] font-semibold uppercase tracking-[0.08em] transition-colors hover:text-accent-blue ${
-                  scrolled ? "text-text-secondary" : "text-white/80 hover:text-white"
+                className={`text-[12px] font-medium uppercase tracking-[0.1em] transition-colors hover:text-accent-blue ${
+                  scrolled
+                    ? "text-text-secondary"
+                    : "text-white/80 hover:text-white"
                 }`}
               >
                 {link.label}
@@ -117,7 +129,7 @@ export default function Navbar() {
               key={link.href}
               href={link.href}
               onClick={() => setMobileOpen(false)}
-              className="text-2xl font-semibold text-text-primary hover:text-accent-blue transition-colors"
+              className="text-lg font-medium uppercase tracking-[0.1em] text-text-primary hover:text-accent-blue transition-colors"
             >
               {link.label}
             </Link>

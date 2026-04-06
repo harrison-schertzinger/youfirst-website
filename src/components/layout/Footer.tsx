@@ -8,9 +8,10 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-16">
           {/* Brand column */}
           <div>
-            <div className="flex items-baseline gap-1 mb-4">
-              <span className="text-xl font-bold tracking-tight">You.</span>
-              <span className="text-xl font-light tracking-tight">First</span>
+            <div className="flex items-baseline gap-[3px] mb-4 tracking-[0.03em]">
+              <span className="text-[19px] font-extrabold">YOU</span>
+              <span className="text-[19px] font-extrabold text-accent-blue">.</span>
+              <span className="text-[19px] font-medium tracking-[0.05em] ml-[2px]">FIRST</span>
             </div>
             <p className="text-white/60 text-sm leading-relaxed mb-6">
               {SITE_CONFIG.location}
@@ -19,17 +20,17 @@ export default function Footer() {
             </p>
             {/* Backwards .uoY */}
             <p
-              className="text-3xl font-bold text-white/10 tracking-tight select-none"
+              className="text-3xl font-extrabold text-white/10 tracking-[0.03em] select-none"
               aria-hidden="true"
               style={{ transform: "scaleX(-1)", display: "inline-block" }}
             >
-              You.
+              YOU.
             </p>
           </div>
 
           {/* Links column */}
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-[0.1em] text-white/40 mb-6">
+            <h3 className="section-label text-white/40 mb-6">
               Quick Links
             </h3>
             <ul className="space-y-3">
@@ -56,7 +57,7 @@ export default function Footer() {
 
           {/* Contact column */}
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-[0.1em] text-white/40 mb-6">
+            <h3 className="section-label text-white/40 mb-6">
               Contact
             </h3>
             <a
@@ -84,8 +85,8 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="mt-16 pt-8 border-t border-white/10 text-center">
           <p className="text-xs text-white/40">
-            &copy; {new Date().getFullYear()} You. First Elite Lacrosse Club. All rights
-            reserved.
+            &copy; {new Date().getFullYear()} YOU. FIRST Elite Lacrosse Club.
+            All rights reserved.
           </p>
         </div>
       </div>

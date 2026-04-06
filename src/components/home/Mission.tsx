@@ -20,7 +20,7 @@ export default function Mission() {
           <ScrollReveal delay={150}>
             <div className="max-w-lg">
               <p className="section-label mb-4">Our Mission</p>
-              <h2 className="text-3xl sm:text-4xl lg:text-[42px] font-bold text-text-primary leading-tight mb-8">
+              <h2 className="text-3xl sm:text-4xl font-bold text-text-primary leading-tight mb-8">
                 Train to Be the Best{" "}
                 <span className="text-accent-blue">You.</span>
               </h2>
