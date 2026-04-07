@@ -2,7 +2,17 @@ import Image from "next/image";
 import Link from "next/link";
 import ScrollReveal from "./ScrollReveal";
 
-const CARDS = [
+interface Card {
+  number: string;
+  src: string;
+  alt: string;
+  title: string;
+  description: string;
+  link?: string;
+  linkText?: string;
+}
+
+const CARDS: Card[] = [
   {
     number: "01",
     src: "/images/players/IMG_0872.JPG",
@@ -20,8 +30,6 @@ const CARDS = [
     title: "Unmatched Community",
     description:
       "You will find friends who make working hard second nature, fun, and cool. Community is the key ingredient to consistency — and consistency is what separates good from great.",
-    link: "/about",
-    linkText: "See our community",
   },
 ];
 
@@ -67,13 +75,15 @@ export default function CompetitiveEdge() {
                   <p className="text-base text-[#6B7280] leading-[1.75] flex-1">
                     {card.description}
                   </p>
-                  <Link
-                    href={card.link}
-                    className="arrow-link inline-flex items-center gap-2 mt-6 text-sm font-semibold text-accent-blue hover:text-accent-blue-hover transition-colors duration-200"
-                  >
-                    {card.linkText}
-                    <span className="arrow">&rarr;</span>
-                  </Link>
+                  {card.link && card.linkText && (
+                    <Link
+                      href={card.link}
+                      className="arrow-link inline-flex items-center gap-2 mt-6 text-sm font-semibold text-accent-blue hover:text-accent-blue-hover transition-colors duration-200"
+                    >
+                      {card.linkText}
+                      <span className="arrow">&rarr;</span>
+                    </Link>
+                  )}
                 </div>
               </div>
             </ScrollReveal>

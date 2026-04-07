@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
+import { SITE_CONFIG } from "@/lib/constants";
 import PlayerCard from "./PlayerCard";
 import PaymentDashboard from "./PaymentDashboard";
 import PlayerProfileCard from "./PlayerProfileCard";
@@ -72,44 +73,51 @@ export default function PortalContent({
 }) {
   const [loading, setLoading] = useState(true);
   const [notSetUp, setNotSetUp] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [players, setPlayers] = useState<PlayerWithData[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadData() {
       const supabase = createClient();
 
       // Find guardian record for this auth user
-      const { data: guardian, error: guardianError } = await supabase
+      const { data: guardian } = await supabase
         .from("guardians")
         .select("*")
         .eq("auth_user_id", userId)
-        .single();
+        .maybeSingle();
 
-      if (guardianError || !guardian) {
-        // Try matching by email (guardian exists but auth_user_id not yet linked)
-        const { data: guardianByEmail } = await supabase
-          .from("guardians")
-          .select("*")
-          .eq("email", userEmail)
-          .single();
+      if (!guardian) {
+        // Guardian exists but auth_user_id not yet linked: link it
+        // server-side (the endpoint matches by user.email — never trust
+        // the client to specify which guardian to claim).
+        const linkRes = await fetch("/api/auth/link-guardian", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
 
-        if (!guardianByEmail) {
+        if (cancelled) return;
+
+        if (linkRes.status === 404) {
+          // No guardian for this email — friendly "not set up" state.
           setNotSetUp(true);
           setLoading(false);
           return;
         }
 
-        // Link auth_user_id to guardian (via service role on server)
-        // For now, if email matches but auth_user_id doesn't, still show data
-        // The RLS policy uses auth_user_id, so we need to use a server action to link
-        // For the initial load, we'll call a server endpoint
-        await fetch("/api/auth/link-guardian", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ guardianId: guardianByEmail.id }),
-        });
+        if (!linkRes.ok) {
+          // Don't reload — that would loop. Surface the error.
+          const { error } = await linkRes.json().catch(() => ({}));
+          setLoadError(
+            error || "We couldn't link your account. Please contact us."
+          );
+          setLoading(false);
+          return;
+        }
 
-        // Reload after linking
+        // Successfully linked — reload once to pick up the auth_user_id.
         window.location.reload();
         return;
       }
@@ -179,11 +187,15 @@ export default function PortalContent({
         })
       );
 
+      if (cancelled) return;
       setPlayers(enriched);
       setLoading(false);
     }
 
     loadData();
+    return () => {
+      cancelled = true;
+    };
   }, [userEmail, userId]);
 
   if (loading) {
@@ -197,7 +209,7 @@ export default function PortalContent({
     );
   }
 
-  if (notSetUp) {
+  if (notSetUp || loadError) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="max-w-md mx-auto px-6 text-center">
@@ -206,15 +218,19 @@ export default function PortalContent({
               <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-[#1A1A1A] mb-3">Account Not Set Up</h2>
+          <h2 className="text-2xl font-bold text-[#1A1A1A] mb-3">
+            {loadError ? "Something Went Wrong" : "Account Not Set Up"}
+          </h2>
           <p className="text-[#6B7280] mb-8 leading-relaxed">
-            Your account hasn&apos;t been set up yet. Contact us and we&apos;ll get you connected to your player&apos;s profile.
+            {loadError
+              ? loadError
+              : "Your account hasn\u2019t been set up yet. Contact us and we\u2019ll get you connected to your player\u2019s profile."}
           </p>
           <a
-            href="mailto:kathleen@youfirstlacrosse.com"
-            className="inline-block px-6 py-3.5 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(74,144,217,0.4)] hover:shadow-[0_4px_24px_rgba(74,144,217,0.55)] hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
+            href={`mailto:${SITE_CONFIG.email}`}
+            className="inline-block px-6 py-3.5 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(74,144,217,0.4)] hover:shadow-[0_4px_24px_rgba(74,144,217,0.55)] hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 break-all"
           >
-            Email kathleen@youfirstlacrosse.com
+            Email {SITE_CONFIG.email}
           </a>
         </div>
       </div>

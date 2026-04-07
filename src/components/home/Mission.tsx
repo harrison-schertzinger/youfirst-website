@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import ScrollReveal from "./ScrollReveal";
 
 export default function Mission() {
@@ -49,15 +48,6 @@ export default function Mission() {
               </div>
             </ScrollReveal>
 
-            <ScrollReveal delay={300}>
-              <Link
-                href="/about"
-                className="arrow-link inline-flex items-center gap-2 mt-8 text-sm font-semibold text-accent-blue hover:text-accent-blue-hover transition-colors duration-200"
-              >
-                Learn more about our program
-                <span className="arrow">&rarr;</span>
-              </Link>
-            </ScrollReveal>
           </div>
         </div>
       </div>

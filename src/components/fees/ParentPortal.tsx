@@ -25,13 +25,29 @@ export default function ParentPortal() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
+        // Only seeded parents and registered guardians have accounts.
+        // Refuse to create new auth users from this form.
+        shouldCreateUser: false,
         emailRedirectTo: `${window.location.origin}/api/auth/callback`,
       },
     });
 
     if (error) {
       setStatus("error");
-      setErrorMsg(error.message);
+      // Supabase returns a generic message when shouldCreateUser is false
+      // and the email isn't found. Surface a friendlier hint.
+      const lower = error.message.toLowerCase();
+      if (
+        lower.includes("signups not allowed") ||
+        lower.includes("not found") ||
+        lower.includes("user not found")
+      ) {
+        setErrorMsg(
+          "We don't see an account for that email. Register your player below or contact us if you think this is wrong."
+        );
+      } else {
+        setErrorMsg(error.message);
+      }
     } else {
       setStatus("sent");
       setEmail("");

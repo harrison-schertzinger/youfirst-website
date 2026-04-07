@@ -1,5 +1,7 @@
 "use client";
 
+import { SITE_CONFIG } from "@/lib/constants";
+
 interface Payment {
   id: string;
   amount_cents: number;
@@ -133,15 +135,21 @@ export default function PaymentDashboard({
         </div>
       </div>
 
-      {/* Make a payment button */}
+      {/* Make a payment — online checkout isn't wired yet, so route parents
+          to email Kathleen rather than a dead /fees button. */}
       {balance > 0 && (
         <div className="mb-8">
           <a
-            href="/fees"
+            href={`mailto:${SITE_CONFIG.email}?subject=Payment%20for%20${encodeURIComponent(
+              "Player Account"
+            )}`}
             className="inline-block px-6 py-3.5 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(74,144,217,0.4)] hover:shadow-[0_4px_24px_rgba(74,144,217,0.55)] hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
           >
             Make a Payment
           </a>
+          <p className="mt-3 text-xs text-[#9CA3AF]">
+            Online checkout is coming soon. Email us to arrange a payment.
+          </p>
         </div>
       )}
 

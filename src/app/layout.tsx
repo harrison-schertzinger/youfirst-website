@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     "Southern Ohio lacrosse",
     "girls club lacrosse",
   ],
-  metadataBase: new URL("https://youfirst-website.vercel.app"),
+  metadataBase: new URL("https://youfirstlacrosse.com"),
   alternates: {
     canonical: "/",
   },
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     siteName: "YOU. FIRST Elite Lacrosse",
-    url: "https://youfirst-website.vercel.app",
+    url: "https://youfirstlacrosse.com",
   },
   twitter: {
     card: "summary_large_image",
@@ -64,7 +64,7 @@ const jsonLd = {
       name: "YOU. FIRST Elite Lacrosse",
       alternateName: "You. First Elite Lacrosse Club",
       sport: "Lacrosse",
-      url: "https://youfirst-website.vercel.app",
+      url: "https://youfirstlacrosse.com",
       description:
         "Elite girls' lacrosse club in Cincinnati, Ohio. College prep training, recruiting support, and personal development for competitive female athletes.",
       address: {
@@ -90,7 +90,7 @@ const jsonLd = {
           "@type": "ListItem",
           position: 1,
           name: "Home",
-          item: "https://youfirst-website.vercel.app",
+          item: "https://youfirstlacrosse.com",
         },
       ],
     },

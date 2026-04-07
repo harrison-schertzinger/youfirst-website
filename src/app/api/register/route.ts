@@ -162,12 +162,35 @@ export async function POST(request: NextRequest) {
     }
 
     // ─── Send magic link to guardian 1 ────────────────
-    // Invite them to sign in — this creates an auth user if one doesn't exist
-    await supabase.auth.admin.inviteUserByEmail(d.guardian1Email.trim(), {
-      redirectTo: `${request.nextUrl.origin}/api/auth/callback`,
-    });
+    // Invite them to sign in. If an auth user already exists for this email
+    // (sibling case, or repeat registration), the admin API errors with
+    // "User already registered" — that's expected and fine.
+    const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
+      d.guardian1Email.trim(),
+      { redirectTo: `${request.nextUrl.origin}/api/auth/callback` }
+    );
 
-    return NextResponse.json({ success: true, playerId: player.id });
+    let inviteWarning: string | null = null;
+    if (inviteError) {
+      const msg = inviteError.message?.toLowerCase() || "";
+      const alreadyExists =
+        msg.includes("already registered") ||
+        msg.includes("already exists") ||
+        msg.includes("user already");
+      if (!alreadyExists) {
+        // Real failure — log it and tell the parent so they aren't stranded.
+        console.error("Invite failed:", inviteError);
+        inviteWarning =
+          "We saved your registration, but couldn't send your sign-in email. " +
+          "Please contact us so we can finish setting up your account.";
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      playerId: player.id,
+      inviteWarning,
+    });
   } catch (err) {
     console.error("Registration error:", err);
     return NextResponse.json(

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { SITE_CONFIG } from "@/lib/constants";
 import PlayerInfo from "./RegistrationSteps/PlayerInfo";
 import GearSizing from "./RegistrationSteps/GearSizing";
 import PlayerContact from "./RegistrationSteps/PlayerContact";
@@ -123,6 +124,7 @@ export default function RegistrationModal({ onClose }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [inviteWarning, setInviteWarning] = useState<string | null>(null);
 
   // Lock body scroll
   useEffect(() => {
@@ -274,11 +276,14 @@ export default function RegistrationModal({ onClose }: Props) {
         return;
       }
 
+      if (typeof result.inviteWarning === "string") {
+        setInviteWarning(result.inviteWarning);
+      }
       setSuccess(true);
       setSubmitting(false);
     } catch {
       setSubmitError(
-        "Unable to connect. Please try again or contact kathleen@youfirstlacrosse.com."
+        `Unable to connect. Please try again or contact ${SITE_CONFIG.email}.`
       );
       setSubmitting(false);
     }
@@ -471,9 +476,15 @@ export default function RegistrationModal({ onClose }: Props) {
               <p className="text-base font-semibold text-[#1A1A1A]">{data.guardian1Email}</p>
             </div>
 
-            <p className="text-sm text-[#6B7280] max-w-sm leading-relaxed mb-8">
-              Check your email for a magic link to access your player&apos;s profile, schedule, and payment history.
-            </p>
+            {inviteWarning ? (
+              <div className="rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm leading-relaxed p-4 max-w-sm w-full mb-8">
+                {inviteWarning}
+              </div>
+            ) : (
+              <p className="text-sm text-[#6B7280] max-w-sm leading-relaxed mb-8">
+                Check your email for a magic link to access your player&apos;s profile, schedule, and payment history.
+              </p>
+            )}
 
             <button
               onClick={onClose}
