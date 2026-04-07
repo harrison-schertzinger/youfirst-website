@@ -137,7 +137,7 @@ export default function PrimaryGuardian({ data, onChange, errors }: Props) {
           className="w-full px-4 py-3 rounded-xl border border-[#E5E7EB] text-sm text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-accent-blue/30 focus:border-accent-blue transition-all duration-200 mb-3"
           placeholder="Street address"
         />
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <input
             type="text"
             value={data.guardian1City}
@@ -145,22 +145,24 @@ export default function PrimaryGuardian({ data, onChange, errors }: Props) {
             className="w-full px-4 py-3 rounded-xl border border-[#E5E7EB] text-sm text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-accent-blue/30 focus:border-accent-blue transition-all duration-200"
             placeholder="City"
           />
-          <input
-            type="text"
-            value={data.guardian1State}
-            onChange={(e) => onChange({ guardian1State: e.target.value })}
-            className="w-full px-4 py-3 rounded-xl border border-[#E5E7EB] text-sm text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-accent-blue/30 focus:border-accent-blue transition-all duration-200"
-            placeholder="State"
-            maxLength={2}
-          />
-          <input
-            type="text"
-            value={data.guardian1Zip}
-            onChange={(e) => onChange({ guardian1Zip: e.target.value })}
-            className="w-full px-4 py-3 rounded-xl border border-[#E5E7EB] text-sm text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-accent-blue/30 focus:border-accent-blue transition-all duration-200"
-            placeholder="ZIP"
-            maxLength={10}
-          />
+          <div className="grid grid-cols-2 gap-3 sm:contents">
+            <input
+              type="text"
+              value={data.guardian1State}
+              onChange={(e) => onChange({ guardian1State: e.target.value })}
+              className="w-full px-4 py-3 rounded-xl border border-[#E5E7EB] text-sm text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-accent-blue/30 focus:border-accent-blue transition-all duration-200"
+              placeholder="State"
+              maxLength={2}
+            />
+            <input
+              type="text"
+              value={data.guardian1Zip}
+              onChange={(e) => onChange({ guardian1Zip: e.target.value })}
+              className="w-full px-4 py-3 rounded-xl border border-[#E5E7EB] text-sm text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-accent-blue/30 focus:border-accent-blue transition-all duration-200"
+              placeholder="ZIP"
+              maxLength={10}
+            />
+          </div>
         </div>
       </div>
     </div>

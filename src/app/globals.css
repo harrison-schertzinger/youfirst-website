@@ -33,6 +33,10 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 80px;
+  /* Defensive: kill any accidental horizontal scroll caused by oversized
+     decorative elements (animated text, marquees, etc.). `clip` is safer
+     than `hidden` because it doesn't break position: sticky. */
+  overflow-x: clip;
 }
 
 body {

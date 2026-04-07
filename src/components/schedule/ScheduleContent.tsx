@@ -234,20 +234,20 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
                   <path d="M30 5v15M70 5v15M10 35h80" />
                 </svg>
               </div>
-              <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="flex items-center gap-3 flex-shrink-0">
+              <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 min-w-0">
+                <div className="flex items-center gap-3 min-w-0">
                   <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
                     style={{ backgroundColor: EVENT_COLORS[upNext.eventType] }}
                   >
                     {getDayNumber(upNext.startDate)}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent-blue">Up Next</p>
-                    <p className="text-base font-bold text-[#1A1A1A]">{upNext.title}</p>
+                    <p className="text-base font-bold text-[#1A1A1A] break-words">{upNext.title}</p>
                   </div>
                 </div>
-                <div className="sm:ml-auto flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-[#6B7280]">
+                <div className="sm:ml-auto flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-[#6B7280] min-w-0">
                   <span className="flex items-center gap-1.5">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-[#9CA3AF]">
                       <circle cx="7" cy="7" r="6" />

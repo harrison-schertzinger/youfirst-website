@@ -69,7 +69,7 @@ export default function Hero() {
           }`}
           style={{ transitionDelay: "200ms", textShadow: "0 2px 40px rgba(0,0,0,0.5)" }}
         >
-          <span className="block text-[3.5rem] sm:text-[5rem] md:text-[6rem] lg:text-[8rem] font-extrabold text-white tracking-[-0.03em] leading-[0.85]">
+          <span className="block text-[2.75rem] sm:text-[5rem] md:text-[6rem] lg:text-[8rem] font-extrabold text-white tracking-[-0.03em] leading-[0.85]">
             YOU
             <span className="text-accent-blue">.</span>
             {" "}FIRST
@@ -78,7 +78,7 @@ export default function Hero() {
 
         {/* Elite Lacrosse — BOLDER, more present */}
         <p
-          className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white/90 tracking-[0.2em] uppercase mb-6 transition-all duration-800 ${
+          className={`text-xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white/90 tracking-[0.15em] sm:tracking-[0.2em] uppercase mb-6 transition-all duration-800 ${
             loaded
               ? "opacity-100 translate-y-0 blur-0"
               : "opacity-0 translate-y-4 blur-sm"

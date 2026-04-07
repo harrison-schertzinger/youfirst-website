@@ -137,7 +137,7 @@ export default function PlayerProfileCard({
             <button
               type="button"
               onClick={startEdit}
-              className="px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-accent-blue rounded-lg border border-accent-blue/30 hover:bg-accent-blue/5 transition-all duration-200"
+              className="min-h-[44px] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-accent-blue rounded-lg border border-accent-blue/30 hover:bg-accent-blue/5 transition-all duration-200"
             >
               Edit Profile
             </button>
@@ -147,7 +147,7 @@ export default function PlayerProfileCard({
                 type="button"
                 onClick={cancelEdit}
                 disabled={saving}
-                className="px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6B7280] rounded-lg border border-[#E5E7EB] hover:bg-[#F8F9FA] transition-all duration-200 disabled:opacity-50"
+                className="min-h-[44px] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6B7280] rounded-lg border border-[#E5E7EB] hover:bg-[#F8F9FA] transition-all duration-200 disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -155,7 +155,7 @@ export default function PlayerProfileCard({
                 type="button"
                 onClick={save}
                 disabled={saving}
-                className="px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-white bg-accent-blue rounded-lg shadow-[0_2px_8px_rgba(74,144,217,0.35)] hover:shadow-[0_2px_12px_rgba(74,144,217,0.5)] transition-all duration-200 disabled:opacity-50"
+                className="min-h-[44px] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-white bg-accent-blue rounded-lg shadow-[0_2px_8px_rgba(74,144,217,0.35)] hover:shadow-[0_2px_12px_rgba(74,144,217,0.5)] transition-all duration-200 disabled:opacity-50"
               >
                 {saving ? "Saving…" : "Save"}
               </button>
