@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 import PlayerCard from "./PlayerCard";
 import PaymentDashboard from "./PaymentDashboard";
+import PlayerProfileCard from "./PlayerProfileCard";
 
 interface Guardian {
   id: string;
@@ -29,6 +30,10 @@ interface Player {
   photo_url: string | null;
   team_name: string | null;
   status: string;
+  shirt_size: string | null;
+  short_size: string | null;
+  sweatshirt_size: string | null;
+  shooting_shirt_size: string | null;
 }
 
 interface Payment {
@@ -230,6 +235,14 @@ export default function PortalContent({
       {players.map((player) => (
         <div key={player.id} className="mb-16">
           <PlayerCard player={player} guardians={player.guardians} />
+          <PlayerProfileCard
+            player={player}
+            onUpdated={(next) =>
+              setPlayers((prev) =>
+                prev.map((p) => (p.id === next.id ? { ...p, ...next } : p))
+              )
+            }
+          />
           <PaymentDashboard
             payments={player.payments}
             paymentPlan={player.paymentPlan}

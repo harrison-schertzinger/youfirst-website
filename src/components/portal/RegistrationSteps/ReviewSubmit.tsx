@@ -190,13 +190,45 @@ export default function ReviewSubmit({ data, onChange, errors, onEditStep }: Pro
           </div>
         </div>
 
+        {/* Gear sizing card */}
+        <div className="rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Gear Sizing</h4>
+            <button
+              type="button"
+              onClick={() => onEditStep(1)}
+              className="text-xs text-accent-blue hover:text-accent-blue-hover transition-colors"
+            >
+              Edit
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-[#9CA3AF]">Shirt</span>
+              <span className="text-sm font-semibold text-[#1A1A1A]">{data.shirtSize || "—"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-[#9CA3AF]">Short</span>
+              <span className="text-sm font-semibold text-[#1A1A1A]">{data.shortSize || "—"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-[#9CA3AF]">Sweatshirt</span>
+              <span className="text-sm font-semibold text-[#1A1A1A]">{data.sweatshirtSize || "—"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-[#9CA3AF]">Shooting Shirt</span>
+              <span className="text-sm font-semibold text-[#1A1A1A]">{data.shootingShirtSize || "—"}</span>
+            </div>
+          </div>
+        </div>
+
         {/* Guardian 1 card */}
         <div className="rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] p-5 mb-4">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Primary Guardian</h4>
             <button
               type="button"
-              onClick={() => onEditStep(2)}
+              onClick={() => onEditStep(3)}
               className="text-xs text-accent-blue hover:text-accent-blue-hover transition-colors"
             >
               Edit
@@ -217,7 +249,7 @@ export default function ReviewSubmit({ data, onChange, errors, onEditStep }: Pro
               <h4 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Second Guardian</h4>
               <button
                 type="button"
-                onClick={() => onEditStep(3)}
+                onClick={() => onEditStep(4)}
                 className="text-xs text-accent-blue hover:text-accent-blue-hover transition-colors"
               >
                 Edit

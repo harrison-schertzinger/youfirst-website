@@ -59,8 +59,10 @@ export async function POST(request: NextRequest) {
         jersey_number: d.jerseyNumber || null,
         photo_url: photoUrl,
         status: "active",
-        email: d.playerEmail || null,
-        phone: d.playerPhone || null,
+        shirt_size: d.shirtSize || null,
+        short_size: d.shortSize || null,
+        sweatshirt_size: d.sweatshirtSize || null,
+        shooting_shirt_size: d.shootingShirtSize || null,
       })
       .select("id")
       .single();

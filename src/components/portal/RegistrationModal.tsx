@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import PlayerInfo from "./RegistrationSteps/PlayerInfo";
+import GearSizing from "./RegistrationSteps/GearSizing";
 import PlayerContact from "./RegistrationSteps/PlayerContact";
 import PrimaryGuardian from "./RegistrationSteps/PrimaryGuardian";
 import SecondGuardian from "./RegistrationSteps/SecondGuardian";
@@ -18,6 +19,11 @@ export interface RegistrationData {
   graduationYear: string;
   position: string;
   jerseyNumber: string;
+  // Gear sizing
+  shirtSize: string;
+  shortSize: string;
+  sweatshirtSize: string;
+  shootingShirtSize: string;
   // Player contact
   playerEmail: string;
   playerPhone: string;
@@ -58,6 +64,10 @@ const INITIAL_DATA: RegistrationData = {
   graduationYear: "",
   position: "",
   jerseyNumber: "",
+  shirtSize: "",
+  shortSize: "",
+  sweatshirtSize: "",
+  shootingShirtSize: "",
   playerEmail: "",
   playerPhone: "",
   guardian1FirstName: "",
@@ -88,11 +98,15 @@ const INITIAL_DATA: RegistrationData = {
 
 const STEP_LABELS = [
   "Player Info",
+  "Gear",
   "Contact",
   "Guardian",
   "2nd Guardian",
   "Review",
 ];
+
+const TOTAL_STEPS = STEP_LABELS.length;
+const LAST_STEP = TOTAL_STEPS - 1;
 
 // ─── Component ───────────────────────────────────────────
 
@@ -148,7 +162,14 @@ export default function RegistrationModal({ onClose }: Props) {
       if (!data.graduationYear) e.graduationYear = "Required";
     }
 
-    if (s === 2) {
+    if (s === 1) {
+      if (!data.shirtSize) e.shirtSize = "Required";
+      if (!data.shortSize) e.shortSize = "Required";
+      if (!data.sweatshirtSize) e.sweatshirtSize = "Required";
+      if (!data.shootingShirtSize) e.shootingShirtSize = "Required";
+    }
+
+    if (s === 3) {
       if (!data.guardian1FirstName.trim()) e.guardian1FirstName = "Required";
       if (!data.guardian1LastName.trim()) e.guardian1LastName = "Required";
       if (!data.guardian1Email.trim()) e.guardian1Email = "Required";
@@ -158,7 +179,7 @@ export default function RegistrationModal({ onClose }: Props) {
       if (!data.guardian1Relationship) e.guardian1Relationship = "Required";
     }
 
-    if (s === 3 && data.hasSecondGuardian) {
+    if (s === 4 && data.hasSecondGuardian) {
       if (!data.guardian2FirstName.trim()) e.guardian2FirstName = "Required";
       if (!data.guardian2LastName.trim()) e.guardian2LastName = "Required";
       if (!data.guardian2Email.trim()) e.guardian2Email = "Required";
@@ -168,7 +189,7 @@ export default function RegistrationModal({ onClose }: Props) {
       if (!data.guardian2Relationship) e.guardian2Relationship = "Required";
     }
 
-    if (s === 4) {
+    if (s === 5) {
       if (!data.emergencySameAsGuardian) {
         if (!data.emergencyName.trim()) e.emergencyName = "Required";
         if (!data.emergencyPhone.trim()) e.emergencyPhone = "Required";
@@ -190,7 +211,7 @@ export default function RegistrationModal({ onClose }: Props) {
     setErrors({});
 
     // Auto-fill emergency if "same as guardian" and entering review step
-    if (step === 3 && data.emergencySameAsGuardian === "guardian1") {
+    if (step === 4 && data.emergencySameAsGuardian === "guardian1") {
       setData((prev) => ({
         ...prev,
         emergencyName: `${prev.guardian1FirstName} ${prev.guardian1LastName}`,
@@ -201,7 +222,7 @@ export default function RegistrationModal({ onClose }: Props) {
 
     setDirection("forward");
     setAnimKey((k) => k + 1);
-    setStep((s) => Math.min(s + 1, 4));
+    setStep((s) => Math.min(s + 1, LAST_STEP));
   }
 
   function goBack() {
@@ -221,7 +242,7 @@ export default function RegistrationModal({ onClose }: Props) {
   // ─── Submit ─────────────────────────────────────────
 
   async function handleSubmit() {
-    const stepErrors = validateStep(4);
+    const stepErrors = validateStep(LAST_STEP);
     if (Object.keys(stepErrors).length > 0) {
       setErrors(stepErrors);
       return;
@@ -335,7 +356,7 @@ export default function RegistrationModal({ onClose }: Props) {
                 ))}
               </div>
               <p className="text-xs text-[#9CA3AF] mt-3 sm:hidden">
-                Step {step + 1} of 5 — {STEP_LABELS[step]}
+                Step {step + 1} of {TOTAL_STEPS} — {STEP_LABELS[step]}
               </p>
             </div>
 
@@ -348,10 +369,11 @@ export default function RegistrationModal({ onClose }: Props) {
               )}
               <div key={animKey} className={animClass}>
                 {step === 0 && <PlayerInfo data={data} onChange={update} errors={errors} />}
-                {step === 1 && <PlayerContact data={data} onChange={update} />}
-                {step === 2 && <PrimaryGuardian data={data} onChange={update} errors={errors} />}
-                {step === 3 && <SecondGuardian data={data} onChange={update} errors={errors} />}
-                {step === 4 && <ReviewSubmit data={data} onChange={update} errors={errors} onEditStep={goToStep} />}
+                {step === 1 && <GearSizing data={data} onChange={update} errors={errors} />}
+                {step === 2 && <PlayerContact data={data} onChange={update} />}
+                {step === 3 && <PrimaryGuardian data={data} onChange={update} errors={errors} />}
+                {step === 4 && <SecondGuardian data={data} onChange={update} errors={errors} />}
+                {step === 5 && <ReviewSubmit data={data} onChange={update} errors={errors} onEditStep={goToStep} />}
               </div>
             </div>
 
@@ -372,7 +394,7 @@ export default function RegistrationModal({ onClose }: Props) {
                 <div />
               )}
 
-              {step < 4 ? (
+              {step < LAST_STEP ? (
                 <button
                   type="button"
                   onClick={goNext}
