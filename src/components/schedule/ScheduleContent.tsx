@@ -140,13 +140,14 @@ function getUpcomingEvent(events: ScheduleEvent[]): ScheduleEvent | null {
 }
 
 function formatUpcomingTime(event: ScheduleEvent): string {
-  const [h, m] = event.startTime.split(":").map(Number);
   const date = new Date(event.startDate + "T00:00:00");
   const dayStr = date.toLocaleDateString("en-US", {
     weekday: "long",
     month: "short",
     day: "numeric",
   });
+  if (event.isAllDay) return dayStr;
+  const [h, m] = event.startTime.split(":").map(Number);
   return `${dayStr} at ${h % 12 || 12}:${m.toString().padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
 }
 
@@ -467,15 +468,25 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
                   </span>
                 </div>
 
-                <div className="flex items-start gap-3 text-sm">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#9CA3AF" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
-                    <circle cx="8" cy="8" r="6.5" />
-                    <path d="M8 4v4.5l3 1.5" />
-                  </svg>
-                  <span className="text-[#374151]">
-                    {formatTime(selectedEvent.startTime)} – {formatTime(selectedEvent.endTime)}
-                  </span>
-                </div>
+                {selectedEvent.isAllDay ? (
+                  <div className="flex items-start gap-3 text-sm">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#9CA3AF" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+                      <circle cx="8" cy="8" r="6.5" />
+                      <path d="M8 4v4.5l3 1.5" />
+                    </svg>
+                    <span className="text-[#374151]">All day</span>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3 text-sm">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#9CA3AF" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+                      <circle cx="8" cy="8" r="6.5" />
+                      <path d="M8 4v4.5l3 1.5" />
+                    </svg>
+                    <span className="text-[#374151]">
+                      {formatTime(selectedEvent.startTime)} – {formatTime(selectedEvent.endTime)}
+                    </span>
+                  </div>
+                )}
 
                 <div className="flex items-start gap-3 text-sm">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#9CA3AF" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
@@ -567,7 +578,9 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
                       {event.title}
                     </p>
                     <p className="text-xs text-[#9CA3AF]">
-                      {formatTime(event.startTime)} – {formatTime(event.endTime)} · {event.location}
+                      {event.isAllDay
+                        ? `All day · ${event.location}`
+                        : `${formatTime(event.startTime)} – ${formatTime(event.endTime)} · ${event.location}`}
                     </p>
                   </button>
                 ))}
