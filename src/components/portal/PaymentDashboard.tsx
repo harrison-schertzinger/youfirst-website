@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   buildTickets,
   type PaymentTicket,
@@ -49,6 +49,10 @@ function overlayTitle(ticket: PaymentTicket): string {
 
 function TicketCard({ ticket }: { ticket: PaymentTicket }) {
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // I7 fix: ref-gate double clicks — state updates are async and a fast
+  // second tap on a slow phone can fire the fetch twice.
+  const inFlightRef = useRef(false);
   const isPaid = ticket.status === "paid";
   const isOverdue = ticket.status === "overdue";
   const { endColor, eyebrow } = CATEGORY_STYLE[ticket.category];
@@ -57,28 +61,39 @@ function TicketCard({ ticket }: { ticket: PaymentTicket }) {
   const gradient = `linear-gradient(135deg, #0A0A0B 0%, #1A1D24 45%, ${gradientEnd} 100%)`;
 
   async function handlePay() {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setLoading(true);
+    setErrorMsg(null);
     try {
+      // C1 fix: only send values that identify WHICH ticket. Price and
+      // installments_total are re-derived server-side from the player's
+      // plan — the client cannot influence the charged amount.
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           playerId: ticket.playerId,
-          ticketId: ticket.ticketId,
           category: ticket.category,
-          stripePriceId: ticket.stripePriceId,
           installmentIndex: ticket.installmentIndex,
-          installmentsTotal: ticket.installmentsTotal,
         }),
       });
-      const data = await res.json();
-      if (data.url) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.url) {
         window.location.href = data.url;
-      } else {
-        setLoading(false);
+        return;
       }
-    } catch {
+      setErrorMsg(
+        typeof data.error === "string"
+          ? data.error
+          : "Couldn't start checkout. Please try again.",
+      );
       setLoading(false);
+      inFlightRef.current = false;
+    } catch {
+      setErrorMsg("Network error. Please try again.");
+      setLoading(false);
+      inFlightRef.current = false;
     }
   }
 
@@ -194,6 +209,10 @@ function TicketCard({ ticket }: { ticket: PaymentTicket }) {
           >
             {loading ? (
               "Redirecting..."
+            ) : errorMsg ? (
+              <span className="text-white text-[11px] normal-case tracking-normal">
+                {errorMsg} · Tap to retry
+              </span>
             ) : isOverdue ? (
               <>
                 Pay Now — Overdue

@@ -63,7 +63,10 @@ const SUMMER_DUE_DATES: Record<1 | 2 | 4, string[]> = {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function formatLongDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
+  // I6 fix: parse date-only strings at local noon so Pacific time doesn't
+  // render "2025-12-15" as Dec 14.
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00`) : new Date(iso);
+  return d.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
@@ -193,7 +196,8 @@ export function buildTickets(
     for (let i = 0; i < summer.count; i++) {
       const isPaid = i < paidCount;
       const dueDate = summer.dueDates[i];
-      const dueMs = new Date(dueDate).getTime();
+      // I6 fix: local-noon parse so overdue doesn't flip a day early in PT.
+      const dueMs = new Date(`${dueDate}T12:00:00`).getTime();
       const isOverdue = !isPaid && dueMs < nowMs;
 
       tickets.push({
