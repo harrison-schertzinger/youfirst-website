@@ -2,7 +2,7 @@
 // Components import getEvents() and the ScheduleEvent type.
 // Nothing downstream changes when the data source changes.
 
-export type EventType = "tournament" | "practice" | "camp" | "showcase" | "meeting";
+export type EventType = "tournament" | "practice" | "camp" | "showcase" | "meeting" | "training";
 
 export interface ScheduleEvent {
   id: string;
@@ -25,6 +25,7 @@ export const EVENT_COLORS: Record<EventType, string> = {
   camp: "#9B59B6",
   showcase: "#E8453C",
   meeting: "#6B6B6B",
+  training: "#F59E0B",
 };
 
 export const EVENT_LABELS: Record<EventType, string> = {
@@ -33,6 +34,7 @@ export const EVENT_LABELS: Record<EventType, string> = {
   camp: "Camp",
   showcase: "Showcase",
   meeting: "Meeting",
+  training: "Training",
 };
 
 // ── Google Calendar API types ──
@@ -68,6 +70,7 @@ const COLOR_ID_MAP: Record<string, EventType> = {
   "11": "showcase",   // Tomato
   "4":  "showcase",   // Flamingo (alt showcase)
   "8":  "meeting",    // Graphite
+  "5":  "training",   // Banana
 };
 
 // Layer 2: title/description keyword fallback
@@ -76,7 +79,8 @@ const EVENT_TYPE_KEYWORDS: { type: EventType; patterns: RegExp }[] = [
   { type: "camp",       patterns: /camp|clinic/i },
   { type: "showcase",   patterns: /showcase/i },
   { type: "meeting",    patterns: /meeting|parent|info\s*night/i },
-  { type: "practice",   patterns: /practice|training/i },
+  { type: "training",   patterns: /training|workout|lifting|conditioning/i },
+  { type: "practice",   patterns: /practice/i },
 ];
 
 function parseEventType(title: string, description: string, colorId?: string): EventType {
@@ -181,9 +185,12 @@ export async function getEvents(): Promise<ScheduleEvent[]> {
   }
 
   try {
+    const now = new Date();
+    const timeMin = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
     const params = new URLSearchParams({
       key: apiKey,
-      timeMin: "2025-01-01T00:00:00Z",
+      timeMin,
       timeMax: "2027-12-31T23:59:59Z",
       singleEvents: "true",
       orderBy: "startTime",

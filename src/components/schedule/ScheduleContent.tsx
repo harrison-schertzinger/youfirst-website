@@ -36,6 +36,7 @@ const EVENT_TYPE_FILTERS: { value: EventType | "all"; label: string }[] = [
   { value: "all", label: "All Events" },
   { value: "tournament", label: "Tournaments" },
   { value: "practice", label: "Practices" },
+  { value: "training", label: "Training" },
   { value: "camp", label: "Camps" },
   { value: "showcase", label: "Showcases" },
   { value: "meeting", label: "Meetings" },
