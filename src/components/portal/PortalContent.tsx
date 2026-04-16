@@ -41,6 +41,7 @@ interface Payment {
   id: string;
   amount_cents: number;
   payment_method: string | null;
+  payment_category: string | null;
   description: string | null;
   payment_date: string;
   season: string | null;
@@ -260,6 +261,7 @@ export default function PortalContent({
             }
           />
           <PaymentDashboard
+            playerId={player.id}
             payments={player.payments}
             paymentPlan={player.paymentPlan}
           />
