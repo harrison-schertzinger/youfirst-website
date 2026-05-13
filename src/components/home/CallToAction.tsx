@@ -60,7 +60,7 @@ export default function CallToAction() {
               View Summer Schedule
             </Link>
             <Link
-              href="mailto:kathleen@youfirstelitelacrosseclub.com"
+              href="mailto:kathleen@youfirstlacrosse.com"
               className="inline-flex items-center justify-center px-8 py-4 border border-white/20 text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl hover:bg-white/[0.06] hover:border-white/30 hover:-translate-y-0.5 transition-all duration-300 min-w-[220px] backdrop-blur-sm"
             >
               Contact Us

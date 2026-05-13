@@ -31,7 +31,7 @@ export default function PricingCards() {
       window.location.href = data.url;
     } catch {
       setError(
-        "Unable to connect to payment system. Please contact kathleen@youfirstelitelacrosseclub.com."
+        "Unable to connect to payment system. Please contact kathleen@youfirstlacrosse.com."
       );
       setLoading(null);
     }
@@ -170,10 +170,10 @@ export default function PricingCards() {
           <p className="text-center mt-12 text-sm text-[#9CA3AF]">
             Questions?{" "}
             <a
-              href="mailto:kathleen@youfirstelitelacrosseclub.com"
+              href="mailto:kathleen@youfirstlacrosse.com"
               className="text-accent-blue hover:text-accent-blue-hover transition-colors duration-200 underline underline-offset-2"
             >
-              kathleen@youfirstelitelacrosseclub.com
+              kathleen@youfirstlacrosse.com
             </a>
           </p>
         </ScrollReveal>

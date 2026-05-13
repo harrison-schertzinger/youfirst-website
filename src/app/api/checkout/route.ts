@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Payment system is being configured. Please contact kathleen@youfirstelitelacrosseclub.com.",
+          "Payment system is being configured. Please contact kathleen@youfirstlacrosse.com.",
       },
       { status: 503 },
     );

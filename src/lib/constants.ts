@@ -4,7 +4,7 @@ export const SITE_CONFIG = {
   name: "You. First Elite Lacrosse",
   tagline: "Build & Bring the Best Together",
   location: "Cincinnati, Ohio",
-  email: "kathleen@youfirstelitelacrosseclub.com",
+  email: "kathleen@youfirstlacrosse.com",
   parent: "Cincinnati Lacrosse Academy",
 } as const;
 

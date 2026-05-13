@@ -79,7 +79,7 @@ const jsonLd = {
       },
       contactPoint: {
         "@type": "ContactPoint",
-        email: "kathleen@youfirstelitelacrosseclub.com",
+        email: "kathleen@youfirstlacrosse.com",
         contactType: "general",
       },
     },

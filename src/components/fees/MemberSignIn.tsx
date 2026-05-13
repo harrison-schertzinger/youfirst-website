@@ -57,10 +57,10 @@ export default function MemberSignIn() {
             <p className="text-sm font-medium text-[#1A1A1A]">
               Parent portal coming soon. Contact{" "}
               <a
-                href="mailto:kathleen@youfirstelitelacrosseclub.com"
+                href="mailto:kathleen@youfirstlacrosse.com"
                 className="text-accent-blue underline underline-offset-2"
               >
-                kathleen@youfirstelitelacrosseclub.com
+                kathleen@youfirstlacrosse.com
               </a>{" "}
               for account inquiries.
             </p>

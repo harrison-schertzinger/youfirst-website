@@ -176,11 +176,11 @@ export const PAYMENT_FAQ: FAQItem[] = [
   {
     question: "Are there sibling discounts?",
     answer:
-      "Yes! We offer a 10% discount for each additional sibling enrolled in the same season. Contact kathleen@youfirstelitelacrosseclub.com to set up your family discount before registering.",
+      "Yes! We offer a 10% discount for each additional sibling enrolled in the same season. Contact kathleen@youfirstlacrosse.com to set up your family discount before registering.",
   },
   {
     question: "What if I need a custom payment arrangement?",
     answer:
-      "We believe finances should never prevent a dedicated athlete from competing. If none of the standard plans work for your family, reach out to kathleen@youfirstelitelacrosseclub.com and we'll create a payment schedule that does. No judgment, just solutions.",
+      "We believe finances should never prevent a dedicated athlete from competing. If none of the standard plans work for your family, reach out to kathleen@youfirstlacrosse.com and we'll create a payment schedule that does. No judgment, just solutions.",
   },
 ];
