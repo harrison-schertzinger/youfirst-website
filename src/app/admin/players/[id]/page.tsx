@@ -10,6 +10,10 @@ import {
 } from "@/lib/player-source";
 import PlayerArchiveButton from "@/components/admin/PlayerArchiveButton";
 import PlayerInfoEditable from "@/components/admin/PlayerInfoEditable";
+import GuardiansEditableCard, {
+  type GuardianWithLink,
+} from "@/components/admin/GuardiansEditableCard";
+import PaymentLinksSection from "@/components/admin/PaymentLinksSection";
 
 export const dynamic = "force-dynamic";
 
@@ -204,6 +208,25 @@ export default async function PlayerProfilePage({
     guardians.map((g) => [g.id, g]),
   );
 
+  // Shape the data for the editable card: one row per link, joined with
+  // the guardian record. Filter out any orphan link whose guardian row
+  // disappeared (shouldn't happen with FK constraints, but defensive).
+  const guardiansWithLinks: GuardianWithLink[] = links
+    .map((link) => {
+      const g = guardianById.get(link.guardian_id);
+      if (!g) return null;
+      return {
+        id: g.id,
+        first_name: g.first_name,
+        last_name: g.last_name,
+        email: g.email,
+        phone: g.phone,
+        relationship: g.relationship,
+        is_primary: link.is_primary ?? false,
+      };
+    })
+    .filter((x): x is GuardianWithLink => x !== null);
+
   const payments: PaymentRow[] = (paymentsRes.data ?? []) as PaymentRow[];
   const plan: PlanRow | null = (planRes.data ?? null) as PlanRow | null;
 
@@ -286,9 +309,9 @@ export default async function PlayerProfilePage({
             status: p.status,
           }}
         />
-        <GuardiansCard
-          links={links}
-          guardianById={guardianById}
+        <GuardiansEditableCard
+          playerId={p.id}
+          guardians={guardiansWithLinks}
         />
       </section>
 
@@ -322,6 +345,24 @@ export default async function PlayerProfilePage({
           </div>
         )}
       </section>
+
+      {/* Payment Management — visible only when there's an outstanding balance. */}
+      {balanceCents > 0 && (
+        <PaymentLinksSection
+          playerId={p.id}
+          playerName={fullName}
+          plan={
+            plan
+              ? {
+                  total_amount_cents: plan.total_amount_cents,
+                  amount_paid_cents: plan.amount_paid_cents,
+                  installments_total: plan.installments_total,
+                  installments_paid: plan.installments_paid,
+                }
+              : null
+          }
+        />
+      )}
 
       {/* Row 3: Payment History */}
       <section className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden">
@@ -407,70 +448,6 @@ function Breadcrumb({ name }: { name?: string }) {
         </>
       )}
     </nav>
-  );
-}
-
-function GuardiansCard({
-  links,
-  guardianById,
-}: {
-  links: LinkRow[];
-  guardianById: Map<string, GuardianRow>;
-}) {
-  return (
-    <section className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-6 md:p-7">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#6B7280]">
-        Guardians
-      </div>
-      <h2 className="mt-1 text-[15px] font-semibold tracking-tight text-[#0A0A0B]">
-        {links.length === 0
-          ? "No guardian linked"
-          : `${links.length} guardian${links.length === 1 ? "" : "s"} on file`}
-      </h2>
-
-      {links.length === 0 ? (
-        <p className="mt-4 text-sm text-[#6B7280]">
-          This player has no guardian record yet. Ask the parent to register, or
-          re-create the player via Add Player.
-        </p>
-      ) : (
-        <ul className="mt-5 divide-y divide-[#E5E7EB]">
-          {links.map((l) => {
-            const g = guardianById.get(l.guardian_id);
-            return (
-              <li
-                key={l.guardian_id}
-                className="py-4 first:pt-0 last:pb-0"
-              >
-                {!g ? (
-                  <div className="text-sm text-[#EF4444]">
-                    guardian_id {l.guardian_id} — record not found
-                  </div>
-                ) : (
-                  <div>
-                    <div className="flex items-baseline justify-between gap-3">
-                      <div className="text-[14px] font-semibold text-[#0A0A0B]">
-                        {g.first_name ?? "—"} {g.last_name ?? "—"}
-                      </div>
-                      {l.is_primary && (
-                        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#4A90D9]">
-                          Primary
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-1 text-[12px] text-[#6B7280] flex flex-wrap gap-x-3 gap-y-0.5">
-                      <span>{g.email}</span>
-                      {g.phone && <span>· {g.phone}</span>}
-                      {g.relationship && <span>· {g.relationship}</span>}
-                    </div>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
   );
 }
 
