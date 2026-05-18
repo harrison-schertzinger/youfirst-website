@@ -4,8 +4,6 @@ import { Users, DollarSign, TrendingUp, ArrowRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-const SEASON = "2025-26";
-
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -28,6 +26,7 @@ interface KpiSnapshot {
   activePlayers: number;
   totalBilledCents: number;
   totalCollectedCents: number;
+  season: string | null;
   envOk: boolean;
 }
 
@@ -38,6 +37,7 @@ async function loadKpis(): Promise<KpiSnapshot> {
       activePlayers: 0,
       totalBilledCents: 0,
       totalCollectedCents: 0,
+      season: null,
       envOk: false,
     };
   }
@@ -48,25 +48,41 @@ async function loadKpis(): Promise<KpiSnapshot> {
     .select("id", { count: "exact", head: true })
     .eq("status", "active");
 
-  // Pull only the two amount columns for the current season and sum locally.
-  // Supabase JS doesn't expose SUM() server-side without an RPC, and the
-  // dataset is small enough that summing in the request handler is fine.
+  // Pull every plan row's (season, totals, created_at) once. Supabase JS
+  // doesn't expose GROUP BY + MAX without an RPC, so we determine the
+  // "current season" client-side: the season whose newest row has the
+  // most recent created_at wins. With ~60 rows the cost is negligible.
   const plansRes = await admin
     .from("payment_plans")
-    .select("total_amount_cents, amount_paid_cents")
-    .eq("season", SEASON);
+    .select("season, total_amount_cents, amount_paid_cents, created_at");
+
+  let mostRecentSeason: string | null = null;
+  let mostRecentCreatedAt = "";
+  for (const row of plansRes.data ?? []) {
+    if (!row.season) continue;
+    const createdAt = row.created_at ?? "";
+    if (createdAt > mostRecentCreatedAt) {
+      mostRecentCreatedAt = createdAt;
+      mostRecentSeason = row.season;
+    }
+  }
 
   let totalBilledCents = 0;
   let totalCollectedCents = 0;
-  for (const row of plansRes.data ?? []) {
-    totalBilledCents += row.total_amount_cents ?? 0;
-    totalCollectedCents += row.amount_paid_cents ?? 0;
+  if (mostRecentSeason) {
+    for (const row of plansRes.data ?? []) {
+      if (row.season === mostRecentSeason) {
+        totalBilledCents += row.total_amount_cents ?? 0;
+        totalCollectedCents += row.amount_paid_cents ?? 0;
+      }
+    }
   }
 
   return {
     activePlayers: playersRes.count ?? 0,
     totalBilledCents,
     totalCollectedCents,
+    season: mostRecentSeason,
     envOk: true,
   };
 }
@@ -85,7 +101,8 @@ export default async function AdminHomePage() {
           Command Center
         </h1>
         <p className="mt-1 text-sm text-[#6B7280] max-w-xl">
-          Roster snapshot, payment health, and admin actions for the {SEASON} season.
+          Roster snapshot, payment health, and admin actions for the{" "}
+          {kpis.season ?? "current"} season.
         </p>
       </header>
 
@@ -104,15 +121,15 @@ export default async function AdminHomePage() {
         />
         <KpiCard
           label="Total Billed"
-          value={formatDollars(kpis.totalBilledCents)}
+          value={kpis.season ? formatDollars(kpis.totalBilledCents) : "—"}
           icon={<DollarSign className="w-4 h-4" />}
-          sub={`Season ${SEASON}`}
+          sub={kpis.season ? `Season ${kpis.season}` : "No active season"}
         />
         <KpiCard
           label="Total Collected"
-          value={formatDollars(kpis.totalCollectedCents)}
+          value={kpis.season ? formatDollars(kpis.totalCollectedCents) : "—"}
           icon={<TrendingUp className="w-4 h-4" />}
-          sub={`Season ${SEASON}`}
+          sub={kpis.season ? `Season ${kpis.season}` : "No active season"}
         />
       </section>
 
