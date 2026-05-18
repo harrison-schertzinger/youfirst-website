@@ -56,9 +56,13 @@ async function loadKpis(): Promise<KpiSnapshot> {
   // doesn't expose GROUP BY + MAX without an RPC, so we determine the
   // "current season" client-side: the season whose newest row has the
   // most recent created_at wins. With ~60 rows the cost is negligible.
+  // Ordering by created_at desc gives us a deterministic tie-break: two
+  // rows with identical created_at would otherwise resolve in row-insert
+  // order, which Postgres does not guarantee.
   const plansRes = await admin
     .from("payment_plans")
-    .select("season, total_amount_cents, amount_paid_cents, created_at");
+    .select("season, total_amount_cents, amount_paid_cents, created_at")
+    .order("created_at", { ascending: false });
 
   let mostRecentSeason: string | null = null;
   let mostRecentCreatedAt = "";

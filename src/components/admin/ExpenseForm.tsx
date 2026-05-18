@@ -8,6 +8,9 @@ import {
   expenseCategoryMeta,
   type ExpenseCategory,
 } from "@/lib/expense-categories";
+import VendorDatalist, {
+  VENDOR_DATALIST_ID,
+} from "@/components/admin/VendorDatalist";
 
 export interface TournamentOption {
   id: string;
@@ -226,8 +229,11 @@ export default function ExpenseForm({
             value={vendor}
             onChange={(e) => setVendor(e.target.value)}
             placeholder="Where did this come from?"
+            list={VENDOR_DATALIST_ID}
+            autoComplete="off"
             className={inputClass(false)}
           />
+          <VendorDatalist />
         </Field>
         <Field label="Tournament">
           <select

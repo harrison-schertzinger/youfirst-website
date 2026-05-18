@@ -3,9 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 import { Plus, Check } from "lucide-react";
 import {
   expenseCategoryMeta,
+  isExpenseCategory,
   type ExpenseCategory,
 } from "@/lib/expense-categories";
 import ExpensesFilters from "@/components/admin/ExpensesFilters";
+import CsvDownloadButton from "@/components/admin/CsvDownloadButton";
 
 export const dynamic = "force-dynamic";
 
@@ -66,10 +68,45 @@ export default async function ExpensesPage({
     typeof params.season === "string" ? params.season : "2025-26";
   const statusParam =
     typeof params.status === "string" ? params.status : "active";
-  const category =
+  // Multi-category param (canonical) — comma-separated, validated, deduped.
+  const categoriesParam =
+    typeof params.categories === "string" ? params.categories : null;
+  // Legacy single-category param. Old bookmarks still resolve correctly.
+  const legacyCategory =
     typeof params.category === "string" ? params.category : null;
+  const categories: ExpenseCategory[] = (() => {
+    if (categoriesParam) {
+      const seen = new Set<ExpenseCategory>();
+      for (const piece of categoriesParam.split(",")) {
+        const trimmed = piece.trim();
+        if (isExpenseCategory(trimmed)) seen.add(trimmed);
+      }
+      return [...seen];
+    }
+    if (legacyCategory && isExpenseCategory(legacyCategory)) {
+      return [legacyCategory];
+    }
+    return [];
+  })();
   const tournamentId =
     typeof params.tournament_id === "string" ? params.tournament_id : null;
+  // YYYY-MM-DD bounds on expense_date — invalid values are quietly dropped.
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const fromParam =
+    typeof params.from === "string" && DATE_RE.test(params.from)
+      ? params.from
+      : null;
+  const toParam =
+    typeof params.to === "string" && DATE_RE.test(params.to)
+      ? params.to
+      : null;
+  // Guarantee a sane range: if from > to we drop both. Filter UI prevents
+  // this from happening on the happy path but URL-typing users get a
+  // graceful fallback.
+  const dateRangeValid =
+    !fromParam || !toParam || fromParam <= toParam;
+  const fromDate = dateRangeValid ? fromParam : null;
+  const toDate = dateRangeValid ? toParam : null;
   const logged = typeof params.logged === "string" ? params.logged : null;
   const archivedBanner =
     typeof params.archived === "string" ? params.archived : null;
@@ -93,8 +130,10 @@ export default async function ExpensesPage({
     .eq("season", season)
     .eq("status", statusParam)
     .order("expense_date", { ascending: false });
-  if (category) exQ = exQ.eq("category", category);
+  if (categories.length > 0) exQ = exQ.in("category", categories);
   if (tournamentId) exQ = exQ.eq("tournament_id", tournamentId);
+  if (fromDate) exQ = exQ.gte("expense_date", fromDate);
+  if (toDate) exQ = exQ.lte("expense_date", toDate);
 
   const [exRes, tourRes, playerRes] = await Promise.all([
     exQ,
@@ -148,13 +187,23 @@ export default async function ExpensesPage({
             Expenses
           </h1>
         </div>
-        <Link
-          href="/admin/expenses/new"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#4A90D9] text-white text-[13px] font-semibold hover:bg-[#3A7BC8] transition-colors shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Add Expense
-        </Link>
+        <div className="flex items-center gap-2">
+          <CsvDownloadButton href={buildExportHref({
+            season,
+            statusParam,
+            categories,
+            tournamentId,
+            fromDate,
+            toDate,
+          })} />
+          <Link
+            href="/admin/expenses/new"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#4A90D9] text-white text-[13px] font-semibold hover:bg-[#3A7BC8] transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Add Expense
+          </Link>
+        </div>
       </header>
 
       <ExpensesFilters tournaments={tournaments} />
@@ -307,6 +356,26 @@ function Th({
       {children}
     </th>
   );
+}
+
+function buildExportHref(args: {
+  season: string;
+  statusParam: string;
+  categories: ExpenseCategory[];
+  tournamentId: string | null;
+  fromDate: string | null;
+  toDate: string | null;
+}): string {
+  const qs = new URLSearchParams();
+  qs.set("season", args.season);
+  qs.set("status", args.statusParam);
+  if (args.categories.length > 0) {
+    qs.set("categories", args.categories.join(","));
+  }
+  if (args.tournamentId) qs.set("tournament_id", args.tournamentId);
+  if (args.fromDate) qs.set("from", args.fromDate);
+  if (args.toDate) qs.set("to", args.toDate);
+  return `/api/admin/expenses/export?${qs.toString()}`;
 }
 
 function ShellShellEmpty({ message }: { message: string }) {

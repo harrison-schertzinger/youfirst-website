@@ -8,6 +8,9 @@ import {
   expenseCategoryMeta,
   type ExpenseCategory,
 } from "@/lib/expense-categories";
+import VendorDatalist, {
+  VENDOR_DATALIST_ID,
+} from "@/components/admin/VendorDatalist";
 
 interface EditableExpense {
   id: string;
@@ -276,8 +279,11 @@ export default function ExpenseEditable({
                 type="text"
                 value={draft.vendor}
                 onChange={(e) => setDraft({ ...draft, vendor: e.target.value })}
+                list={VENDOR_DATALIST_ID}
+                autoComplete="off"
                 className={inputClass()}
               />
+              <VendorDatalist />
             </Labeled>
             <Labeled label="Tournament">
               <select

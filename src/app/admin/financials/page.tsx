@@ -12,6 +12,10 @@ import {
   type ExpenseCategory,
 } from "@/lib/expense-categories";
 import SeasonSelector from "@/components/admin/SeasonSelector";
+import CsvDownloadButton from "@/components/admin/CsvDownloadButton";
+import FinancialsChart, {
+  type ChartPoint,
+} from "@/components/admin/FinancialsChart";
 
 export const dynamic = "force-dynamic";
 
@@ -118,10 +122,26 @@ export default async function FinancialsPage({
   const seasons = [...seasonsSet].sort();
   const season = seasonParam && seasonsSet.has(seasonParam) ? seasonParam : DEFAULT_SEASON;
 
+  // Build the trailing-12-month window for the chart. Cuts off at the
+  // first day of the month 11 calendar months ago so we always show a
+  // complete 12-bucket strip (the current month is the rightmost).
+  const now = new Date();
+  const chartStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+  const chartStartIso = `${chartStart.getFullYear()}-${String(
+    chartStart.getMonth() + 1,
+  ).padStart(2, "0")}-01`;
+
   // P&L queries.
   // Per audit rule (h): sum payments.amount_cents (NOT payment_plans.amount_paid_cents)
   // to avoid double-counting pending Stripe sessions.
-  const [paymentsRes, plansRes, expensesRes, tournamentsRes] = await Promise.all([
+  const [
+    paymentsRes,
+    plansRes,
+    expensesRes,
+    tournamentsRes,
+    chartPaymentsRes,
+    chartExpensesRes,
+  ] = await Promise.all([
     admin
       .from("payments")
       .select("amount_cents, status, season")
@@ -143,6 +163,18 @@ export default async function FinancialsPage({
       .from("tournaments")
       .select("id, name, start_date, end_date, season")
       .eq("season", season),
+    // Chart: cross-season, trailing 12 months. Filter on the column the
+    // user cares about (payment_date / expense_date), not season.
+    admin
+      .from("payments")
+      .select("amount_cents, payment_date")
+      .eq("status", "completed")
+      .gte("payment_date", chartStartIso),
+    admin
+      .from("expenses")
+      .select("amount_cents, expense_date")
+      .eq("status", "active")
+      .gte("expense_date", chartStartIso),
   ]);
 
   const payments = (paymentsRes.data ?? []) as PaymentLite[];
@@ -220,6 +252,61 @@ export default async function FinancialsPage({
 
   const recent = expenses.slice(0, 10);
 
+  // ── 12-month chart aggregation ─────────────────────────────────────────
+  // Build 12 ChartPoints in chronological order (oldest → newest). Bucket
+  // payments by month(payment_date), expenses by month(expense_date).
+  const chartPayments = (chartPaymentsRes.data ?? []) as Array<{
+    amount_cents: number | null;
+    payment_date: string | null;
+  }>;
+  const chartExpenses = (chartExpensesRes.data ?? []) as Array<{
+    amount_cents: number;
+    expense_date: string;
+  }>;
+
+  const monthFmt = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    year: "2-digit",
+  });
+  const chartBuckets = new Map<
+    string,
+    { monthKey: string; monthLabel: string; revenue: number; expenses: number }
+  >();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    // "Jun '25" — apostrophe form keeps the axis tick narrow.
+    const label = monthFmt.format(d).replace(" ", " '");
+    chartBuckets.set(key, {
+      monthKey: key,
+      monthLabel: label,
+      revenue: 0,
+      expenses: 0,
+    });
+  }
+  function bucketKeyFromIso(iso: string): string | null {
+    // Accepts both "YYYY-MM-DD" (expense_date) and full ISO timestamps
+    // (payment_date). We need the first 7 chars in either case.
+    if (typeof iso !== "string" || iso.length < 7) return null;
+    return iso.slice(0, 7);
+  }
+  for (const p of chartPayments) {
+    if (!p.payment_date) continue;
+    const k = bucketKeyFromIso(p.payment_date);
+    if (!k) continue;
+    const b = chartBuckets.get(k);
+    if (!b) continue;
+    b.revenue += (p.amount_cents ?? 0) / 100;
+  }
+  for (const e of chartExpenses) {
+    const k = bucketKeyFromIso(e.expense_date);
+    if (!k) continue;
+    const b = chartBuckets.get(k);
+    if (!b) continue;
+    b.expenses += (e.amount_cents ?? 0) / 100;
+  }
+  const chartData: ChartPoint[] = [...chartBuckets.values()];
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -235,7 +322,12 @@ export default async function FinancialsPage({
             Revenue, expenses, net — live from the database.
           </p>
         </div>
-        <SeasonSelector seasons={seasons} current={season} />
+        <div className="flex items-center gap-2">
+          <CsvDownloadButton
+            href={`/api/admin/financials/export?season=${encodeURIComponent(season)}`}
+          />
+          <SeasonSelector seasons={seasons} current={season} />
+        </div>
       </header>
 
       {/* Section A — Top line */}
@@ -259,6 +351,10 @@ export default async function FinancialsPage({
           color={netCents >= 0 ? "#34D399" : "#EF4444"}
         />
       </section>
+
+      {/* 12-month trend chart — cross-season, sourced from payment_date /
+          expense_date so it tells the story of the calendar year. */}
+      <FinancialsChart data={chartData} />
 
       {/* Section B — Revenue detail */}
       <section className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-6 md:p-7">
