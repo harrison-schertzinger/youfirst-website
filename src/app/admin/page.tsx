@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
-import { Users, DollarSign, TrendingUp, ArrowRight } from "lucide-react";
+import { Users, DollarSign, TrendingUp, ArrowRight, Scale } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +26,8 @@ interface KpiSnapshot {
   activePlayers: number;
   totalBilledCents: number;
   totalCollectedCents: number;
+  totalExpensesCents: number;
+  revenueCollectedCents: number;
   season: string | null;
   envOk: boolean;
 }
@@ -37,6 +39,8 @@ async function loadKpis(): Promise<KpiSnapshot> {
       activePlayers: 0,
       totalBilledCents: 0,
       totalCollectedCents: 0,
+      totalExpensesCents: 0,
+      revenueCollectedCents: 0,
       season: null,
       envOk: false,
     };
@@ -78,10 +82,38 @@ async function loadKpis(): Promise<KpiSnapshot> {
     }
   }
 
+  // Net Position: revenue collected (from payments, not plans) minus
+  // active expenses, both filtered to the current season. Matches the
+  // /admin/financials computation so the two surfaces agree.
+  let revenueCollectedCents = 0;
+  let totalExpensesCents = 0;
+  if (mostRecentSeason) {
+    const [paymentsRes, expensesRes] = await Promise.all([
+      admin
+        .from("payments")
+        .select("amount_cents")
+        .eq("season", mostRecentSeason)
+        .eq("status", "completed"),
+      admin
+        .from("expenses")
+        .select("amount_cents")
+        .eq("season", mostRecentSeason)
+        .eq("status", "active"),
+    ]);
+    for (const r of paymentsRes.data ?? []) {
+      revenueCollectedCents += r.amount_cents ?? 0;
+    }
+    for (const r of expensesRes.data ?? []) {
+      totalExpensesCents += r.amount_cents ?? 0;
+    }
+  }
+
   return {
     activePlayers: playersRes.count ?? 0,
     totalBilledCents,
     totalCollectedCents,
+    totalExpensesCents,
+    revenueCollectedCents,
     season: mostRecentSeason,
     envOk: true,
   };
@@ -113,7 +145,7 @@ export default async function AdminHomePage() {
       )}
 
       {/* KPI cards */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           label="Active Players"
           value={kpis.activePlayers.toLocaleString("en-US")}
@@ -131,6 +163,23 @@ export default async function AdminHomePage() {
           icon={<TrendingUp className="w-4 h-4" />}
           sub={kpis.season ? `Season ${kpis.season}` : "No active season"}
         />
+        {(() => {
+          const net = kpis.revenueCollectedCents - kpis.totalExpensesCents;
+          const positive = net >= 0;
+          return (
+            <KpiCard
+              label="Net Position"
+              value={kpis.season ? formatDollars(net) : "—"}
+              icon={<Scale className="w-4 h-4" />}
+              sub={
+                kpis.season
+                  ? `Season ${kpis.season} · revenue − expenses`
+                  : "No active season"
+              }
+              accent={positive ? "#34D399" : "#EF4444"}
+            />
+          );
+        })()}
       </section>
 
       {/* CTA: Add a Player */}
@@ -160,19 +209,25 @@ function KpiCard({
   value,
   sub,
   icon,
+  accent,
 }: {
   label: string;
   value: string;
   sub?: string;
   icon: React.ReactNode;
+  /** Optional override for the headline value color. Defaults to #0A0A0B. */
+  accent?: string;
 }) {
   return (
     <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-6">
       <div className="flex items-center justify-between text-[#6B7280]">
         <span className="text-sm">{label}</span>
-        <span className="text-[#4A90D9]">{icon}</span>
+        <span style={{ color: accent ?? "#4A90D9" }}>{icon}</span>
       </div>
-      <div className="mt-3 text-[28px] font-bold tabular-nums tracking-tight text-[#0A0A0B]">
+      <div
+        className="mt-3 text-[28px] font-bold tabular-nums tracking-tight"
+        style={{ color: accent ?? "#0A0A0B" }}
+      >
         {value}
       </div>
       {sub && (

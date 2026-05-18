@@ -3,7 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Menu, X } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  Receipt,
+  Trophy,
+  TrendingUp,
+  Menu,
+  X,
+} from "lucide-react";
 
 interface NavItem {
   href: string;
@@ -14,6 +22,9 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", Icon: LayoutDashboard },
   { href: "/admin/players", label: "Players", Icon: Users },
+  { href: "/admin/expenses", label: "Expenses", Icon: Receipt },
+  { href: "/admin/tournaments", label: "Tournaments", Icon: Trophy },
+  { href: "/admin/financials", label: "Financials", Icon: TrendingUp },
 ];
 
 function isActive(pathname: string, href: string): boolean {

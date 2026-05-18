@@ -22,14 +22,6 @@ function fail(status: number, error: string, field?: string): NextResponse {
   );
 }
 
-/** Map admin-supplied category to what the existing /api/stripe/webhook
- *  accepts. The webhook only routes 'roster' and 'summer' — anything else
- *  is silently skipped. Mapping here keeps the webhook code untouched and
- *  ensures custom-amount payments still record in `payments`. */
-function webhookCategory(adminCategory: PaymentCategory): "roster" | "summer" {
-  return adminCategory === "roster" ? "roster" : "summer";
-}
-
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
@@ -156,12 +148,9 @@ export async function POST(
         player_id: player.id,
         guardian_id: primary_guardian_id,
         ticket_id,
-        // `category` is the value the existing webhook reads; map admin's
-        // intent to the two values the webhook accepts so the payment
-        // actually records in `payments`. Admin intent preserved in
-        // `payment_category` + `description`.
-        category: webhookCategory(admin_category),
-        payment_category: admin_category,
+        // Sprint 5: webhook now accepts all four categories. No remap —
+        // admin's chosen category flows straight through to payments.
+        category: admin_category,
         player_name: playerName,
         description,
       },
@@ -175,7 +164,7 @@ export async function POST(
       url: paymentLink.url,
       payment_link_id: paymentLink.id,
       ticket_id,
-      mapped_webhook_category: webhookCategory(admin_category),
+      category: admin_category,
     });
   } catch (err) {
     console.error("[admin/.../payment-link] Stripe call failed:", err);

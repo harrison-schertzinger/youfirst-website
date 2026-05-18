@@ -67,7 +67,18 @@ export async function POST(request: NextRequest) {
 
   // I3 fix: return 200 on malformed metadata so Stripe stops retrying.
   // Something is already wrong — retries won't fix it.
-  if (!playerId || !ticketId || (category !== "roster" && category !== "summer")) {
+  //
+  // Sprint 5: category whitelist relaxed from ["roster","summer"] to the
+  // full admin enum. Custom and fall payments created via /api/admin/
+  // .../payment-link now record with their original category instead of
+  // being silently coerced to "summer".
+  const ALLOWED_CATEGORIES = ["roster", "summer", "fall", "custom"] as const;
+  if (
+    !playerId ||
+    !ticketId ||
+    typeof category !== "string" ||
+    !(ALLOWED_CATEGORIES as readonly string[]).includes(category)
+  ) {
     console.error("Webhook missing/invalid metadata:", meta);
     return NextResponse.json({ received: true, skipped: "bad_metadata" });
   }
