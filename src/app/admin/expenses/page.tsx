@@ -2,19 +2,22 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { Plus, Check } from "lucide-react";
 import {
-  expenseCategoryMeta,
+  EXPENSE_CATEGORIES,
   isExpenseCategory,
   type ExpenseCategory,
 } from "@/lib/expense-categories";
 import ExpensesFilters from "@/components/admin/ExpensesFilters";
 import CsvDownloadButton from "@/components/admin/CsvDownloadButton";
+import ExpenseCategoryBlock, {
+  type BlockExpense,
+} from "@/components/admin/ExpenseCategoryBlock";
 
 export const dynamic = "force-dynamic";
 
 interface ExpenseRow {
   id: string;
   expense_date: string;
-  category: ExpenseCategory;
+  category: string;
   description: string;
   amount_cents: number;
   vendor: string | null;
@@ -47,16 +50,12 @@ function formatDollars(cents: number): string {
   return (cents / 100).toLocaleString("en-US", {
     style: "currency",
     currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   });
 }
 
-function formatDate(iso: string): string {
-  return new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export default async function ExpensesPage({
   searchParams,
@@ -68,30 +67,8 @@ export default async function ExpensesPage({
     typeof params.season === "string" ? params.season : "2025-26";
   const statusParam =
     typeof params.status === "string" ? params.status : "active";
-  // Multi-category param (canonical) — comma-separated, validated, deduped.
-  const categoriesParam =
-    typeof params.categories === "string" ? params.categories : null;
-  // Legacy single-category param. Old bookmarks still resolve correctly.
-  const legacyCategory =
-    typeof params.category === "string" ? params.category : null;
-  const categories: ExpenseCategory[] = (() => {
-    if (categoriesParam) {
-      const seen = new Set<ExpenseCategory>();
-      for (const piece of categoriesParam.split(",")) {
-        const trimmed = piece.trim();
-        if (isExpenseCategory(trimmed)) seen.add(trimmed);
-      }
-      return [...seen];
-    }
-    if (legacyCategory && isExpenseCategory(legacyCategory)) {
-      return [legacyCategory];
-    }
-    return [];
-  })();
   const tournamentId =
     typeof params.tournament_id === "string" ? params.tournament_id : null;
-  // YYYY-MM-DD bounds on expense_date — invalid values are quietly dropped.
-  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
   const fromParam =
     typeof params.from === "string" && DATE_RE.test(params.from)
       ? params.from
@@ -100,9 +77,7 @@ export default async function ExpensesPage({
     typeof params.to === "string" && DATE_RE.test(params.to)
       ? params.to
       : null;
-  // Guarantee a sane range: if from > to we drop both. Filter UI prevents
-  // this from happening on the happy path but URL-typing users get a
-  // graceful fallback.
+  // Guard against from > to from URL-typed users — drop both if inverted.
   const dateRangeValid =
     !fromParam || !toParam || fromParam <= toParam;
   const fromDate = dateRangeValid ? fromParam : null;
@@ -120,8 +95,8 @@ export default async function ExpensesPage({
     );
   }
 
-  // Fetch expenses (filtered) + tournaments + a lite player set to render
-  // joins in the table cell. Three parallel queries.
+  // Three parallel queries: filtered expenses + active tournaments + a lite
+  // player set for the "linked" column lookup.
   let exQ = admin
     .from("expenses")
     .select(
@@ -130,7 +105,6 @@ export default async function ExpensesPage({
     .eq("season", season)
     .eq("status", statusParam)
     .order("expense_date", { ascending: false });
-  if (categories.length > 0) exQ = exQ.in("category", categories);
   if (tournamentId) exQ = exQ.eq("tournament_id", tournamentId);
   if (fromDate) exQ = exQ.gte("expense_date", fromDate);
   if (toDate) exQ = exQ.lte("expense_date", toDate);
@@ -152,29 +126,42 @@ export default async function ExpensesPage({
   const tournaments = (tourRes.data ?? []) as TournamentLite[];
   const players = (playerRes.data ?? []) as PlayerLite[];
 
-  const tournamentById = new Map<string, string>();
-  for (const t of tournaments) tournamentById.set(t.id, t.name);
-  const playerById = new Map<string, PlayerLite>();
-  for (const p of players) playerById.set(p.id, p);
+  const tournamentNameById = new Map<string, string>();
+  for (const t of tournaments) tournamentNameById.set(t.id, t.name);
+  const playerNameById = new Map<string, string>();
+  for (const p of players) {
+    playerNameById.set(p.id, `${p.first_name} ${p.last_name}`);
+  }
 
   const totalCents = expenses.reduce(
     (sum, e) => sum + (e.amount_cents ?? 0),
     0,
   );
 
+  // Bucket by category in canonical order. Empty categories still render —
+  // their absence would let underused categories hide unnoticed.
+  const byCategory = new Map<ExpenseCategory, BlockExpense[]>();
+  for (const c of EXPENSE_CATEGORIES) byCategory.set(c, []);
+  for (const e of expenses) {
+    if (!isExpenseCategory(e.category)) continue;
+    byCategory.get(e.category)!.push({
+      id: e.id,
+      expense_date: e.expense_date,
+      description: e.description,
+      amount_cents: e.amount_cents,
+      vendor: e.vendor,
+      tournament_id: e.tournament_id,
+      player_id: e.player_id,
+    });
+  }
+
   return (
     <div className="space-y-8">
       {logged && (
-        <Banner
-          tone="success"
-          text={`Expense logged: ${logged}`}
-        />
+        <Banner tone="success" text={`Expense logged: ${logged}`} />
       )}
       {archivedBanner && (
-        <Banner
-          tone="success"
-          text={`Archived: ${archivedBanner}`}
-        />
+        <Banner tone="success" text={`Archived: ${archivedBanner}`} />
       )}
 
       {/* Header */}
@@ -186,16 +173,15 @@ export default async function ExpensesPage({
           <h1 className="mt-1 text-[26px] md:text-[28px] font-bold tracking-tight text-[#0A0A0B]">
             Expenses
           </h1>
+          <p className="mt-1 text-sm text-[#6B7280]">
+            {expenses.length} expense{expenses.length === 1 ? "" : "s"} logged ·{" "}
+            <span className="text-[#0A0A0B] font-medium">
+              {formatDollars(totalCents)}
+            </span>{" "}
+            this season
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <CsvDownloadButton href={buildExportHref({
-            season,
-            statusParam,
-            categories,
-            tournamentId,
-            fromDate,
-            toDate,
-          })} />
           <Link
             href="/admin/expenses/new"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#4A90D9] text-white text-[13px] font-semibold hover:bg-[#3A7BC8] transition-colors shadow-sm"
@@ -203,118 +189,50 @@ export default async function ExpensesPage({
             <Plus className="w-4 h-4" />
             Add Expense
           </Link>
+          <CsvDownloadButton
+            href={buildExportHref({
+              season,
+              statusParam,
+              tournamentId,
+              fromDate,
+              toDate,
+            })}
+          />
         </div>
       </header>
 
       <ExpensesFilters tournaments={tournaments} />
 
-      {/* Table */}
-      <section className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px] border-collapse">
-            <thead>
-              <tr className="bg-[#F8F9FA] border-b border-[#E5E7EB]">
-                <Th>Date</Th>
-                <Th>Category</Th>
-                <Th>Description</Th>
-                <Th>Vendor</Th>
-                <Th className="text-right">Amount</Th>
-                <Th>Tournament / Player</Th>
-                <Th>Status</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {expenses.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-5 py-12 text-center text-sm text-[#6B7280]"
-                  >
-                    No expenses match this filter. Click Add Expense to log
-                    the first one.
-                  </td>
-                </tr>
-              )}
-              {expenses.map((e) => {
-                const meta = expenseCategoryMeta[e.category];
-                const tournamentName = e.tournament_id
-                  ? (tournamentById.get(e.tournament_id) ?? "—")
-                  : null;
-                const player = e.player_id ? playerById.get(e.player_id) : null;
-                return (
-                  <tr
-                    key={e.id}
-                    className="border-b border-[#E5E7EB] last:border-0 hover:bg-[#F8F9FA] transition-colors"
-                  >
-                    <td className="px-5 py-3 text-[#6B7280] tabular-nums whitespace-nowrap">
-                      <Link
-                        href={`/admin/expenses/${e.id}`}
-                        className="hover:text-[#4A90D9]"
-                      >
-                        {formatDate(e.expense_date)}
-                      </Link>
-                    </td>
-                    <td className="px-5 py-3">
-                      <span
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.08em] text-white whitespace-nowrap"
-                        style={{ backgroundColor: meta.color }}
-                      >
-                        {meta.text}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-[#0A0A0B]">
-                      <Link
-                        href={`/admin/expenses/${e.id}`}
-                        className="hover:text-[#4A90D9]"
-                      >
-                        {e.description}
-                      </Link>
-                    </td>
-                    <td className="px-5 py-3 text-[#6B7280]">
-                      {e.vendor ?? "—"}
-                    </td>
-                    <td className="px-5 py-3 text-right tabular-nums text-[#0A0A0B] font-medium">
-                      {formatDollars(e.amount_cents)}
-                    </td>
-                    <td className="px-5 py-3 text-[#6B7280]">
-                      {tournamentName && (
-                        <div className="text-[#4A90D9]">{tournamentName}</div>
-                      )}
-                      {player && (
-                        <div className="text-[12px]">
-                          {player.first_name} {player.last_name}
-                        </div>
-                      )}
-                      {!tournamentName && !player && "—"}
-                    </td>
-                    <td className="px-5 py-3 text-[#6B7280]">
-                      {e.status === "archived" ? (
-                        <span className="text-[11px] uppercase tracking-[0.08em] text-[#F59E0B]">
-                          Archived
-                        </span>
-                      ) : (
-                        <span className="text-[11px] uppercase tracking-[0.08em] text-[#34D399]">
-                          Active
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <div className="px-5 md:px-7 py-3 bg-[#F8F9FA] border-t border-[#E5E7EB] flex items-center justify-between text-[12px]">
-          <span className="text-[#6B7280]">
-            {expenses.length} expense{expenses.length === 1 ? "" : "s"}
-          </span>
-          <span className="font-semibold text-[#0A0A0B] tabular-nums">
-            Total: {formatDollars(totalCents)}
-          </span>
-        </div>
-      </section>
+      {/* One block per canonical category — empty blocks still render. */}
+      <div className="space-y-6">
+        {EXPENSE_CATEGORIES.map((cat) => (
+          <ExpenseCategoryBlock
+            key={cat}
+            category={cat}
+            expenses={byCategory.get(cat) ?? []}
+            tournamentNameById={tournamentNameById}
+            playerNameById={playerNameById}
+          />
+        ))}
+      </div>
     </div>
   );
+}
+
+function buildExportHref(args: {
+  season: string;
+  statusParam: string;
+  tournamentId: string | null;
+  fromDate: string | null;
+  toDate: string | null;
+}): string {
+  const qs = new URLSearchParams();
+  qs.set("season", args.season);
+  qs.set("status", args.statusParam);
+  if (args.tournamentId) qs.set("tournament_id", args.tournamentId);
+  if (args.fromDate) qs.set("from", args.fromDate);
+  if (args.toDate) qs.set("to", args.toDate);
+  return `/api/admin/expenses/export?${qs.toString()}`;
 }
 
 function Banner({
@@ -337,45 +255,6 @@ function Banner({
       <div className="text-sm text-[#0A0A0B]">{text}</div>
     </div>
   );
-}
-
-function Th({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <th
-      className={[
-        "px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6B7280] text-left",
-        className ?? "",
-      ].join(" ")}
-    >
-      {children}
-    </th>
-  );
-}
-
-function buildExportHref(args: {
-  season: string;
-  statusParam: string;
-  categories: ExpenseCategory[];
-  tournamentId: string | null;
-  fromDate: string | null;
-  toDate: string | null;
-}): string {
-  const qs = new URLSearchParams();
-  qs.set("season", args.season);
-  qs.set("status", args.statusParam);
-  if (args.categories.length > 0) {
-    qs.set("categories", args.categories.join(","));
-  }
-  if (args.tournamentId) qs.set("tournament_id", args.tournamentId);
-  if (args.fromDate) qs.set("from", args.fromDate);
-  if (args.toDate) qs.set("to", args.toDate);
-  return `/api/admin/expenses/export?${qs.toString()}`;
 }
 
 function ShellShellEmpty({ message }: { message: string }) {

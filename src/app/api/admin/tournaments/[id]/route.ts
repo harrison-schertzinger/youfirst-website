@@ -37,7 +37,10 @@ interface PatchBody {
   end_date?: unknown;
   notes?: unknown;
   status?: unknown;
+  age_group?: unknown;
 }
+
+const AGE_GROUP_MAX_LEN = 60;
 
 export async function PATCH(
   request: NextRequest,
@@ -68,6 +71,7 @@ export async function PATCH(
     end_date?: string | null;
     notes?: string | null;
     status?: TournamentStatus;
+    age_group?: string | null;
   } = {};
 
   if ("name" in body) {
@@ -101,6 +105,28 @@ export async function PATCH(
     const v = asNullableString(body.notes);
     if (v === undefined) return fail(400, "notes must be a string or null.", "notes");
     updates.notes = v;
+  }
+  if ("age_group" in body) {
+    if (body.age_group !== null && typeof body.age_group !== "string") {
+      return fail(
+        400,
+        "age_group must be a string or null.",
+        "age_group",
+      );
+    }
+    if (body.age_group === null) {
+      updates.age_group = null;
+    } else {
+      const trimmed = (body.age_group as string).trim();
+      if (trimmed.length > AGE_GROUP_MAX_LEN) {
+        return fail(
+          400,
+          `age_group must be ${AGE_GROUP_MAX_LEN} characters or fewer.`,
+          "age_group",
+        );
+      }
+      updates.age_group = trimmed.length === 0 ? null : trimmed;
+    }
   }
   if ("status" in body) {
     if (
@@ -143,7 +169,7 @@ export async function PATCH(
     .update(updates)
     .eq("id", id)
     .select(
-      "id, name, location, start_date, end_date, season, notes, status, created_at",
+      "id, name, location, age_group, start_date, end_date, season, notes, status, created_at",
     )
     .maybeSingle();
 

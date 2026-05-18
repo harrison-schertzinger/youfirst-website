@@ -34,7 +34,10 @@ interface PostBody {
   end_date?: unknown;
   season?: unknown;
   notes?: unknown;
+  age_group?: unknown;
 }
+
+const AGE_GROUP_MAX_LEN = 60;
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const authClient = await createServerSupabaseClient();
@@ -59,7 +62,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   let q = admin
     .from("tournaments")
     .select(
-      "id, name, location, start_date, end_date, season, notes, status, created_at",
+      "id, name, location, age_group, start_date, end_date, season, notes, status, created_at",
     )
     .order("start_date", { ascending: true, nullsFirst: false });
 
@@ -124,6 +127,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const season = asTrimmedString(body.season) ?? "2025-26";
   const notes = asTrimmedString(body.notes);
 
+  // age_group is optional free text — trimmed, capped, null when empty.
+  // Reject non-string non-null values explicitly so a numeric or array
+  // payload doesn't slip through.
+  let age_group: string | null = null;
+  if (body.age_group !== undefined && body.age_group !== null) {
+    if (typeof body.age_group !== "string") {
+      return fail(400, "age_group must be a string or null.", "age_group");
+    }
+    const trimmed = body.age_group.trim();
+    if (trimmed.length > AGE_GROUP_MAX_LEN) {
+      return fail(
+        400,
+        `age_group must be ${AGE_GROUP_MAX_LEN} characters or fewer.`,
+        "age_group",
+      );
+    }
+    age_group = trimmed.length === 0 ? null : trimmed;
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return fail(500, "Service-role env vars not configured.");
@@ -133,9 +155,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const { data: inserted, error: insertError } = await admin
     .from("tournaments")
-    .insert({ name, location, start_date, end_date, season, notes })
+    .insert({ name, location, age_group, start_date, end_date, season, notes })
     .select(
-      "id, name, location, start_date, end_date, season, notes, status, created_at",
+      "id, name, location, age_group, start_date, end_date, season, notes, status, created_at",
     )
     .single();
 

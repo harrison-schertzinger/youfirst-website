@@ -15,6 +15,7 @@ interface TournamentRow {
   id: string;
   name: string;
   location: string | null;
+  age_group: string | null;
   start_date: string | null;
   end_date: string | null;
   season: string;
@@ -81,7 +82,7 @@ export default async function TournamentDetailPage({
   const { data: tournament } = await admin
     .from("tournaments")
     .select(
-      "id, name, location, start_date, end_date, season, notes, status",
+      "id, name, location, age_group, start_date, end_date, season, notes, status",
     )
     .eq("id", id)
     .maybeSingle();
@@ -145,6 +146,12 @@ export default async function TournamentDetailPage({
                 <span>{t.location}</span>
               </>
             )}
+            {t.age_group && (
+              <>
+                <span className="text-[#E5E7EB]">·</span>
+                <span>{t.age_group}</span>
+              </>
+            )}
           </div>
         </div>
         <Link
@@ -161,6 +168,7 @@ export default async function TournamentDetailPage({
           id: t.id,
           name: t.name,
           location: t.location,
+          age_group: t.age_group,
           start_date: t.start_date,
           end_date: t.end_date,
           notes: t.notes,

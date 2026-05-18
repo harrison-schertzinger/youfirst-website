@@ -24,6 +24,7 @@ interface ExpenseRow {
   player_id: string | null;
   notes: string | null;
   status: string;
+  created_by: string | null;
   created_at: string | null;
 }
 
@@ -44,42 +45,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const params = request.nextUrl.searchParams;
   const season = params.get("season") ?? "2025-26";
   const statusParam = params.get("status") ?? "active";
-  const categoriesParam = params.get("categories"); // comma-separated
-  const categoryParam = params.get("category"); // legacy single
   const tournamentId = params.get("tournament_id");
   const playerId = params.get("player_id");
   const from = params.get("from");
   const to = params.get("to");
 
-  // Validate filter dates (only the format — empty is fine).
   if (from && !DATE_RE.test(from)) return bad("from must be YYYY-MM-DD.");
   if (to && !DATE_RE.test(to)) return bad("to must be YYYY-MM-DD.");
   if (from && to && from > to) {
     return bad("from must be on or before to.");
-  }
-
-  // Multi-cat parsing: comma-split, trim, dedup, validate each.
-  let categories: ExpenseCategory[] | null = null;
-  if (categoriesParam) {
-    const list = [
-      ...new Set(
-        categoriesParam
-          .split(",")
-          .map((c) => c.trim())
-          .filter(Boolean),
-      ),
-    ];
-    for (const c of list) {
-      if (!isExpenseCategory(c)) {
-        return bad(`Unknown category: ${c}`);
-      }
-    }
-    categories = list as ExpenseCategory[];
-  } else if (categoryParam) {
-    if (!isExpenseCategory(categoryParam)) {
-      return bad(`Unknown category: ${categoryParam}`);
-    }
-    categories = [categoryParam];
   }
 
   // ── Service-role + query ───────────────────────────────────────────────
@@ -98,12 +72,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   let q = admin
     .from("expenses")
     .select(
-      "id, expense_date, category, description, amount_cents, vendor, tournament_id, player_id, notes, status, created_at",
+      "id, expense_date, category, description, amount_cents, vendor, tournament_id, player_id, notes, status, created_by, created_at",
     )
     .eq("season", season)
     .eq("status", statusParam)
     .order("expense_date", { ascending: false });
-  if (categories && categories.length > 0) q = q.in("category", categories);
   if (tournamentId) q = q.eq("tournament_id", tournamentId);
   if (playerId) q = q.eq("player_id", playerId);
   if (from) q = q.gte("expense_date", from);
@@ -165,7 +138,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     "Player",
     "Notes",
     "Status",
-    "Created",
+    "Created By",
+    "Created At",
   ];
   const rows: string[][] = [header];
   for (const e of exRows) {
@@ -182,6 +156,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       e.player_id ? (playerName.get(e.player_id) ?? "") : "",
       e.notes ?? "",
       e.status,
+      e.created_by ?? "",
       e.created_at ?? "",
     ]);
   }
@@ -194,7 +169,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="${filename}"`,
-      // Don't cache the export — filters change frequently.
       "Cache-Control": "no-store",
     },
   });

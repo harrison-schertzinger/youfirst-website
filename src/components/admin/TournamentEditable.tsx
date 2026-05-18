@@ -23,6 +23,7 @@ interface EditableTournament {
   id: string;
   name: string;
   location: string | null;
+  age_group: string | null;
   start_date: string | null;
   end_date: string | null;
   notes: string | null;
@@ -49,6 +50,7 @@ export default function TournamentEditable({
   const [draft, setDraft] = useState({
     name: current.name,
     location: current.location ?? "",
+    age_group: current.age_group ?? "",
     start_date: current.start_date ?? "",
     end_date: current.end_date ?? "",
     notes: current.notes ?? "",
@@ -62,6 +64,7 @@ export default function TournamentEditable({
     setDraft({
       name: current.name,
       location: current.location ?? "",
+      age_group: current.age_group ?? "",
       start_date: current.start_date ?? "",
       end_date: current.end_date ?? "",
       notes: current.notes ?? "",
@@ -93,6 +96,7 @@ export default function TournamentEditable({
         const payload = {
           name: draft.name.trim(),
           location: draft.location.trim() || null,
+          age_group: draft.age_group.trim() || null,
           start_date: draft.start_date || null,
           end_date: draft.end_date || null,
           notes: draft.notes.trim() || null,
@@ -177,6 +181,16 @@ export default function TournamentEditable({
               className={inputClass()}
             />
           </Labeled>
+          <Labeled label="Age Group">
+            <input
+              type="text"
+              value={draft.age_group}
+              onChange={(e) => setDraft({ ...draft, age_group: e.target.value })}
+              maxLength={60}
+              placeholder="2028, 2029, or 'All teams'"
+              className={inputClass()}
+            />
+          </Labeled>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Labeled label="Start date">
               <input
@@ -251,6 +265,7 @@ export default function TournamentEditable({
       ) : (
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-[13px]">
           <ViewRow label="Location" value={current.location ?? "—"} />
+          <ViewRow label="Age Group" value={current.age_group ?? "—"} />
           <ViewRow
             label="Status"
             value={

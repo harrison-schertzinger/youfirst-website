@@ -8,6 +8,7 @@ export default function TournamentForm() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
+  const [ageGroup, setAgeGroup] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [notes, setNotes] = useState("");
@@ -36,6 +37,7 @@ export default function TournamentForm() {
         body: JSON.stringify({
           name: name.trim(),
           location: location.trim() || null,
+          age_group: ageGroup.trim() || null,
           start_date: startDate || null,
           end_date: endDate || null,
           notes: notes.trim() || null,
@@ -98,6 +100,20 @@ export default function TournamentForm() {
           placeholder="Venue / city"
         />
       </Field>
+      <Field
+        label="Age Group"
+        error={fieldErrors.age_group}
+        helper="Which team(s) are going to this tournament."
+      >
+        <input
+          type="text"
+          value={ageGroup}
+          onChange={(e) => setAgeGroup(e.target.value)}
+          maxLength={60}
+          className={inputClass(!!fieldErrors.age_group)}
+          placeholder="2028, 2029, or 'All teams'"
+        />
+      </Field>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <Field label="Start date" error={fieldErrors.start_date}>
           <input
@@ -150,11 +166,13 @@ function Field({
   label,
   required,
   error,
+  helper,
   children,
 }: {
   label: string;
   required?: boolean;
   error?: string;
+  helper?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -164,6 +182,11 @@ function Field({
         {required && <span className="text-[#EF4444] ml-1">*</span>}
       </span>
       {children}
+      {helper && !error && (
+        <span className="mt-1.5 block text-[11px] text-[#6B7280]">
+          {helper}
+        </span>
+      )}
       {error && (
         <span role="alert" className="mt-1.5 block text-[11px] text-[#EF4444]">
           {error}

@@ -8,6 +8,7 @@ interface TournamentRow {
   id: string;
   name: string;
   location: string | null;
+  age_group: string | null;
   start_date: string | null;
   end_date: string | null;
   status: string;
@@ -76,7 +77,7 @@ export default async function TournamentsPage({
 
   let tQ = admin
     .from("tournaments")
-    .select("id, name, location, start_date, end_date, status")
+    .select("id, name, location, age_group, start_date, end_date, status")
     .order("start_date", { ascending: true, nullsFirst: false });
   if (!showAll) tQ = tQ.eq("status", "active");
 
@@ -142,6 +143,7 @@ export default async function TournamentsPage({
                   <Th>Name</Th>
                   <Th>Dates</Th>
                   <Th>Location</Th>
+                  <Th>Age Group</Th>
                   <Th>Status</Th>
                   <Th className="text-right">Expenses</Th>
                 </tr>
@@ -167,6 +169,9 @@ export default async function TournamentsPage({
                       </td>
                       <td className="px-5 py-3.5 text-[#6B7280]">
                         {t.location ?? "—"}
+                      </td>
+                      <td className="px-5 py-3.5 text-[#6B7280]">
+                        {t.age_group ?? "—"}
                       </td>
                       <td className="px-5 py-3.5">
                         <span

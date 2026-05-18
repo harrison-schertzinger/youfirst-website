@@ -2,7 +2,8 @@
  * CSV escape + render utilities. Shared by the expenses and financials
  * export routes. RFC 4180 escaping: wrap any cell containing a comma,
  * quote, or newline in double quotes, and double up any internal
- * double quotes.
+ * double quotes. Rows are joined with CRLF (\r\n) for Excel
+ * compatibility.
  */
 
 export function escapeCsvCell(value: string | number | null | undefined): string {
@@ -20,14 +21,10 @@ export function escapeCsvCell(value: string | number | null | undefined): string
   return s;
 }
 
-export function rowsToCsv(rows: string[][]): string {
-  return rows.map((r) => r.map(escapeCsvCell).join(",")).join("\n") + "\n";
-}
-
-/** Convenience: pass any cell value, get a string back, then run through
- *  rowsToCsv. Avoids forcing callers to String() every nullable. */
-export function rowsToCsvLoose(rows: (string | number | null | undefined)[][]): string {
-  return rows.map((r) => r.map(escapeCsvCell).join(",")).join("\n") + "\n";
+export function rowsToCsv(
+  rows: (string | number | null | undefined)[][],
+): string {
+  return rows.map((r) => r.map(escapeCsvCell).join(",")).join("\r\n") + "\r\n";
 }
 
 /** YYYY-MM-DD in the operator's local time. Used for filename stamps. */
