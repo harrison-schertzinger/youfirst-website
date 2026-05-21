@@ -4,7 +4,13 @@ import { useState, useCallback, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Loader2 } from "lucide-react";
 
-const POSITIONS = ["Attack", "Midfield", "Defense", "Goalie"] as const;
+const POSITIONS = [
+  "Attack",
+  "Midfield",
+  "Defense",
+  "Goalie",
+  "Other",
+] as const;
 type Position = (typeof POSITIONS)[number];
 
 interface PlayerEditable {

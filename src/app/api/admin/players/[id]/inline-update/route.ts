@@ -2,30 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { isEmailAllowed } from "@/lib/admin-auth";
+import { ALLOWED_POSITIONS, type Position } from "@/lib/positions";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_POSITIONS = [
-  "Attack",
-  "Midfield",
-  "Defense",
-  "Goalie",
-  "Other",
-] as const;
-type Position = (typeof ALLOWED_POSITIONS)[number];
-
-// NEVER hard-delete a player. Cascade rules on player_guardians, payments,
-// and payment_plans would destroy the financial record. Use status
-// transitions only. The DB's players_status_check constraint allows
-// exactly these three values; anything else is rejected by Postgres.
-const ALLOWED_STATUSES = ["active", "inactive", "alumni"] as const;
-type PlayerStatus = (typeof ALLOWED_STATUSES)[number];
-
+// Spreadsheet-only patch route. Deliberately narrower than
+// /api/admin/players/[id] PATCH — name, graduation year, and status
+// are never editable from a grid cell. Touch the profile page for those.
 interface PatchBody {
   position?: unknown;
   jersey_number?: unknown;
   school?: unknown;
-  status?: unknown;
 }
 
 function fail(status: number, error: string, field?: string): NextResponse {
@@ -35,11 +22,11 @@ function fail(status: number, error: string, field?: string): NextResponse {
   );
 }
 
-/** Treat undefined / null / "" as "leave blank" and return null. Trimmed. */
+/** undefined → "not provided"; null/"" → "clear"; bad type → undefined. */
 function asNullableString(value: unknown): string | null | undefined {
   if (value === undefined) return undefined;
   if (value === null) return null;
-  if (typeof value !== "string") return undefined; // surface as missing
+  if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed.length === 0 ? null : trimmed;
 }
@@ -53,7 +40,6 @@ export async function PATCH(
     return fail(400, "Missing player id.");
   }
 
-  // ── Auth: read the session via the anon-key server client ──────────────
   const authClient = await createServerSupabaseClient();
   const {
     data: { user },
@@ -62,7 +48,6 @@ export async function PATCH(
     return fail(403, "Not authorized.");
   }
 
-  // ── Parse + validate body ──────────────────────────────────────────────
   let body: PatchBody;
   try {
     body = (await request.json()) as PatchBody;
@@ -70,13 +55,20 @@ export async function PATCH(
     return fail(400, "Invalid JSON.");
   }
 
-  // Build the update payload one field at a time so a typo in any field
-  // surfaces before we touch the DB.
+  // Reject any field outside the editable allowlist. Catches the
+  // accidental `{ name: "..." }` payload before it can short-circuit
+  // validation by sneaking through Object.keys length checks.
+  const EDITABLE = new Set(["position", "jersey_number", "school"]);
+  for (const key of Object.keys(body)) {
+    if (!EDITABLE.has(key)) {
+      return fail(400, `Field "${key}" is not editable from spreadsheet.`, key);
+    }
+  }
+
   const updates: {
     position?: Position | null;
     jersey_number?: string | null;
     school?: string | null;
-    status?: PlayerStatus;
   } = {};
 
   if ("position" in body) {
@@ -87,9 +79,7 @@ export async function PATCH(
       const trimmed = raw.trim();
       if (trimmed === "") {
         updates.position = null;
-      } else if (
-        (ALLOWED_POSITIONS as readonly string[]).includes(trimmed)
-      ) {
+      } else if ((ALLOWED_POSITIONS as readonly string[]).includes(trimmed)) {
         updates.position = trimmed as Position;
       } else {
         return fail(
@@ -104,38 +94,30 @@ export async function PATCH(
   }
 
   if ("jersey_number" in body) {
-    const value = asNullableString(body.jersey_number);
-    if (value === undefined) {
-      return fail(400, "jersey_number must be a string or null.", "jersey_number");
+    // jersey_number is TEXT in Supabase — reject numeric payloads outright
+    // so callers don't accidentally store "12345" as a number that fails
+    // later string comparisons.
+    if (body.jersey_number !== null && typeof body.jersey_number !== "string") {
+      return fail(
+        400,
+        "jersey_number must be a string or null.",
+        "jersey_number",
+      );
     }
-    updates.jersey_number = value;
+    updates.jersey_number = asNullableString(body.jersey_number) ?? null;
   }
 
   if ("school" in body) {
-    const value = asNullableString(body.school);
-    if (value === undefined) {
+    if (body.school !== null && typeof body.school !== "string") {
       return fail(400, "school must be a string or null.", "school");
     }
-    updates.school = value;
-  }
-
-  if ("status" in body) {
-    const raw = body.status;
-    if (typeof raw !== "string" || !(ALLOWED_STATUSES as readonly string[]).includes(raw)) {
-      return fail(
-        400,
-        `status must be one of: ${ALLOWED_STATUSES.join(", ")}.`,
-        "status",
-      );
-    }
-    updates.status = raw as PlayerStatus;
+    updates.school = asNullableString(body.school) ?? null;
   }
 
   if (Object.keys(updates).length === 0) {
     return fail(400, "No editable fields provided.");
   }
 
-  // ── Service-role client for the write ──────────────────────────────────
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
@@ -149,18 +131,14 @@ export async function PATCH(
     .from("players")
     .update(updates)
     .eq("id", id)
-    .select(
-      "id, first_name, last_name, graduation_year, position, jersey_number, school, photo_url, team_name, status, created_at",
-    )
+    .select("id, position, jersey_number, school")
     .maybeSingle();
 
   if (updateError) {
-    console.error("[admin/players PATCH] update failed:", updateError);
+    console.error("[admin/players inline-update]", updateError);
     return fail(500, updateError.message ?? "Update failed.");
   }
-  if (!updated) {
-    return fail(404, "Player not found.");
-  }
+  if (!updated) return fail(404, "Player not found.");
 
   return NextResponse.json({ success: true, player: updated });
 }

@@ -14,6 +14,8 @@ import GuardiansEditableCard, {
   type GuardianWithLink,
 } from "@/components/admin/GuardiansEditableCard";
 import PaymentLinksSection from "@/components/admin/PaymentLinksSection";
+import SendReminderTrigger from "@/components/admin/SendReminderTrigger";
+import type { ReminderGuardian } from "@/components/admin/SendReminderModal";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +64,7 @@ interface PaymentRow {
 interface PlanRow {
   id: string;
   plan_type: string;
+  season: string | null;
   total_amount_cents: number | null;
   amount_paid_cents: number | null;
   installments_total: number | null;
@@ -185,7 +188,7 @@ export default async function PlayerProfilePage({
     admin
       .from("payment_plans")
       .select(
-        "id, plan_type, total_amount_cents, amount_paid_cents, installments_total, installments_paid, next_due_date, created_at",
+        "id, plan_type, season, total_amount_cents, amount_paid_cents, installments_total, installments_paid, next_due_date, created_at",
       )
       .eq("player_id", id)
       .order("created_at", { ascending: false })
@@ -348,20 +351,51 @@ export default async function PlayerProfilePage({
 
       {/* Payment Management — visible only when there's an outstanding balance. */}
       {balanceCents > 0 && (
-        <PaymentLinksSection
-          playerId={p.id}
-          playerName={fullName}
-          plan={
-            plan
-              ? {
-                  total_amount_cents: plan.total_amount_cents,
-                  amount_paid_cents: plan.amount_paid_cents,
-                  installments_total: plan.installments_total,
-                  installments_paid: plan.installments_paid,
-                }
-              : null
-          }
-        />
+        <>
+          <PaymentLinksSection
+            playerId={p.id}
+            playerName={fullName}
+            plan={
+              plan
+                ? {
+                    total_amount_cents: plan.total_amount_cents,
+                    amount_paid_cents: plan.amount_paid_cents,
+                    installments_total: plan.installments_total,
+                    installments_paid: plan.installments_paid,
+                  }
+                : null
+            }
+          />
+          {/* Send-reminder trigger lives next to the payment-link surface
+              so the two actions an operator takes on an outstanding balance
+              sit together. Modal owns its own fetches. */}
+          <div className="flex items-center justify-end -mt-2">
+            <SendReminderTrigger
+              playerId={p.id}
+              playerName={fullName}
+              parentFirstName={
+                guardiansWithLinks.find((g) => g.is_primary)?.first_name ?? null
+              }
+              parentLastName={
+                guardiansWithLinks.find((g) => g.is_primary)?.last_name ?? null
+              }
+              guardians={guardiansWithLinks
+                .map<ReminderGuardian>((g) => ({
+                  id: g.id,
+                  first_name: g.first_name,
+                  last_name: g.last_name,
+                  email: g.email,
+                  is_primary: g.is_primary,
+                }))
+                // Primary first.
+                .sort((a, b) =>
+                  a.is_primary === b.is_primary ? 0 : a.is_primary ? -1 : 1,
+                )}
+              outstandingCents={balanceCents}
+              season={plan?.season ?? null}
+            />
+          </div>
+        </>
       )}
 
       {/* Row 3: Payment History */}

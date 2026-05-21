@@ -3,9 +3,15 @@ import { createClient } from "@supabase/supabase-js";
 import { Plus, Check } from "lucide-react";
 import {
   inferPlayerSource,
-  sourceLabels,
   type SourceLabel,
 } from "@/lib/player-source";
+import PlayerRosterTiles, {
+  type TileYearBlock,
+} from "@/components/admin/PlayerRosterTiles";
+import PlayerRosterSpreadsheet, {
+  type SpreadsheetRow,
+} from "@/components/admin/PlayerRosterSpreadsheet";
+import PlayersViewToggle from "@/components/admin/PlayersViewToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +23,8 @@ interface PlayerRow {
   last_name: string;
   graduation_year: number | null;
   position: string | null;
+  jersey_number: string | null;
+  school: string | null;
   status: string;
   photo_url: string | null;
   created_at: string | null;
@@ -35,11 +43,14 @@ interface PaymentRow {
   created_at: string | null;
 }
 
-interface CardRow {
+interface ComputedRow {
   id: string;
   first_name: string;
   last_name: string;
+  graduation_year: number | null;
   position: string | null;
+  jersey_number: string | null;
+  school: string | null;
   source: SourceLabel;
   billed_cents: number;
   collected_cents: number;
@@ -57,31 +68,22 @@ function getAdminClient() {
   });
 }
 
-function formatDollars(cents: number): string {
-  return (cents / 100).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
-}
-
 async function loadRoster(): Promise<{
-  byYear: Array<{ year: number | null; rows: CardRow[] }>;
+  rows: ComputedRow[];
   totalPlayers: number;
   classCount: number;
   envOk: boolean;
 }> {
   const admin = getAdminClient();
   if (!admin) {
-    return { byYear: [], totalPlayers: 0, classCount: 0, envOk: false };
+    return { rows: [], totalPlayers: 0, classCount: 0, envOk: false };
   }
 
   const [playersRes, plansRes, paymentsRes] = await Promise.all([
     admin
       .from("players")
       .select(
-        "id, first_name, last_name, graduation_year, position, status, photo_url, created_at",
+        "id, first_name, last_name, graduation_year, position, jersey_number, school, status, photo_url, created_at",
       )
       .eq("status", "active"),
     admin
@@ -94,10 +96,10 @@ async function loadRoster(): Promise<{
 
   if (playersRes.error || !playersRes.data) {
     console.error("[admin/players] fetch failed:", playersRes.error);
-    return { byYear: [], totalPlayers: 0, classCount: 0, envOk: true };
+    return { rows: [], totalPlayers: 0, classCount: 0, envOk: true };
   }
 
-  // Most-recent plan per player (matches the portal's order-by-created_at desc).
+  // Most-recent plan per player.
   const latestPlanByPlayer = new Map<string, PlanRow>();
   for (const plan of (plansRes.data ?? []) as PlanRow[]) {
     const prev = latestPlanByPlayer.get(plan.player_id);
@@ -106,7 +108,6 @@ async function loadRoster(): Promise<{
     }
   }
 
-  // Payments per player (small dataset; one pass is fine).
   const paymentsByPlayer = new Map<string, PaymentRow[]>();
   for (const pay of (paymentsRes.data ?? []) as PaymentRow[]) {
     const list = paymentsByPlayer.get(pay.player_id) ?? [];
@@ -114,7 +115,7 @@ async function loadRoster(): Promise<{
     paymentsByPlayer.set(pay.player_id, list);
   }
 
-  const rows: CardRow[] = (playersRes.data as PlayerRow[]).map((p) => {
+  const rows: ComputedRow[] = (playersRes.data as PlayerRow[]).map((p) => {
     const plan = latestPlanByPlayer.get(p.id);
     const billed = plan?.total_amount_cents ?? 0;
     const collected = plan?.amount_paid_cents ?? 0;
@@ -130,7 +131,10 @@ async function loadRoster(): Promise<{
       id: p.id,
       first_name: p.first_name,
       last_name: p.last_name,
+      graduation_year: p.graduation_year,
       position: p.position,
+      jersey_number: p.jersey_number,
+      school: p.school,
       source,
       billed_cents: billed,
       collected_cents: collected,
@@ -138,19 +142,26 @@ async function loadRoster(): Promise<{
     };
   });
 
-  // Group by grad year, sort years ascending; "unknown" goes last.
-  const byYearMap = new Map<string, CardRow[]>();
+  const distinctYears = new Set(rows.map((r) => r.graduation_year ?? "unknown"));
+
+  return {
+    rows,
+    totalPlayers: rows.length,
+    classCount: distinctYears.size,
+    envOk: true,
+  };
+}
+
+function groupByYear(rows: ComputedRow[]): TileYearBlock[] {
+  const byYearMap = new Map<string, ComputedRow[]>();
   const yearByKey = new Map<string, number | null>();
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i];
-    const grad = (playersRes.data as PlayerRow[])[i].graduation_year;
-    const key = grad != null ? String(grad) : "unknown";
-    yearByKey.set(key, grad);
+  for (const r of rows) {
+    const key = r.graduation_year != null ? String(r.graduation_year) : "unknown";
+    yearByKey.set(key, r.graduation_year);
     const bucket = byYearMap.get(key) ?? [];
     bucket.push(r);
     byYearMap.set(key, bucket);
   }
-  // Sort each bucket by last name asc.
   for (const bucket of byYearMap.values()) {
     bucket.sort((a, b) => a.last_name.localeCompare(b.last_name));
   }
@@ -159,18 +170,10 @@ async function loadRoster(): Promise<{
     if (b === "unknown") return -1;
     return Number(a) - Number(b);
   });
-
-  const byYear = keys.map((k) => ({
+  return keys.map((k) => ({
     year: yearByKey.get(k) ?? null,
     rows: byYearMap.get(k) ?? [],
   }));
-
-  return {
-    byYear,
-    totalPlayers: rows.length,
-    classCount: byYear.length,
-    envOk: true,
-  };
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -183,8 +186,12 @@ export default async function PlayersRosterPage({
   const params = await searchParams;
   const archived =
     typeof params.archived === "string" ? params.archived : null;
+  const viewParam =
+    typeof params.view === "string" ? params.view : null;
+  const view: "tiles" | "spreadsheet" =
+    viewParam === "spreadsheet" ? "spreadsheet" : "tiles";
 
-  const { byYear, totalPlayers, classCount, envOk } = await loadRoster();
+  const { rows, totalPlayers, classCount, envOk } = await loadRoster();
 
   return (
     <div className="space-y-8">
@@ -218,122 +225,27 @@ export default async function PlayersRosterPage({
               : "Roster unavailable — Supabase service-role env vars missing."}
           </p>
         </div>
-        <Link
-          href="/admin/players/new"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#4A90D9] text-white text-[13px] font-semibold hover:bg-[#3A7BC8] transition-colors shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Add Player
-        </Link>
+        <div className="flex items-center gap-3">
+          <PlayersViewToggle current={view} />
+          <Link
+            href="/admin/players/new"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#4A90D9] text-white text-[13px] font-semibold hover:bg-[#3A7BC8] transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Add Player
+          </Link>
+        </div>
       </header>
 
-      {/* Team blocks */}
-      {byYear.length === 0 && envOk && (
+      {!envOk ? null : rows.length === 0 ? (
         <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-10 text-center text-sm text-[#6B7280]">
           No active players yet. Click Add Player to create the first roster entry.
         </div>
+      ) : view === "tiles" ? (
+        <PlayerRosterTiles byYear={groupByYear(rows)} />
+      ) : (
+        <PlayerRosterSpreadsheet rows={rows as SpreadsheetRow[]} />
       )}
-
-      {byYear.map((block) => (
-        <section
-          key={block.year ?? "unknown"}
-          className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden"
-        >
-          <header className="flex items-center justify-between px-6 md:px-7 py-5 border-b border-[#E5E7EB]">
-            <h2 className="text-[17px] font-semibold tracking-tight text-[#0A0A0B]">
-              {block.year != null ? `Class of ${block.year}` : "Class — Unknown"}
-            </h2>
-            <span className="text-[11px] uppercase tracking-[0.12em] text-[#6B7280] tabular-nums">
-              {block.rows.length} player{block.rows.length === 1 ? "" : "s"}
-            </span>
-          </header>
-          <div className="p-5 md:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {block.rows.map((p) => (
-              <PlayerTile key={p.id} player={p} />
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
-  );
-}
-
-// ─── Player tile ──────────────────────────────────────────────────────────────
-
-function PlayerTile({ player }: { player: CardRow }) {
-  const source = sourceLabels[player.source];
-  const outstanding = player.balance_cents > 0;
-  return (
-    <Link
-      href={`/admin/players/${player.id}`}
-      className="block rounded-xl border border-[#E5E7EB] bg-white p-4 hover:border-[#4A90D9]/40 hover:shadow-[0_4px_16px_rgba(0,0,0,0.05)] transition-all"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[15px] font-medium text-[#0A0A0B] truncate">
-            {player.first_name} {player.last_name}
-          </div>
-          <div className="mt-0.5 text-[12px] text-[#6B7280]">
-            {player.position ?? "—"}
-          </div>
-        </div>
-        <SourceBadge color={source.color} text={source.text} />
-      </div>
-
-      <dl className="mt-4 grid grid-cols-3 gap-2 text-[11px]">
-        <BalanceCell label="Billed" value={formatDollars(player.billed_cents)} />
-        <BalanceCell label="Collected" value={formatDollars(player.collected_cents)} />
-        <BalanceCell
-          label="Balance"
-          value={formatDollars(player.balance_cents)}
-          tone={outstanding ? "negative" : "positive"}
-        />
-      </dl>
-    </Link>
-  );
-}
-
-function SourceBadge({ color, text }: { color: string; text: string }) {
-  return (
-    <span
-      className="shrink-0 inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.08em]"
-      style={{ color }}
-      title={text}
-    >
-      <span
-        className="inline-block w-1.5 h-1.5 rounded-full"
-        style={{ backgroundColor: color }}
-        aria-hidden
-      />
-      <span className="hidden sm:inline">{text}</span>
-    </span>
-  );
-}
-
-function BalanceCell({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  tone?: "neutral" | "positive" | "negative";
-}) {
-  const color =
-    tone === "negative"
-      ? "#EF4444"
-      : tone === "positive"
-        ? "#34D399"
-        : "#0A0A0B";
-  return (
-    <div>
-      <dt className="text-[#6B7280] uppercase tracking-[0.08em]">{label}</dt>
-      <dd
-        className="mt-0.5 font-semibold tabular-nums"
-        style={{ color }}
-      >
-        {value}
-      </dd>
     </div>
   );
 }

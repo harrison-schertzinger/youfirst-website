@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
-import { Plus, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import {
   EXPENSE_CATEGORIES,
   isExpenseCategory,
@@ -77,7 +76,6 @@ export default async function ExpensesPage({
     typeof params.to === "string" && DATE_RE.test(params.to)
       ? params.to
       : null;
-  // Guard against from > to from URL-typed users — drop both if inverted.
   const dateRangeValid =
     !fromParam || !toParam || fromParam <= toParam;
   const fromDate = dateRangeValid ? fromParam : null;
@@ -89,14 +87,12 @@ export default async function ExpensesPage({
   const admin = getAdmin();
   if (!admin) {
     return (
-      <ShellShellEmpty
-        message="Supabase service-role env vars not configured."
-      />
+      <div className="rounded-2xl border border-[#EF4444]/30 bg-[#EF4444]/5 p-6 text-sm text-[#EF4444]">
+        Supabase service-role env vars not configured.
+      </div>
     );
   }
 
-  // Three parallel queries: filtered expenses + active tournaments + a lite
-  // player set for the "linked" column lookup.
   let exQ = admin
     .from("expenses")
     .select(
@@ -138,8 +134,6 @@ export default async function ExpensesPage({
     0,
   );
 
-  // Bucket by category in canonical order. Empty categories still render —
-  // their absence would let underused categories hide unnoticed.
   const byCategory = new Map<ExpenseCategory, BlockExpense[]>();
   for (const c of EXPENSE_CATEGORIES) byCategory.set(c, []);
   for (const e of expenses) {
@@ -155,16 +149,20 @@ export default async function ExpensesPage({
     });
   }
 
-  return (
-    <div className="space-y-8">
-      {logged && (
-        <Banner tone="success" text={`Expense logged: ${logged}`} />
-      )}
-      {archivedBanner && (
-        <Banner tone="success" text={`Archived: ${archivedBanner}`} />
-      )}
+  const exportHref = buildExportHref({
+    season,
+    statusParam,
+    tournamentId,
+    fromDate,
+    toDate,
+  });
 
-      {/* Header */}
+  return (
+    <div className="space-y-6">
+      {logged && <Banner text={`Expense logged: ${logged}`} />}
+      {archivedBanner && <Banner text={`Archived: ${archivedBanner}`} />}
+
+      {/* Header — ledger-style. No "Add Expense" button at top-right. */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#6B7280]">
@@ -174,7 +172,7 @@ export default async function ExpensesPage({
             Expenses
           </h1>
           <p className="mt-1 text-sm text-[#6B7280]">
-            {expenses.length} expense{expenses.length === 1 ? "" : "s"} logged ·{" "}
+            {expenses.length} line item{expenses.length === 1 ? "" : "s"} ·{" "}
             <span className="text-[#0A0A0B] font-medium">
               {formatDollars(totalCents)}
             </span>{" "}
@@ -182,36 +180,23 @@ export default async function ExpensesPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href="/admin/expenses/new"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#4A90D9] text-white text-[13px] font-semibold hover:bg-[#3A7BC8] transition-colors shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Add Expense
-          </Link>
-          <CsvDownloadButton
-            href={buildExportHref({
-              season,
-              statusParam,
-              tournamentId,
-              fromDate,
-              toDate,
-            })}
-          />
+          <CsvDownloadButton href={exportHref} />
         </div>
       </header>
 
       <ExpensesFilters tournaments={tournaments} />
 
-      {/* One block per canonical category — empty blocks still render. */}
-      <div className="space-y-6">
-        {EXPENSE_CATEGORIES.map((cat) => (
+      {/* One big card. Category sections live inside, separated by dividers. */}
+      <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+        {EXPENSE_CATEGORIES.map((cat, idx) => (
           <ExpenseCategoryBlock
             key={cat}
             category={cat}
             expenses={byCategory.get(cat) ?? []}
             tournamentNameById={tournamentNameById}
             playerNameById={playerNameById}
+            tournaments={tournaments}
+            isLast={idx === EXPENSE_CATEGORIES.length - 1}
           />
         ))}
       </div>
@@ -235,32 +220,16 @@ function buildExportHref(args: {
   return `/api/admin/expenses/export?${qs.toString()}`;
 }
 
-function Banner({
-  tone,
-  text,
-}: {
-  tone: "success" | "warning";
-  text: string;
-}) {
-  const color = tone === "success" ? "#34D399" : "#F59E0B";
+function Banner({ text }: { text: string }) {
   return (
     <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)] px-5 py-4 flex items-center gap-3">
       <span
-        className="inline-flex w-6 h-6 rounded-full items-center justify-center shrink-0"
-        style={{ backgroundColor: `${color}1A`, color }}
+        className="inline-flex w-6 h-6 rounded-full items-center justify-center shrink-0 bg-[#34D399]/10 text-[#34D399]"
         aria-hidden
       >
         <Check className="w-3.5 h-3.5" />
       </span>
       <div className="text-sm text-[#0A0A0B]">{text}</div>
-    </div>
-  );
-}
-
-function ShellShellEmpty({ message }: { message: string }) {
-  return (
-    <div className="rounded-2xl border border-[#EF4444]/30 bg-[#EF4444]/5 p-6 text-sm text-[#EF4444]">
-      {message}
     </div>
   );
 }

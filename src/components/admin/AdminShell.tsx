@@ -6,8 +6,10 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
+  UserPlus,
   Receipt,
   Trophy,
+  Mail,
   TrendingUp,
   Menu,
   X,
@@ -21,9 +23,11 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", Icon: LayoutDashboard },
+  { href: "/admin/prospects", label: "Prospects", Icon: UserPlus },
   { href: "/admin/players", label: "Players", Icon: Users },
   { href: "/admin/expenses", label: "Expenses", Icon: Receipt },
   { href: "/admin/tournaments", label: "Tournaments", Icon: Trophy },
+  { href: "/admin/templates", label: "Templates", Icon: Mail },
   { href: "/admin/financials", label: "Financials", Icon: TrendingUp },
 ];
 
