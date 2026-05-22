@@ -8,6 +8,10 @@ import {
   type ExpenseCategory,
 } from "@/lib/expense-categories";
 import TournamentEditable from "@/components/admin/TournamentEditable";
+import TournamentRoster, {
+  type RosterEntry,
+} from "@/components/admin/TournamentRoster";
+import type { AvailablePlayer } from "@/components/admin/AddPlayersToTournamentModal";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +35,27 @@ interface ExpenseRow {
   amount_cents: number;
   vendor: string | null;
   status: string;
+}
+
+interface RosterJoinRow {
+  id: string;
+  player_id: string;
+  players: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    graduation_year: number | null;
+    position: string | null;
+    status: string;
+  };
+}
+
+interface ActivePlayerRow {
+  id: string;
+  first_name: string;
+  last_name: string;
+  graduation_year: number | null;
+  position: string | null;
 }
 
 function getAdmin() {
@@ -94,16 +119,53 @@ export default async function TournamentDetailPage({
     redirect("/admin/tournaments");
   }
 
-  const { data: expenseData } = await admin
-    .from("expenses")
-    .select(
-      "id, expense_date, category, description, amount_cents, vendor, status",
-    )
-    .eq("tournament_id", id)
-    .eq("status", "active")
-    .order("expense_date", { ascending: false });
-  const expenses = (expenseData ?? []) as ExpenseRow[];
+  // Roster, expenses, and active-player list — three independent reads.
+  const [rosterRes, expenseRes, playerRes] = await Promise.all([
+    admin
+      .from("tournament_rosters")
+      .select(
+        "id, player_id, players!inner(id, first_name, last_name, graduation_year, position, status)",
+      )
+      .eq("tournament_id", id)
+      .eq("players.status", "active"),
+    admin
+      .from("expenses")
+      .select(
+        "id, expense_date, category, description, amount_cents, vendor, status",
+      )
+      .eq("tournament_id", id)
+      .eq("status", "active")
+      .order("expense_date", { ascending: false }),
+    admin
+      .from("players")
+      .select("id, first_name, last_name, graduation_year, position")
+      .eq("status", "active"),
+  ]);
 
+  // PostgREST embedded `players` is a single record at runtime even though
+  // supabase-js types it as an array; cast via unknown to bridge.
+  const rosterRows = (
+    (rosterRes.data ?? []) as unknown as RosterJoinRow[]
+  ).map<RosterEntry>((r) => ({
+    player_id: r.players.id,
+    first_name: r.players.first_name,
+    last_name: r.players.last_name,
+    graduation_year: r.players.graduation_year,
+    position: r.players.position,
+  }));
+  rosterRows.sort((a, b) => {
+    const ay = a.graduation_year ?? 9999;
+    const by = b.graduation_year ?? 9999;
+    if (ay !== by) return ay - by;
+    return a.last_name.localeCompare(b.last_name);
+  });
+
+  const onRoster = new Set(rosterRows.map((r) => r.player_id));
+  const availablePlayers: AvailablePlayer[] = (
+    (playerRes.data ?? []) as ActivePlayerRow[]
+  ).filter((p) => !onRoster.has(p.id));
+
+  const expenses = (expenseRes.data ?? []) as ExpenseRow[];
   const totalCents = expenses.reduce(
     (sum, e) => sum + (e.amount_cents ?? 0),
     0,
@@ -134,35 +196,30 @@ export default async function TournamentDetailPage({
             {t.name}
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-[13px] text-[#6B7280]">
+            <span>Age Group: {t.age_group ?? "—"}</span>
+            <span className="text-[#E5E7EB]">·</span>
+            <span>{t.location ?? "—"}</span>
+            <span className="text-[#E5E7EB]">·</span>
             <span>
               {formatDate(t.start_date)}
               {t.end_date && t.end_date !== t.start_date
                 ? ` – ${formatDate(t.end_date)}`
                 : ""}
             </span>
-            {t.location && (
-              <>
-                <span className="text-[#E5E7EB]">·</span>
-                <span>{t.location}</span>
-              </>
-            )}
-            {t.age_group && (
-              <>
-                <span className="text-[#E5E7EB]">·</span>
-                <span>{t.age_group}</span>
-              </>
-            )}
           </div>
         </div>
-        <Link
-          href={`/admin/expenses/new?tournament_id=${t.id}`}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#4A90D9] text-white text-[13px] font-semibold hover:bg-[#3A7BC8] transition-colors shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Add Expense to This Tournament
-        </Link>
       </header>
 
+      {/* SECTION 1 — Roster (primary) */}
+      <TournamentRoster
+        tournamentId={t.id}
+        tournamentName={t.name}
+        tournamentAgeGroup={t.age_group}
+        initialRoster={rosterRows}
+        availablePlayers={availablePlayers}
+      />
+
+      {/* SECTION 2 — Info (secondary, editable) */}
       <TournamentEditable
         initial={{
           id: t.id,
@@ -176,8 +233,9 @@ export default async function TournamentDetailPage({
         }}
       />
 
+      {/* SECTION 3 — Expenses (secondary) */}
       <section className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden">
-        <div className="px-6 md:px-7 py-5 border-b border-[#E5E7EB] flex items-center justify-between">
+        <div className="px-6 md:px-7 py-5 border-b border-[#E5E7EB] flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#6B7280]">
               Expenses
@@ -186,13 +244,22 @@ export default async function TournamentDetailPage({
               {expenses.length} expense{expenses.length === 1 ? "" : "s"} on file
             </h2>
           </div>
-          <div className="text-right">
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[#6B7280]">
-              Total
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-[#6B7280]">
+                Total
+              </div>
+              <div className="text-[18px] font-bold tabular-nums text-[#0A0A0B]">
+                {formatDollars(totalCents)}
+              </div>
             </div>
-            <div className="text-[18px] font-bold tabular-nums text-[#0A0A0B]">
-              {formatDollars(totalCents)}
-            </div>
+            <Link
+              href={`/admin/expenses/new?tournament_id=${t.id}`}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#4A90D9] text-white text-[12px] font-semibold hover:bg-[#3A7BC8] transition-colors shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Expense
+            </Link>
           </div>
         </div>
         {expenses.length === 0 ? (
