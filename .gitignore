@@ -41,3 +41,12 @@ yarn-error.log*
 next-env.d.ts
 public/images/20250812_C6227.MP4
 parent-emails.csv
+
+# Local-only PII and generated outputs
+/email-lists/
+/scripts/seed-data.json
+/scripts/gen-link.ts
+
+# Separate Node tooling sub-project — own package.json, node_modules,
+# raw photos, generated PNGs. Don't track from this repo.
+/scripts/recruiting-graphics/
