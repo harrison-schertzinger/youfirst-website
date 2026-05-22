@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Loader2, Archive, Check } from "lucide-react";
+import { Pencil, Loader2, Archive, Check, Mail } from "lucide-react";
 import { ALLOWED_POSITIONS } from "@/lib/positions";
 import {
   PROSPECT_STAGES,
@@ -11,6 +11,7 @@ import {
   type ProspectStatus,
 } from "@/lib/prospects";
 import ProspectConvertModal from "@/components/admin/ProspectConvertModal";
+import SendTemplateModal from "@/components/admin/SendTemplateModal";
 
 export interface ProspectDetail {
   id: string;
@@ -64,6 +65,7 @@ export default function ProspectDetailClient({
   const [stageSaving, setStageSaving] = useState(false);
   const [markingContacted, setMarkingContacted] = useState(false);
   const [showConvertModal, setShowConvertModal] = useState(false);
+  const [showComposeModal, setShowComposeModal] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -161,6 +163,16 @@ export default function ProspectDetailClient({
             )}
           </div>
         </div>
+        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setShowComposeModal(true)}
+          title="Compose an email from a template for this prospect"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[#4A90D9] text-[#4A90D9] text-[13px] font-semibold hover:bg-[#4A90D9]/[0.08] transition-colors"
+        >
+          <Mail className="w-4 h-4" />
+          Compose Email
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -183,6 +195,7 @@ export default function ProspectDetailClient({
           <Check className="w-4 h-4" />
           Convert to Player
         </button>
+        </div>
       </header>
 
       {pageError && (
@@ -336,6 +349,19 @@ export default function ProspectDetailClient({
       </div>
 
       {/* Convert modal */}
+      {showComposeModal && (
+        <SendTemplateModal
+          onClose={() => setShowComposeModal(false)}
+          prospect={{
+            first_name: prospect.first_name,
+            last_name: prospect.last_name,
+            graduation_year: prospect.graduation_year,
+            parent_first_name: prospect.parent_first_name,
+            parent_last_name: prospect.parent_last_name,
+            parent_email: prospect.parent_email,
+          }}
+        />
+      )}
       {showConvertModal && (
         <ProspectConvertModal
           prospect={{

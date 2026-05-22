@@ -6,6 +6,7 @@ import { templateTypeLabel, type TemplateType } from "@/lib/email-templates";
 import TemplateEditor, {
   type TemplateRecord,
 } from "@/components/admin/TemplateEditor";
+import type { SnippetMap } from "@/lib/template-render";
 
 export const dynamic = "force-dynamic";
 
@@ -34,18 +35,34 @@ export default async function TemplateEditPage({
     );
   }
 
-  const { data, error } = await admin
-    .from("email_templates")
-    .select("id, name, type, subject, body, description, status")
-    .eq("id", id)
-    .maybeSingle();
+  const [templateRes, snippetsRes] = await Promise.all([
+    admin
+      .from("email_templates")
+      .select("id, name, type, subject, body, description, status")
+      .eq("id", id)
+      .maybeSingle(),
+    admin
+      .from("email_snippets")
+      .select("key, content"),
+  ]);
 
-  if (error) {
-    console.error("[admin/templates/[id]] fetch failed:", error);
+  if (templateRes.error) {
+    console.error("[admin/templates/[id]] fetch failed:", templateRes.error);
     redirect("/admin/templates");
   }
-  if (!data) redirect("/admin/templates");
-  const template = data as TemplateRecord & { status: string };
+  if (!templateRes.data) redirect("/admin/templates");
+  const template = templateRes.data as TemplateRecord & { status: string };
+
+  // Build a SnippetMap from the rows so TemplateEditor's live preview
+  // resolves {{snippet:summer_schedule}} etc. against the real seeded
+  // content. Empty/erroring fetch → empty map; preview still works,
+  // snippet placeholders just stay literal.
+  const snippetMap: SnippetMap = {};
+  if (!snippetsRes.error && snippetsRes.data) {
+    for (const row of snippetsRes.data as { key: string; content: string }[]) {
+      (snippetMap as Record<string, string>)[row.key] = row.content;
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -73,7 +90,7 @@ export default async function TemplateEditPage({
         </h1>
       </header>
 
-      <TemplateEditor initial={template} />
+      <TemplateEditor initial={template} snippets={snippetMap} />
     </div>
   );
 }

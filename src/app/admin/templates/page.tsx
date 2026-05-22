@@ -7,6 +7,9 @@ import {
 } from "@/lib/email-templates";
 import NewTemplateButton from "@/components/admin/NewTemplateButton";
 import TemplateArchiveButton from "@/components/admin/TemplateArchiveButton";
+import SnippetEditor, {
+  type SnippetRecord,
+} from "@/components/admin/SnippetEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -48,25 +51,32 @@ export default async function TemplatesPage() {
     );
   }
 
-  const { data, error } = await admin
-    .from("email_templates")
-    .select(
-      "id, name, type, subject, body, description, is_default, status, created_at, updated_at",
-    )
-    .eq("status", "active")
-    .order("type", { ascending: true })
-    .order("name", { ascending: true });
+  const [templatesRes, snippetsRes] = await Promise.all([
+    admin
+      .from("email_templates")
+      .select(
+        "id, name, type, subject, body, description, is_default, status, created_at, updated_at",
+      )
+      .eq("status", "active")
+      .order("type", { ascending: true })
+      .order("name", { ascending: true }),
+    admin
+      .from("email_snippets")
+      .select("id, key, label, content, updated_at")
+      .order("label", { ascending: true }),
+  ]);
 
-  if (error) {
-    console.error("[admin/templates] fetch failed:", error);
+  if (templatesRes.error) {
+    console.error("[admin/templates] templates fetch failed:", templatesRes.error);
     return (
       <div className="rounded-2xl border border-[#EF4444]/30 bg-[#EF4444]/5 p-6 text-sm text-[#EF4444]">
-        Failed to load templates: {error.message}
+        Failed to load templates: {templatesRes.error.message}
       </div>
     );
   }
 
-  const rows = (data ?? []) as TemplateRow[];
+  const rows = (templatesRes.data ?? []) as TemplateRow[];
+  const snippets = (snippetsRes.data ?? []) as SnippetRecord[];
   const byType = new Map<TemplateType, TemplateRow[]>();
   for (const t of TEMPLATE_TYPES) byType.set(t, []);
   for (const r of rows) {
@@ -94,6 +104,32 @@ export default async function TemplatesPage() {
         </div>
         <NewTemplateButton />
       </header>
+
+      {/* Reusable snippets — top of page so Harrison sees them first when
+          updating per-season content (schedule, FAQs, links). Each
+          snippet inlines into any template that references it via
+          {{snippet:key}}. */}
+      <section className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden">
+        <header className="px-6 py-3 border-b border-[#E5E7EB] bg-[#F8F9FA] flex items-baseline justify-between">
+          <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#6B7280]">
+            Reusable Snippets
+          </h2>
+          <span className="text-[11px] text-[#9CA3AF]">
+            Edit once, applies everywhere it&apos;s referenced
+          </span>
+        </header>
+        {snippets.length === 0 ? (
+          <div className="px-6 py-8 text-center text-[12px] text-[#6B7280]">
+            No snippets yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-[#E5E7EB]">
+            {snippets.map((s) => (
+              <SnippetEditor key={s.id} snippet={s} />
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden">
         {TEMPLATE_TYPES.map((type) => {

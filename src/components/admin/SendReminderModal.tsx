@@ -3,7 +3,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { Loader2, Copy, Check, X } from "lucide-react";
-import { renderTemplate, type TemplateContext } from "@/lib/template-render";
+import {
+  renderTemplate,
+  type TemplateContext,
+  type SnippetMap,
+} from "@/lib/template-render";
 
 export interface ReminderGuardian {
   id: string;
@@ -55,6 +59,7 @@ export default function SendReminderModal(props: Props) {
   } = props;
 
   const [templates, setTemplates] = useState<TemplateOption[] | null>(null);
+  const [snippets, setSnippets] = useState<SnippetMap | null>(null);
   const [templatesError, setTemplatesError] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [selectedGuardianId, setSelectedGuardianId] = useState<string>(
@@ -94,34 +99,51 @@ export default function SendReminderModal(props: Props) {
     }
   }, [open]);
 
-  // Fetch payment_reminder templates on first open.
+  // Fetch payment_reminder templates + snippets on first open.
   useEffect(() => {
     if (!open) return;
-    if (templates !== null) return;
+    if (templates !== null && snippets !== null) return;
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/admin/templates?type=payment_reminder");
-        if (!res.ok) {
+        const [tRes, sRes] = await Promise.all([
+          fetch("/api/admin/templates?type=payment_reminder"),
+          fetch("/api/admin/snippets"),
+        ]);
+        if (!tRes.ok) {
           setTemplatesError("Could not load templates.");
           setTemplates([]);
-          return;
+        } else {
+          const tData = (await tRes.json()) as { templates: TemplateOption[] };
+          if (cancelled) return;
+          setTemplates(tData.templates);
+          if (tData.templates[0]) setSelectedTemplateId(tData.templates[0].id);
         }
-        const data = (await res.json()) as { templates: TemplateOption[] };
-        if (cancelled) return;
-        setTemplates(data.templates);
-        if (data.templates[0]) setSelectedTemplateId(data.templates[0].id);
+        if (sRes.ok) {
+          const sData = (await sRes.json()) as {
+            snippets: Array<{ key: string; content: string }>;
+          };
+          if (cancelled) return;
+          const map: Record<string, string> = {};
+          for (const s of sData.snippets) map[s.key] = s.content;
+          setSnippets(map);
+        } else {
+          // Snippets are optional — fall back to empty map so render still
+          // succeeds (any {{snippet:foo}} stays literal, which is visible).
+          setSnippets({});
+        }
       } catch (err) {
         if (cancelled) return;
-        console.error("[SendReminderModal] template fetch:", err);
+        console.error("[SendReminderModal] load:", err);
         setTemplatesError("Could not load templates.");
         setTemplates([]);
+        setSnippets({});
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, templates]);
+  }, [open, templates, snippets]);
 
   const selectedGuardian = useMemo(
     () => guardians.find((g) => g.id === selectedGuardianId) ?? null,
@@ -155,12 +177,14 @@ export default function SendReminderModal(props: Props) {
   );
 
   // Re-render subject/body from template when template/context changes,
-  // unless the admin has manually edited that field.
+  // unless the admin has manually edited that field. Pass snippets so
+  // {{snippet:club_links}} etc. expand from the email_snippets table.
   useEffect(() => {
-    if (!selectedTemplate) return;
+    if (!selectedTemplate || snippets === null) return;
     const rendered = renderTemplate(
       { subject: selectedTemplate.subject, body: selectedTemplate.body },
       context,
+      snippets,
     );
     if (!subjectDirty) setSubjectDraft(rendered.subject);
     if (!bodyDirty) {
@@ -173,7 +197,7 @@ export default function SendReminderModal(props: Props) {
       }
       setBodyDraft(next);
     }
-  }, [selectedTemplate, context, paymentLink, subjectDirty, bodyDirty]);
+  }, [selectedTemplate, context, snippets, paymentLink, subjectDirty, bodyDirty]);
 
   // Escape + backdrop close, with dirty-check prompt.
   const tryClose = useCallback(() => {
