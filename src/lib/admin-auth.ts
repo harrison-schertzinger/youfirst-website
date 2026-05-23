@@ -8,6 +8,7 @@
 const ADMIN_ALLOWLIST = [
   "harrison@theyoufirstproject.com",
   "kathleen@youfirstelitelacrosseclub.com",
+  "kathleen@youfirstlacrosse.com",
 ] as const;
 
 export function isEmailAllowed(rawEmail: string | null | undefined): boolean {
