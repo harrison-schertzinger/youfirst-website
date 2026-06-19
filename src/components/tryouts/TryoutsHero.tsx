@@ -85,7 +85,7 @@ export default function TryoutsHero() {
           }`}
           style={{ transitionDelay: "450ms", textShadow: "0 2px 20px rgba(0,0,0,0.5)" }}
         >
-          Two dates. One standard. Come build &amp; bring the best.
+          Two dates. One standard. Come earn your spot.
         </p>
 
         {/* CTAs */}
