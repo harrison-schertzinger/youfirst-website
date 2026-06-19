@@ -108,6 +108,24 @@ export default function TryoutsHero() {
             See the Dates
           </a>
         </div>
+
+        {/* Understated make-up nudge — quiet secondary link; smooth-scrolls
+            (globals.css html{scroll-behavior:smooth}) to the make-up section,
+            which deep-links into the form's make-up mode. */}
+        <div
+          className={`mt-7 transition-all duration-700 ${
+            loaded ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-4 blur-sm"
+          }`}
+          style={{ transitionDelay: "780ms" }}
+        >
+          <a
+            href="#makeup-info"
+            className="arrow-link inline-flex items-center gap-1.5 text-[13px] text-white/55 hover:text-white/90 transition-colors duration-200"
+          >
+            Can&apos;t make July 11 or 25? Make-up tryouts Aug 3&ndash;7
+            <span className="arrow">&rarr;</span>
+          </a>
+        </div>
       </div>
 
       {/* Scroll indicator */}
