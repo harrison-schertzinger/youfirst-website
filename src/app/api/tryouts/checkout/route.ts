@@ -68,17 +68,36 @@ export async function POST(request: NextRequest) {
       : NaN;
   const pos = typeof position === "string" ? position.trim() : "";
 
+  // Length caps — reject oversized payloads before they hit the unbounded text
+  // columns (or Stripe). Names ≤120, email ≤254 (RFC 5321 max), phone ≤40. The
+  // email cap is checked before the regex so we never run it on a huge string.
+  const MAX_NAME = 120;
+  const MAX_EMAIL = 254;
+  const MAX_PHONE = 40;
+
   if (!player) {
     return NextResponse.json({ error: "Player full name is required." }, { status: 400 });
+  }
+  if (player.length > MAX_NAME) {
+    return NextResponse.json({ error: "Player full name is too long." }, { status: 400 });
   }
   if (!parent) {
     return NextResponse.json({ error: "Parent name is required." }, { status: 400 });
   }
-  if (!mail || !EMAIL_RE.test(mail)) {
+  if (parent.length > MAX_NAME) {
+    return NextResponse.json({ error: "Parent name is too long." }, { status: 400 });
+  }
+  if (!mail) {
+    return NextResponse.json({ error: "A valid email is required." }, { status: 400 });
+  }
+  if (mail.length > MAX_EMAIL || !EMAIL_RE.test(mail)) {
     return NextResponse.json({ error: "A valid email is required." }, { status: 400 });
   }
   if (!tel) {
     return NextResponse.json({ error: "Phone number is required." }, { status: 400 });
+  }
+  if (tel.length > MAX_PHONE) {
+    return NextResponse.json({ error: "Phone number is too long." }, { status: 400 });
   }
   if (!isTryoutPosition(pos)) {
     return NextResponse.json({ error: "Please choose a valid position." }, { status: 400 });

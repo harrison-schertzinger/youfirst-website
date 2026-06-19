@@ -56,6 +56,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
   }
 
+  // ── Tryout: abandoned checkout expired ─────────────────────────────
+  // Stripe fires this ~24h after an uncompleted session. Flip the still-pending
+  // tryout row to 'expired' so abandoned leads don't masquerade as live ones.
+  if (event.type === "checkout.session.expired") {
+    const expiredSession = event.data.object as Stripe.Checkout.Session;
+    const expiredMeta = expiredSession.metadata ?? {};
+    if (expiredMeta.kind === "tryout") {
+      return handleTryoutExpired(supabase, expiredSession, expiredMeta);
+    }
+    return NextResponse.json({ received: true });
+  }
+
   // Ack non-completion events so Stripe doesn't retry.
   if (event.type !== "checkout.session.completed") {
     return NextResponse.json({ received: true });
@@ -261,7 +273,7 @@ async function handleTryoutPaid(
     return NextResponse.json({ received: true, skipped: "no_registration" });
   }
 
-  // Already paid → idempotent no-op (don't resend the email).
+  // Already paid → idempotent no-op (fast path; don't resend the email).
   if (reg.payment_status === "paid") {
     return NextResponse.json({ received: true, duplicate: true });
   }
@@ -270,7 +282,12 @@ async function handleTryoutPaid(
   const paymentIntentId =
     typeof session.payment_intent === "string" ? session.payment_intent : null;
 
-  const { error: updateError } = await supabase
+  // Atomic compare-and-swap: flip pending→paid ONLY if it isn't already paid,
+  // and learn whether THIS delivery is the one that flipped it (rows returned).
+  // Two concurrent Stripe deliveries both pass the read above as 'pending'; the
+  // `.neq` makes the second UPDATE match 0 rows once the first commits, so only
+  // the winner sends the email and appends to the Sheet (no duplicate egress).
+  const { data: flipped, error: updateError } = await supabase
     .from("tryout_registrations")
     .update({
       payment_status: "paid",
@@ -279,12 +296,20 @@ async function handleTryoutPaid(
       stripe_payment_intent_id: paymentIntentId,
       ...(amountCents != null ? { amount_cents: amountCents } : {}),
     })
-    .eq("id", reg.id);
+    .eq("id", reg.id)
+    .neq("payment_status", "paid")
+    .select("id");
 
   if (updateError) {
     // Transient — let Stripe retry.
     console.error("Tryout webhook: failed to mark paid:", updateError);
     return NextResponse.json({ error: "DB update failed." }, { status: 500 });
+  }
+
+  // Lost the race — a concurrent delivery already flipped + notified. Don't
+  // re-email or re-append.
+  if (!flipped || flipped.length === 0) {
+    return NextResponse.json({ received: true, duplicate: true });
   }
 
   // Resolve the render-ready tryout (scheduled session OR make-up picked date).
@@ -325,5 +350,34 @@ async function handleTryoutPaid(
     paymentStatus: "paid",
   });
 
+  return NextResponse.json({ received: true });
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// 2026 Tryouts: an abandoned checkout expired. Flip the still-pending row to
+// 'expired' so abandoned leads don't masquerade as live ones. Guarded to
+// pending-only — a paid or failed row is never disturbed. Best-effort cleanup:
+// always ack so Stripe doesn't retry.
+// ──────────────────────────────────────────────────────────────────────
+async function handleTryoutExpired(
+  supabase: SupabaseClient,
+  session: Stripe.Checkout.Session,
+  meta: Record<string, string>,
+): Promise<NextResponse> {
+  const registrationId = meta.registration_id;
+  const stripeSessionId = session.id;
+
+  const update = supabase
+    .from("tryout_registrations")
+    .update({ payment_status: "expired" })
+    .eq("payment_status", "pending");
+
+  const { error } = registrationId
+    ? await update.eq("id", registrationId)
+    : await update.eq("stripe_session_id", stripeSessionId);
+
+  if (error) {
+    console.error("Tryout webhook: failed to mark expired:", error);
+  }
   return NextResponse.json({ received: true });
 }
