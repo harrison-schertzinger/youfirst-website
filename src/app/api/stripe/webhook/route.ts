@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
+import { sendTryoutConfirmationEmail } from "@/lib/tryout-email";
+import { TRYOUT_DATES, tryoutByIsoDate } from "@/lib/tryouts";
 
 // I5 fix: lazy init so missing env on a preview deploy surfaces a
 // 503 instead of crashing at module import.
@@ -60,6 +62,14 @@ export async function POST(request: NextRequest) {
 
   const session = event.data.object as Stripe.Checkout.Session;
   const meta = session.metadata ?? {};
+
+  // ── 2026 Tryouts branch ────────────────────────────────────────────
+  // Tryout sessions carry kind:"tryout" and write to tryout_registrations,
+  // not payments. Handle and return before the player/ticket logic below
+  // (which would otherwise reject this metadata shape).
+  if (meta.kind === "tryout") {
+    return handleTryoutPaid(supabase, session, meta);
+  }
 
   const playerId = meta.player_id;
   const ticketId = meta.ticket_id;
@@ -199,4 +209,108 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ received: true, duplicate });
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// 2026 Tryouts: flip the pending registration to `paid` and email the parent.
+// Idempotent — a Stripe retry on an already-paid row is a no-op (no double
+// email). Returns 200 on terminal/malformed states so Stripe stops retrying;
+// returns 500 only on a transient DB failure so Stripe retries.
+// ──────────────────────────────────────────────────────────────────────
+async function handleTryoutPaid(
+  supabase: SupabaseClient,
+  session: Stripe.Checkout.Session,
+  meta: Record<string, string>,
+): Promise<NextResponse> {
+  // Only act on truly-paid sessions.
+  if (session.payment_status !== "paid") {
+    return NextResponse.json({ received: true, skipped: "unpaid_session" });
+  }
+
+  const registrationId = meta.registration_id;
+  const stripeSessionId = session.id;
+
+  // Locate the row — prefer the registration_id from metadata, fall back to
+  // the session id (covers a metadata hiccup).
+  const baseSelect =
+    "id, email, parent_name, player_full_name, tryout_date, tryout_group, payment_status, confirmation_email_sent";
+
+  let { data: reg } = registrationId
+    ? await supabase
+        .from("tryout_registrations")
+        .select(baseSelect)
+        .eq("id", registrationId)
+        .maybeSingle()
+    : { data: null };
+
+  if (!reg) {
+    const fallback = await supabase
+      .from("tryout_registrations")
+      .select(baseSelect)
+      .eq("stripe_session_id", stripeSessionId)
+      .maybeSingle();
+    reg = fallback.data;
+  }
+
+  if (!reg) {
+    console.error("Tryout webhook: no registration row for", {
+      registrationId,
+      stripeSessionId,
+    });
+    return NextResponse.json({ received: true, skipped: "no_registration" });
+  }
+
+  // Already paid → idempotent no-op (don't resend the email).
+  if (reg.payment_status === "paid") {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
+  const amountCents = session.amount_total ?? undefined;
+  const paymentIntentId =
+    typeof session.payment_intent === "string" ? session.payment_intent : null;
+
+  const { error: updateError } = await supabase
+    .from("tryout_registrations")
+    .update({
+      payment_status: "paid",
+      paid_at: new Date().toISOString(),
+      stripe_session_id: stripeSessionId,
+      stripe_payment_intent_id: paymentIntentId,
+      ...(amountCents != null ? { amount_cents: amountCents } : {}),
+    })
+    .eq("id", reg.id);
+
+  if (updateError) {
+    // Transient — let Stripe retry.
+    console.error("Tryout webhook: failed to mark paid:", updateError);
+    return NextResponse.json({ error: "DB update failed." }, { status: 500 });
+  }
+
+  // ── Confirmation email (fail-soft, send-once) ─────────────────────
+  if (!reg.confirmation_email_sent) {
+    const tryout =
+      tryoutByIsoDate(reg.tryout_date) ??
+      (reg.tryout_group === "youth"
+        ? TRYOUT_DATES.youth
+        : reg.tryout_group === "older"
+          ? TRYOUT_DATES.older
+          : null);
+
+    if (tryout) {
+      const { sent } = await sendTryoutConfirmationEmail({
+        to: reg.email,
+        parentName: reg.parent_name,
+        playerFullName: reg.player_full_name,
+        tryout,
+      });
+      if (sent) {
+        await supabase
+          .from("tryout_registrations")
+          .update({ confirmation_email_sent: true })
+          .eq("id", reg.id);
+      }
+    }
+  }
+
+  return NextResponse.json({ received: true });
 }
