@@ -9,6 +9,7 @@ export const SITE_CONFIG = {
 } as const;
 
 export const NAV_LINKS = [
+  { label: "Tryouts", href: "/tryouts" },
   { label: "Schedule", href: "/schedule" },
   { label: "Player Portal", href: "/fees" },
 ] as const;

@@ -110,8 +110,14 @@ export default function Hero() {
           style={{ transitionDelay: "650ms" }}
         >
           <Link
-            href="/schedule"
+            href="/tryouts"
             className="inline-flex items-center justify-center px-8 py-4 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(74,144,217,0.4)] hover:shadow-[0_4px_24px_rgba(74,144,217,0.55)] hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 min-w-[200px]"
+          >
+            2026 Tryouts
+          </Link>
+          <Link
+            href="/schedule"
+            className="inline-flex items-center justify-center px-8 py-4 border border-white/25 text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl hover:bg-white/10 hover:border-white/40 hover:-translate-y-0.5 transition-all duration-300 min-w-[200px] backdrop-blur-sm"
           >
             View Schedule
           </Link>
