@@ -65,8 +65,15 @@ export default function TryoutDates() {
                 <p className="text-[13px] uppercase tracking-[0.2em] text-white/45 font-semibold mb-2">
                   {t.weekday}
                 </p>
-                <p className="text-[2.75rem] sm:text-[3.25rem] font-extrabold leading-[0.95] tracking-tight text-white mb-6">
+                <p className="text-[2.75rem] sm:text-[3.25rem] font-extrabold leading-[0.95] tracking-tight text-white mb-4">
                   {t.dateLabel}
+                </p>
+
+                {/* Time + location */}
+                <p className="text-[15px] text-white/80 font-medium leading-snug mb-6">
+                  {t.time}
+                  <span className="text-white/40"> · </span>
+                  {t.location}
                 </p>
 
                 {/* Grad years covered */}

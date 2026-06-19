@@ -3,7 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import { getStripe } from "@/lib/stripe";
 import {
   TRYOUT_FEE_CENTS,
+  MAKEUP_TRYOUT,
+  describeTryout,
   isTryoutPosition,
+  isValidMakeupDate,
   tryoutForGradYear,
 } from "@/lib/tryouts";
 
@@ -50,6 +53,8 @@ export async function POST(request: NextRequest) {
     phone,
     graduationYear,
     position,
+    tryoutType,
+    makeupDate,
   } = (body ?? {}) as Record<string, unknown>;
 
   // ── Validate ──────────────────────────────────────────────────────
@@ -79,15 +84,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Please choose a valid position." }, { status: 400 });
   }
 
-  // Server-authoritative: derive the tryout from grad year. Rejects any year
-  // outside the offered window even if the client sent something else.
-  const tryout = tryoutForGradYear(gradYear);
-  if (!tryout) {
+  // Server-authoritative: derive the cohort from grad year. Rejects any year
+  // outside the offered window even if the client sent something else. The
+  // cohort is stored for BOTH scheduled and make-up rows (informational).
+  const cohort = tryoutForGradYear(gradYear);
+  if (!cohort) {
     return NextResponse.json(
       { error: "Please choose a graduation year between 2029 and 2038." },
       { status: 400 },
     );
   }
+
+  // Tryout type — defaults to scheduled. Make-up requires one of the five
+  // fixed make-up days (re-validated server-side).
+  const tType = tryoutType === "makeup" ? "makeup" : "scheduled";
+  let tryoutDateIso: string;
+  if (tType === "makeup") {
+    const picked = typeof makeupDate === "string" ? makeupDate.trim() : "";
+    if (!isValidMakeupDate(picked)) {
+      return NextResponse.json(
+        {
+          error: `Please choose a make-up day (${MAKEUP_TRYOUT.rangeLabel}).`,
+        },
+        { status: 400 },
+      );
+    }
+    tryoutDateIso = picked;
+  } else {
+    tryoutDateIso = cohort.isoDate;
+  }
+
+  const display = describeTryout({
+    type: tType,
+    isoDate: tryoutDateIso,
+    group: cohort.id,
+  });
 
   const supabase = admin();
 
@@ -101,8 +132,9 @@ export async function POST(request: NextRequest) {
       phone: tel,
       graduation_year: gradYear,
       position: pos,
-      tryout_group: tryout.id,
-      tryout_date: tryout.isoDate,
+      tryout_type: tType,
+      tryout_group: cohort.id,
+      tryout_date: tryoutDateIso,
       amount_cents: TRYOUT_FEE_CENTS,
       currency: "usd",
       payment_status: "pending",
@@ -131,8 +163,8 @@ export async function POST(request: NextRequest) {
             currency: "usd",
             unit_amount: TRYOUT_FEE_CENTS,
             product_data: {
-              name: "2026 YOU. FIRST Tryout Registration",
-              description: `${player} — ${tryout.fullLabel} (${tryout.group})`,
+              name: `2026 YOU. FIRST ${display.typeLabel} Tryout`,
+              description: `${player} — ${display.dateLine}`,
             },
           },
         },
@@ -141,8 +173,9 @@ export async function POST(request: NextRequest) {
         kind: "tryout",
         registration_id: reg.id,
         player_full_name: player,
-        tryout_group: tryout.id,
-        tryout_date: tryout.isoDate,
+        tryout_type: tType,
+        tryout_group: cohort.id,
+        tryout_date: tryoutDateIso,
         graduation_year: String(gradYear),
         position: pos,
       },

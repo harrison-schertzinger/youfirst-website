@@ -10,20 +10,20 @@
  *                           (falls back to onboarding@resend.dev for testing)
  */
 
-import { TRYOUT_FEE_LABEL, type TryoutDate } from "@/lib/tryouts";
+import { TRYOUT_FEE_LABEL, type TryoutDisplay } from "@/lib/tryouts";
 
 interface SendArgs {
   to: string;
   parentName: string;
   playerFullName: string;
-  tryout: TryoutDate;
+  display: TryoutDisplay;
 }
 
 export async function sendTryoutConfirmationEmail({
   to,
   parentName,
   playerFullName,
-  tryout,
+  display,
 }: SendArgs): Promise<{ sent: boolean; reason?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -35,10 +35,10 @@ export async function sendTryoutConfirmationEmail({
     process.env.TRYOUT_FROM_EMAIL ||
     "YOU. FIRST Lacrosse <onboarding@resend.dev>";
 
-  const subject = `You're registered — ${playerFullName}'s YOU. FIRST tryout (${tryout.fullLabel})`;
+  const subject = `You're registered — ${playerFullName}'s YOU. FIRST tryout (${display.dateLine})`;
 
-  const html = buildHtml({ parentName, playerFullName, tryout });
-  const text = buildText({ parentName, playerFullName, tryout });
+  const html = buildHtml({ parentName, playerFullName, display });
+  const text = buildText({ parentName, playerFullName, display });
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -65,19 +65,20 @@ export async function sendTryoutConfirmationEmail({
 function buildText({
   parentName,
   playerFullName,
-  tryout,
+  display,
 }: Omit<SendArgs, "to">): string {
   return [
     `Hi ${parentName},`,
     ``,
     `${playerFullName} is registered for YOU. FIRST Elite Lacrosse 2026 tryouts. Your ${TRYOUT_FEE_LABEL} registration is confirmed.`,
     ``,
-    `TRYOUT: ${tryout.fullLabel} (${tryout.group})`,
-    `WHO: ${tryout.audience}`,
+    `TRYOUT (${display.typeLabel}): ${display.dateLine}`,
+    `TIME: ${display.time}`,
+    `LOCATION: ${display.location}`,
     ``,
     `What to bring: lacrosse stick, cleats, goggles, mouthguard, water, and a light + dark shirt. Arrive 15 minutes early to check in.`,
     ``,
-    `We'll email the field location and exact arrival time before tryout day. Questions? Just reply or email kathleen@youfirstlacrosse.com.`,
+    `Questions? Just reply or email kathleen@youfirstlacrosse.com.`,
     ``,
     `Build & bring the best together.`,
     `— YOU. FIRST Elite Lacrosse`,
@@ -87,7 +88,7 @@ function buildText({
 function buildHtml({
   parentName,
   playerFullName,
-  tryout,
+  display,
 }: Omit<SendArgs, "to">): string {
   return `<!doctype html>
 <html>
@@ -120,9 +121,9 @@ function buildHtml({
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f6fc;border:1px solid rgba(74,144,217,0.25);border-radius:12px;margin-bottom:24px;">
                   <tr>
                     <td style="padding:20px 24px;">
-                      <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#4a90d9;font-weight:600;">Her Tryout</div>
-                      <div style="font-size:24px;font-weight:800;color:#1a1a1a;margin-top:4px;">${escapeHtml(tryout.fullLabel)}</div>
-                      <div style="font-size:14px;color:#6b7280;margin-top:4px;">${escapeHtml(tryout.group)} · ${escapeHtml(tryout.audience)}</div>
+                      <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#4a90d9;font-weight:600;">${escapeHtml(display.typeLabel)} Tryout</div>
+                      <div style="font-size:24px;font-weight:800;color:#1a1a1a;margin-top:4px;">${escapeHtml(display.dateLine)}</div>
+                      <div style="font-size:14px;color:#6b7280;margin-top:4px;">${escapeHtml(display.time)} · ${escapeHtml(display.location)}</div>
                     </td>
                   </tr>
                 </table>
@@ -134,7 +135,6 @@ function buildHtml({
                 </p>
 
                 <p style="margin:0 0 24px;font-size:15px;line-height:1.7;color:#374151;">
-                  We'll email the field location and exact arrival time before tryout day.
                   Questions? Just reply, or email
                   <a href="mailto:kathleen@youfirstlacrosse.com" style="color:#4a90d9;text-decoration:none;">kathleen@youfirstlacrosse.com</a>.
                 </p>

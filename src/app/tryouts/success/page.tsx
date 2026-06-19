@@ -7,11 +7,11 @@ import Footer from "@/components/layout/Footer";
 import ScrollProgressBar from "@/components/layout/ScrollProgressBar";
 import { getStripe } from "@/lib/stripe";
 import {
-  TRYOUT_DATES,
   TRYOUT_FEE_LABEL,
   TRYOUT_PHOTOS,
-  tryoutByIsoDate,
-  type TryoutDate,
+  describeTryout,
+  type TryoutDisplay,
+  type TryoutType,
 } from "@/lib/tryouts";
 
 export const metadata: Metadata = {
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 interface RegView {
   playerFullName: string;
   parentName: string;
-  tryout: TryoutDate | null;
+  tryout: TryoutDisplay;
 }
 
 async function loadRegistration(sessionId: string | null): Promise<RegView | null> {
@@ -47,19 +47,17 @@ async function loadRegistration(sessionId: string | null): Promise<RegView | nul
 
   const { data } = await supabase
     .from("tryout_registrations")
-    .select("player_full_name, parent_name, tryout_date, tryout_group")
+    .select("player_full_name, parent_name, tryout_type, tryout_date, tryout_group")
     .eq("stripe_session_id", sessionId)
     .maybeSingle();
 
   if (!data) return null;
 
-  const tryout =
-    tryoutByIsoDate(data.tryout_date) ??
-    (data.tryout_group === "youth"
-      ? TRYOUT_DATES.youth
-      : data.tryout_group === "older"
-        ? TRYOUT_DATES.older
-        : null);
+  const tryout = describeTryout({
+    type: (data.tryout_type as TryoutType) ?? "scheduled",
+    isoDate: data.tryout_date,
+    group: data.tryout_group,
+  });
 
   return {
     playerFullName: data.player_full_name,
@@ -137,19 +135,17 @@ export default async function TryoutSuccessPage({
                   secured.
                 </p>
 
-                {reg.tryout && (
-                  <div className="rounded-xl border border-accent-blue/30 bg-accent-blue/[0.10] px-6 py-5 mb-8 text-left">
-                    <p className="text-[11px] uppercase tracking-[0.15em] text-accent-blue font-semibold mb-1">
-                      Her Tryout
-                    </p>
-                    <p className="text-[1.6rem] font-extrabold text-white leading-tight">
-                      {reg.tryout.fullLabel}
-                    </p>
-                    <p className="text-[14px] text-white/55 mt-1">
-                      {reg.tryout.group} · {reg.tryout.audience}
-                    </p>
-                  </div>
-                )}
+                <div className="rounded-xl border border-accent-blue/30 bg-accent-blue/[0.10] px-6 py-5 mb-8 text-left">
+                  <p className="text-[11px] uppercase tracking-[0.15em] text-accent-blue font-semibold mb-1">
+                    Her {reg.tryout.typeLabel} Tryout
+                  </p>
+                  <p className="text-[1.6rem] font-extrabold text-white leading-tight">
+                    {reg.tryout.dateLine}
+                  </p>
+                  <p className="text-[14px] text-white/55 mt-1">
+                    {reg.tryout.time} · {reg.tryout.location}
+                  </p>
+                </div>
 
                 <div className="text-left mb-9">
                   <p className="text-[12px] uppercase tracking-[0.15em] text-white/45 font-semibold mb-3">
@@ -168,9 +164,15 @@ export default async function TryoutSuccessPage({
                     ))}
                   </ul>
                   <p className="text-[14px] text-white/50 leading-[1.7] mt-5">
-                    Arrive 15 minutes early to check in. We&apos;ll email the field
-                    location and exact arrival time before tryout day — keep an eye
-                    on your inbox.
+                    Arrive 15 minutes early to check in at {reg.tryout.location}.
+                    Questions before then? Email{" "}
+                    <a
+                      href="mailto:kathleen@youfirstlacrosse.com"
+                      className="text-white/70 hover:text-accent-blue transition-colors"
+                    >
+                      kathleen@youfirstlacrosse.com
+                    </a>
+                    .
                   </p>
                 </div>
               </>

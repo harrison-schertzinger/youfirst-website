@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { sendTryoutConfirmationEmail } from "@/lib/tryout-email";
-import { TRYOUT_DATES, tryoutByIsoDate } from "@/lib/tryouts";
+import { syncTryoutToSheet } from "@/lib/google-sheets";
+import { describeTryout, type TryoutType } from "@/lib/tryouts";
 
 // I5 fix: lazy init so missing env on a preview deploy surfaces a
 // 503 instead of crashing at module import.
@@ -233,7 +234,7 @@ async function handleTryoutPaid(
   // Locate the row — prefer the registration_id from metadata, fall back to
   // the session id (covers a metadata hiccup).
   const baseSelect =
-    "id, email, parent_name, player_full_name, tryout_date, tryout_group, payment_status, confirmation_email_sent";
+    "id, email, parent_name, player_full_name, phone, graduation_year, position, tryout_type, tryout_date, tryout_group, payment_status, confirmation_email_sent";
 
   let { data: reg } = registrationId
     ? await supabase
@@ -286,31 +287,43 @@ async function handleTryoutPaid(
     return NextResponse.json({ error: "DB update failed." }, { status: 500 });
   }
 
+  // Resolve the render-ready tryout (scheduled session OR make-up picked date).
+  const display = describeTryout({
+    type: (reg.tryout_type as TryoutType) ?? "scheduled",
+    isoDate: reg.tryout_date,
+    group: reg.tryout_group,
+  });
+
   // ── Confirmation email (fail-soft, send-once) ─────────────────────
   if (!reg.confirmation_email_sent) {
-    const tryout =
-      tryoutByIsoDate(reg.tryout_date) ??
-      (reg.tryout_group === "youth"
-        ? TRYOUT_DATES.youth
-        : reg.tryout_group === "older"
-          ? TRYOUT_DATES.older
-          : null);
-
-    if (tryout) {
-      const { sent } = await sendTryoutConfirmationEmail({
-        to: reg.email,
-        parentName: reg.parent_name,
-        playerFullName: reg.player_full_name,
-        tryout,
-      });
-      if (sent) {
-        await supabase
-          .from("tryout_registrations")
-          .update({ confirmation_email_sent: true })
-          .eq("id", reg.id);
-      }
+    const { sent } = await sendTryoutConfirmationEmail({
+      to: reg.email,
+      parentName: reg.parent_name,
+      playerFullName: reg.player_full_name,
+      display,
+    });
+    if (sent) {
+      await supabase
+        .from("tryout_registrations")
+        .update({ confirmation_email_sent: true })
+        .eq("id", reg.id);
     }
   }
+
+  // ── Google Sheet sync (fail-soft) — runs once per paid reg; the
+  // already-paid early-return above prevents duplicate rows on retry.
+  await syncTryoutToSheet({
+    timestampIso: new Date().toISOString(),
+    tryoutTypeLabel: display.typeLabel,
+    tryoutDateIso: reg.tryout_date,
+    playerFullName: reg.player_full_name,
+    parentName: reg.parent_name,
+    email: reg.email,
+    phone: reg.phone,
+    graduationYear: reg.graduation_year,
+    position: reg.position,
+    paymentStatus: "paid",
+  });
 
   return NextResponse.json({ received: true });
 }

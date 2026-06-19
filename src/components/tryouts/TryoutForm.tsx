@@ -1,15 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ScrollReveal from "@/components/home/ScrollReveal";
 import {
   GRAD_YEAR_OPTIONS,
+  MAKEUP_TRYOUT,
+  MAKEUP_DATE_OPTIONS,
   TRYOUT_POSITIONS,
   TRYOUT_FEE_LABEL,
+  describeTryout,
+  isValidMakeupDate,
   tryoutForGradYear,
+  type TryoutType,
 } from "@/lib/tryouts";
 
 interface FormState {
+  tryoutType: TryoutType;
+  makeupDate: string;
   playerFullName: string;
   parentName: string;
   email: string;
@@ -19,6 +26,8 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
+  tryoutType: "scheduled",
+  makeupDate: "",
   playerFullName: "",
   parentName: "",
   email: "",
@@ -32,7 +41,6 @@ const labelCls =
   "block text-[13px] font-semibold uppercase tracking-[0.12em] text-white/90 mb-2.5";
 const fieldCls =
   "w-full rounded-xl border border-white/15 bg-white/[0.06] px-4 py-4 text-[16px] text-white placeholder:text-white/35 focus:outline-none focus:border-accent-blue focus:bg-white/[0.09] focus:ring-2 focus:ring-accent-blue/40 transition-all duration-200";
-// Down-chevron tuned light for dark selects.
 const chevronBg = {
   backgroundImage:
     "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 7.5L10 12.5L15 7.5' stroke='%2394A3B8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")",
@@ -45,13 +53,37 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const matchedTryout = useMemo(
+  // Deep-link: the make-up section CTA (#makeup) flips the form into make-up
+  // mode and scrolls here.
+  useEffect(() => {
+    const applyHash = () => {
+      if (typeof window !== "undefined" && window.location.hash === "#makeup") {
+        setForm((f) => (f.tryoutType === "makeup" ? f : { ...f, tryoutType: "makeup" }));
+        document.getElementById("register")?.scrollIntoView({ behavior: "smooth" });
+      }
+    };
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, []);
+
+  const cohort = useMemo(
     () =>
-      form.graduationYear
-        ? tryoutForGradYear(parseInt(form.graduationYear, 10))
-        : null,
+      form.graduationYear ? tryoutForGradYear(parseInt(form.graduationYear, 10)) : null,
     [form.graduationYear],
   );
+
+  // The render-ready "Her tryout" line — scheduled session or make-up picked date.
+  const matchedDisplay = useMemo(() => {
+    if (form.tryoutType === "makeup") {
+      return isValidMakeupDate(form.makeupDate)
+        ? describeTryout({ type: "makeup", isoDate: form.makeupDate })
+        : null;
+    }
+    return cohort
+      ? describeTryout({ type: "scheduled", isoDate: cohort.isoDate, group: cohort.id })
+      : null;
+  }, [form.tryoutType, form.makeupDate, cohort]);
 
   const set =
     (key: keyof FormState) =>
@@ -60,13 +92,22 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
       if (error) setError(null);
     };
 
+  const setType = (tryoutType: TryoutType) => {
+    setForm((f) => ({ ...f, tryoutType }));
+    if (error) setError(null);
+  };
+
+  const typeOk =
+    form.tryoutType === "makeup" ? isValidMakeupDate(form.makeupDate) : !!cohort;
+
   const canSubmit =
-    form.playerFullName.trim() &&
-    form.parentName.trim() &&
-    form.email.trim() &&
-    form.phone.trim() &&
-    form.graduationYear &&
-    form.position &&
+    !!form.playerFullName.trim() &&
+    !!form.parentName.trim() &&
+    !!form.email.trim() &&
+    !!form.phone.trim() &&
+    !!form.graduationYear &&
+    !!form.position &&
+    typeOk &&
     !submitting;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -94,16 +135,15 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
 
       window.location.href = data.url; // hand off to Stripe Checkout
     } catch {
-      setError(
-        "Something went wrong reaching the payment system. Please try again.",
-      );
+      setError("Something went wrong reaching the payment system. Please try again.");
       setSubmitting(false);
     }
   }
 
+  const isMakeup = form.tryoutType === "makeup";
+
   return (
     <section className="relative overflow-hidden bg-[#0A0A0B] pb-28 pt-20 sm:pt-24 sm:pb-36" id="register">
-      {/* Radial glow */}
       <div
         className="absolute inset-0"
         style={{
@@ -142,7 +182,75 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
               </div>
             )}
 
+            {/* Tryout-type toggle */}
+            <div className="mb-6">
+              <span className={labelCls}>Tryout</span>
+              <div
+                role="tablist"
+                aria-label="Tryout type"
+                className="grid grid-cols-2 gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] p-1.5"
+              >
+                {([
+                  { key: "scheduled", label: "Scheduled" },
+                  { key: "makeup", label: "Make-up" },
+                ] as const).map((opt) => {
+                  const active = form.tryoutType === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setType(opt.key)}
+                      className={`py-3 rounded-lg text-[13px] font-semibold uppercase tracking-[0.08em] transition-all duration-200 ${
+                        active
+                          ? "bg-accent-blue text-white shadow-[0_2px_10px_rgba(74,144,217,0.4)]"
+                          : "text-white/70 hover:text-white hover:bg-white/[0.06]"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2.5 text-[13px] text-white/50 leading-relaxed">
+                {isMakeup
+                  ? `Can't make July 11 or 25? Pick a make-up day — ${MAKEUP_TRYOUT.rangeLabel}, ${MAKEUP_TRYOUT.time} at ${MAKEUP_TRYOUT.location}. Come see if You First is the right home for you.`
+                  : "Your date is set by graduation year — we'll confirm it below the moment you pick her year."}
+              </p>
+            </div>
+
             <div className="space-y-5">
+              {/* Make-up day picker (make-up mode only) — fixed 5-day block */}
+              {isMakeup && (
+                <div>
+                  <label htmlFor="makeupDate" className={labelCls}>
+                    Pick a Make-up Day
+                  </label>
+                  <select
+                    id="makeupDate"
+                    value={form.makeupDate}
+                    onChange={set("makeupDate")}
+                    className={`${fieldCls} appearance-none ${
+                      form.makeupDate ? "text-white" : "text-white/40"
+                    }`}
+                    style={chevronBg}
+                  >
+                    <option value="" disabled>
+                      Select a day
+                    </option>
+                    {MAKEUP_DATE_OPTIONS.map((d) => (
+                      <option key={d.iso} value={d.iso} className="text-black">
+                        {d.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-[13px] text-white/45">
+                    {MAKEUP_TRYOUT.time} · {MAKEUP_TRYOUT.location}
+                  </p>
+                </div>
+              )}
+
               {/* Player full name */}
               <div>
                 <label htmlFor="playerFullName" className={labelCls}>
@@ -259,8 +367,8 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
                 </div>
               </div>
 
-              {/* Smart touch: matched tryout date */}
-              {matchedTryout && (
+              {/* Smart touch: matched tryout (scheduled date OR make-up pick) */}
+              {matchedDisplay && (
                 <div className="flex items-center gap-3 rounded-xl border border-accent-blue/30 bg-accent-blue/[0.10] px-4 py-3.5 animate-fade-in-up">
                   <span className="flex-shrink-0 w-9 h-9 rounded-full bg-accent-blue/20 flex items-center justify-center">
                     <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
@@ -277,10 +385,10 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
                     <p className="text-[11px] uppercase tracking-[0.15em] text-accent-blue font-semibold">
                       Her Tryout
                     </p>
-                    <p className="text-[15px] font-semibold text-white">
-                      {matchedTryout.fullLabel}
+                    <p className="text-[15px] font-semibold text-white leading-snug">
+                      {matchedDisplay.dateLine}
                       <span className="text-white/55 font-normal">
-                        {" "}· {matchedTryout.group}
+                        {" "}· {matchedDisplay.time} · {matchedDisplay.location}
                       </span>
                     </p>
                   </div>
@@ -296,12 +404,8 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
               {/* Fee + submit */}
               <div className="pt-2">
                 <div className="flex items-center justify-between mb-4 px-1">
-                  <span className="text-[14px] text-white/55">
-                    Registration fee
-                  </span>
-                  <span className="text-[20px] font-bold text-white">
-                    {TRYOUT_FEE_LABEL}
-                  </span>
+                  <span className="text-[14px] text-white/55">Registration fee</span>
+                  <span className="text-[20px] font-bold text-white">{TRYOUT_FEE_LABEL}</span>
                 </div>
                 <button
                   type="submit"
@@ -313,8 +417,8 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
                     : `Continue to Payment — ${TRYOUT_FEE_LABEL}`}
                 </button>
                 <p className="text-center text-[12px] text-white/40 mt-4 leading-relaxed">
-                  Secure checkout by Stripe. You&apos;ll get a confirmation email
-                  the moment payment clears.
+                  Secure checkout by Stripe. You&apos;ll get a confirmation email the
+                  moment payment clears.
                 </p>
               </div>
             </div>

@@ -21,9 +21,14 @@ export const TRYOUT_PHOTOS = {
   datesBackground: "/images/team/DWW07819NEW.jpg",
   /** Mid-page emotional photo band ("build & bring the best"). */
   band: "/images/team/DSC09932_Original.JPG",
+  /** Make-up section — warm, big-group / daytime Academy community shot. */
+  makeup: "/images/team/IMG_8242.jpg",
   /** Top of the confirmation / success page. */
   success: "/images/team/DWW07763NEW.jpg",
 } as const;
+
+/** Venue for all tryouts (scheduled + make-up). */
+export const TRYOUT_LOCATION = "Cincinnati Lacrosse Academy";
 
 /** Registration fee in cents (Stripe charges in cents). $50.00 */
 export const TRYOUT_FEE_CENTS = 5000;
@@ -61,10 +66,14 @@ export interface TryoutDate {
   gradYears: number[];
   weekday: string;
   dateLabel: string;
-  /** "Friday, July 11" — used in copy and the email. */
+  /** "Saturday, July 11" — used in copy and the email. */
   fullLabel: string;
   /** Machine date stored in tryout_registrations.tryout_date (YYYY-MM-DD). */
   isoDate: string;
+  /** Time window, e.g. "5:00–6:30 PM". */
+  time: string;
+  /** Venue. */
+  location: string;
   /** Short blurb describing who belongs at this session. */
   audience: string;
 }
@@ -74,23 +83,51 @@ export const TRYOUT_DATES: Record<"youth" | "older", TryoutDate> = {
     id: "youth",
     group: "Youth",
     gradYears: [2031, 2032, 2033, 2034, 2035, 2036, 2037, 2038],
-    weekday: "Friday",
+    weekday: "Saturday",
     dateLabel: "July 11",
-    fullLabel: "Friday, July 11",
+    fullLabel: "Saturday, July 11",
     isoDate: "2026-07-11",
+    time: "5:00–6:30 PM",
+    location: TRYOUT_LOCATION,
     audience: "Grad years 2031, 2032, 2033 & younger",
   },
   older: {
     id: "older",
     group: "Older",
     gradYears: [2029, 2030],
-    weekday: "Friday",
+    weekday: "Saturday",
     dateLabel: "July 25",
-    fullLabel: "Friday, July 25",
+    fullLabel: "Saturday, July 25",
     isoDate: "2026-07-25",
+    time: "5:00–6:30 PM",
+    location: TRYOUT_LOCATION,
     audience: "Grad years 2029 & 2030",
   },
 };
+
+/**
+ * Make-up tryouts — softer, welcoming, no scheduled cohort. A fixed 5-day block
+ * of mornings at the Academy. The parent picks ONE of the five days below — no
+ * free date entry, no dates outside the block.
+ */
+export const MAKEUP_TRYOUT = {
+  rangeLabel: "August 3–7",
+  time: "8:00 AM–12:00 PM",
+  location: TRYOUT_LOCATION,
+} as const;
+
+/** The only valid make-up days. `iso` is stored; `label` is shown in the dropdown. */
+export const MAKEUP_DATE_OPTIONS = [
+  { iso: "2026-08-03", label: "Monday, August 3, 2026" },
+  { iso: "2026-08-04", label: "Tuesday, August 4, 2026" },
+  { iso: "2026-08-05", label: "Wednesday, August 5, 2026" },
+  { iso: "2026-08-06", label: "Thursday, August 6, 2026" },
+  { iso: "2026-08-07", label: "Friday, August 7, 2026" },
+] as const;
+
+const MAKEUP_DATE_SET: ReadonlySet<string> = new Set(
+  MAKEUP_DATE_OPTIONS.map((o) => o.iso),
+);
 
 /** Ordered list for rendering the two date sections. */
 export const TRYOUT_DATE_LIST: TryoutDate[] = [
@@ -122,4 +159,86 @@ export function tryoutForGradYear(year: number | null | undefined): TryoutDate |
 export function tryoutByIsoDate(isoDate: string | null | undefined): TryoutDate | null {
   if (!isoDate) return null;
   return TRYOUT_DATE_LIST.find((t) => t.isoDate === isoDate) ?? null;
+}
+
+// ── Tryout type (scheduled vs make-up) ───────────────────────────────────
+export const TRYOUT_TYPES = ["scheduled", "makeup"] as const;
+export type TryoutType = (typeof TRYOUT_TYPES)[number];
+
+export function isTryoutType(v: unknown): v is TryoutType {
+  return typeof v === "string" && (TRYOUT_TYPES as readonly string[]).includes(v);
+}
+
+/** Is `iso` one of the five allowed make-up days? */
+export function isValidMakeupDate(iso: string | null | undefined): boolean {
+  return !!iso && MAKEUP_DATE_SET.has(iso);
+}
+
+/**
+ * Format a YYYY-MM-DD as "Saturday, July 11" with no timezone drift
+ * (parsed at UTC noon, formatted in UTC). Safe on server and client.
+ */
+export function formatTryoutDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  const dt = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12));
+  return dt.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/** A resolved, render-ready description of a registration's tryout. */
+export interface TryoutDisplay {
+  type: TryoutType;
+  typeLabel: string;
+  /** "Saturday, July 11" */
+  dateLine: string;
+  /** "5:00–6:30 PM" */
+  time: string;
+  location: string;
+  /** "Saturday, July 11 · 5:00–6:30 PM · Cincinnati Lacrosse Academy" */
+  fullLine: string;
+}
+
+/**
+ * Resolve the display for any registration. Scheduled rows render from the
+ * canonical session; make-up rows render the parent-picked date + the make-up
+ * window. ONE place builds these lines so the form, success page, email, and
+ * sheet all agree.
+ */
+export function describeTryout(input: {
+  type: TryoutType;
+  isoDate: string;
+  group?: string | null;
+}): TryoutDisplay {
+  if (input.type === "makeup") {
+    const dateLine = formatTryoutDate(input.isoDate);
+    return {
+      type: "makeup",
+      typeLabel: "Make-up",
+      dateLine,
+      time: MAKEUP_TRYOUT.time,
+      location: MAKEUP_TRYOUT.location,
+      fullLine: `${dateLine} · ${MAKEUP_TRYOUT.time} · ${MAKEUP_TRYOUT.location}`,
+    };
+  }
+  // scheduled — prefer the canonical session by isoDate, fall back to group.
+  const t =
+    tryoutByIsoDate(input.isoDate) ??
+    (input.group === "youth"
+      ? TRYOUT_DATES.youth
+      : input.group === "older"
+        ? TRYOUT_DATES.older
+        : TRYOUT_DATES.youth);
+  return {
+    type: "scheduled",
+    typeLabel: "Scheduled",
+    dateLine: t.fullLabel,
+    time: t.time,
+    location: t.location,
+    fullLine: `${t.fullLabel} · ${t.time} · ${t.location}`,
+  };
 }
