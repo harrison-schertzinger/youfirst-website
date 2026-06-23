@@ -84,6 +84,16 @@ export async function POST(request: NextRequest) {
     return handleTryoutPaid(supabase, session, meta);
   }
 
+  // ── One-off charge branch ───────────────────────────────────────────
+  // Charge sessions carry kind:"charge" + charge_id. They record into
+  // payments (reusing the ledger) and flip THAT charge to 'paid' — and
+  // reconcile nothing else (the season payment_plans logic below never
+  // runs for a charge). Handled before the generic logic so a charge can
+  // never be mistaken for a plan payment.
+  if (meta.kind === "charge") {
+    return handleChargePaid(stripe, supabase, session, meta);
+  }
+
   const playerId = meta.player_id;
   const ticketId = meta.ticket_id;
   const category = meta.category;
@@ -351,6 +361,155 @@ async function handleTryoutPaid(
   });
 
   return NextResponse.json({ received: true });
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// One-off charge paid: insert the ledger row and flip the charge to 'paid'.
+// Idempotent and self-converging:
+//   • payments insert dedups on the unique stripe_session_id (pre-check +
+//     23505 guard), so a duplicate delivery never double-records.
+//   • the charge flip is a compare-and-swap (.neq status 'paid'); a second
+//     delivery matches 0 rows — it can't pay twice or change the amount.
+//   • reconciles NOTHING else — payment_plans are untouched by a charge.
+// Returns 500 only on a transient DB error so Stripe retries and converges.
+// ──────────────────────────────────────────────────────────────────────
+async function handleChargePaid(
+  stripe: Stripe,
+  supabase: SupabaseClient,
+  session: Stripe.Checkout.Session,
+  meta: Record<string, string>,
+): Promise<NextResponse> {
+  if (session.payment_status !== "paid") {
+    return NextResponse.json({ received: true, skipped: "unpaid_session" });
+  }
+
+  const chargeId = meta.charge_id;
+  const playerId = meta.player_id;
+  if (!chargeId || !playerId) {
+    console.error("Charge webhook missing metadata:", meta);
+    return NextResponse.json({ received: true, skipped: "bad_metadata" });
+  }
+
+  const stripeSessionId = session.id;
+  const amountCents = session.amount_total ?? 0;
+  const paymentIntentId =
+    typeof session.payment_intent === "string" ? session.payment_intent : null;
+
+  // ── 1. Claim the charge — ONLY if it is still 'open' ───────────────
+  // Compare-and-swap on status='open'. Exactly one delivery flips it. Any
+  // later or parallel delivery (already paid, or VOIDED mid-payment) matches
+  // 0 rows — it must never resurrect a voided charge or fabricate a paid row.
+  const { data: claimed, error: claimError } = await supabase
+    .from("player_charges")
+    .update({
+      status: "paid",
+      paid_at: new Date().toISOString(),
+      stripe_session_id: stripeSessionId,
+      stripe_payment_intent_id: paymentIntentId,
+    })
+    .eq("id", chargeId)
+    .eq("status", "open")
+    .select("id");
+
+  if (claimError) {
+    console.error("Failed to claim charge; will retry:", claimError);
+    return NextResponse.json({ error: "Charge update failed." }, { status: 500 });
+  }
+
+  const weClaimed = !!claimed && claimed.length === 1;
+
+  if (!weClaimed) {
+    // We didn't flip it. Find out why: our own duplicate, or money-taken?
+    const { data: chargeRow, error: readError } = await supabase
+      .from("player_charges")
+      .select("status, stripe_session_id")
+      .eq("id", chargeId)
+      .maybeSingle();
+
+    if (readError) {
+      console.error("Failed to read charge after claim miss:", readError);
+      return NextResponse.json({ error: "Charge read failed." }, { status: 500 });
+    }
+    if (!chargeRow) {
+      console.error("Charge webhook: charge row missing:", chargeId);
+      return NextResponse.json({ received: true, skipped: "charge_missing" });
+    }
+
+    const sameSessionAlreadyPaid =
+      chargeRow.status === "paid" &&
+      chargeRow.stripe_session_id === stripeSessionId;
+
+    if (!sameSessionAlreadyPaid) {
+      // The card was charged but this charge is no longer claimable by THIS
+      // session — it was voided mid-payment, or already paid by a different
+      // checkout (two tabs). Refund the parent rather than keep the money or
+      // write a phantom paid row. Idempotency-keyed so a retry can't double-
+      // refund.
+      if (paymentIntentId) {
+        try {
+          await stripe.refunds.create(
+            { payment_intent: paymentIntentId },
+            { idempotencyKey: `charge_refund_${stripeSessionId}` },
+          );
+        } catch (refundErr) {
+          console.error("Charge refund failed; will retry:", refundErr);
+          return NextResponse.json({ error: "Refund failed." }, { status: 500 });
+        }
+      } else {
+        console.error("Charge not claimable and no payment_intent to refund:", {
+          chargeId,
+          stripeSessionId,
+        });
+      }
+      return NextResponse.json({ received: true, refunded: true });
+    }
+    // else: a duplicate delivery of OUR OWN winning payment → fall through to
+    // ensure the ledger row exists (idempotent). No refund.
+  }
+
+  // ── 2. Ledger row (idempotent on stripe_session_id) ────────────────
+  // Runs for the winning delivery AND a duplicate redelivery of the same
+  // winning session, so a claim-succeeded-but-insert-failed retry converges.
+  // Reconciles NOTHING else — payment_plans are untouched by a charge.
+  const { data: existing } = await supabase
+    .from("payments")
+    .select("id")
+    .eq("stripe_session_id", stripeSessionId)
+    .maybeSingle();
+
+  let duplicate = !weClaimed;
+
+  if (existing) {
+    duplicate = true;
+  } else {
+    const { error: insertError } = await supabase.from("payments").insert({
+      player_id: playerId,
+      amount_cents: amountCents,
+      payment_category: "custom",
+      payment_method: "stripe",
+      description: meta.label || meta.ticket_id || "Charge",
+      season: meta.season || "2025-26",
+      status: "completed",
+      payment_date: new Date().toISOString(),
+      stripe_session_id: stripeSessionId,
+      stripe_payment_intent_id: paymentIntentId,
+    });
+
+    if (insertError) {
+      const code = (insertError as { code?: string }).code;
+      if (code === "23505") {
+        duplicate = true;
+      } else {
+        console.error("Failed to insert charge payment:", insertError);
+        return NextResponse.json(
+          { error: "Database insert failed." },
+          { status: 500 },
+        );
+      }
+    }
+  }
+
+  return NextResponse.json({ received: true, duplicate });
 }
 
 // ──────────────────────────────────────────────────────────────────────

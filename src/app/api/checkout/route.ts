@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { getStripe } from "@/lib/stripe";
 import { STRIPE_PRICE_IDS, TICKET_AMOUNTS_CENTS } from "@/lib/feesData";
+import { readPortalSession } from "@/lib/portal-session";
 
 // C1/C3 fix: derive price + verify unpaid state server-side.
 // Client only supplies (playerId, category, installmentIndex). Everything
@@ -72,59 +72,19 @@ export async function POST(request: NextRequest) {
   }
   const safeCategory: Category = category;
 
-  // ── Authenticate: read user from Supabase session cookies ──────────
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll() {
-          // No-op — this route doesn't refresh cookies
-        },
-      },
-    },
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  // ── Authenticate: portal token (parents are NOT on Supabase Auth) ──
+  const portalSession = readPortalSession(request);
+  if (!portalSession) {
+    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
 
-  // ── Authorize: verify this user is a guardian of this player ────────
+  // Any signed-in parent may pay for any player — intentionally not gated
+  // (divorced/step-parent families etc.). The amount is still re-derived
+  // server-side below, so the payer can never influence what is charged.
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
-
-  const { data: guardian } = await admin
-    .from("guardians")
-    .select("id, email")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-
-  if (!guardian) {
-    return NextResponse.json({ error: "Guardian not found." }, { status: 403 });
-  }
-
-  const { data: link } = await admin
-    .from("player_guardians")
-    .select("player_id")
-    .eq("guardian_id", guardian.id)
-    .eq("player_id", playerId)
-    .maybeSingle();
-
-  if (!link) {
-    return NextResponse.json(
-      { error: "You are not authorized to make payments for this player." },
-      { status: 403 },
-    );
-  }
 
   // ── Re-derive ticket state server-side (C1 + C3) ───────────────────
   //  - Summer: look up the player's plan, derive price from installments_total
@@ -247,10 +207,10 @@ export async function POST(request: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [{ price: stripePriceId, quantity: 1 }],
-      customer_email: guardian.email || user.email || undefined,
+      customer_email: portalSession.email || undefined,
       metadata: {
         player_id: playerId,
-        guardian_id: guardian.id,
+        guardian_id: portalSession.guardianId,
         ticket_id: ticketId,
         category: safeCategory,
         ...(safeCategory === "summer" && installmentsTotal

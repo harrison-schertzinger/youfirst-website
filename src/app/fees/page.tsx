@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ScrollProgressBar from "@/components/layout/ScrollProgressBar";
+import { cookies } from "next/headers";
 import ParentPortal from "@/components/fees/ParentPortal";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { PORTAL_COOKIE_NAME, verifyPortalToken } from "@/lib/portal-session";
 
 export const metadata: Metadata = {
   title: "My Account | YOU. FIRST Elite Lacrosse",
@@ -18,13 +19,11 @@ export const metadata: Metadata = {
 };
 
 export default async function FeesPage() {
-  // If the parent is already signed in, jump them straight to the portal
-  // instead of showing the sign-in form again.
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (user) {
+  // If the parent already has a valid portal token, jump them straight to the
+  // portal instead of showing the sign-in form again.
+  const store = await cookies();
+  const session = verifyPortalToken(store.get(PORTAL_COOKIE_NAME)?.value);
+  if (session) {
     redirect("/portal");
   }
 

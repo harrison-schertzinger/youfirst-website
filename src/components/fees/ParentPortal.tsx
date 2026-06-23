@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 import RegistrationModal from "@/components/portal/RegistrationModal";
 
 export default function ParentPortal() {
+  const router = useRouter();
   const [loaded, setLoaded] = useState(false);
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [password, setPassword] = useState("");
+  const [status, setStatus] = useState<"idle" | "signing" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [showRegister, setShowRegister] = useState(false);
 
@@ -18,39 +20,30 @@ export default function ParentPortal() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setStatus("sending");
+    setStatus("signing");
     setErrorMsg("");
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        // Only seeded parents and registered guardians have accounts.
-        // Refuse to create new auth users from this form.
-        shouldCreateUser: false,
-        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
-      },
-    });
+    try {
+      const res = await fetch("/api/portal/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (error) {
-      setStatus("error");
-      // Supabase returns a generic message when shouldCreateUser is false
-      // and the email isn't found. Surface a friendlier hint.
-      const lower = error.message.toLowerCase();
-      if (
-        lower.includes("signups not allowed") ||
-        lower.includes("not found") ||
-        lower.includes("user not found")
-      ) {
-        setErrorMsg(
-          "We don't see an account for that email. Register your player below or contact us if you think this is wrong."
-        );
-      } else {
-        setErrorMsg(error.message);
+      if (res.ok) {
+        // Token cookie is set by the server. The portal decides whether to
+        // show the player (if linked) or the "find your athlete" picker.
+        router.push("/portal");
+        router.refresh();
+        return;
       }
-    } else {
-      setStatus("sent");
-      setEmail("");
+
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      setStatus("error");
+      setErrorMsg(data.error ?? "We couldn’t sign you in. Please try again.");
+    } catch {
+      setStatus("error");
+      setErrorMsg("Network error. Check your connection and try again.");
     }
   }
 
@@ -94,73 +87,50 @@ export default function ParentPortal() {
             }`}
             style={{ transitionDelay: "300ms" }}
           >
-            Your player&apos;s world, all in one place.
+            Enter your email and password to see what&apos;s due.
           </p>
 
-          {status === "sent" ? (
-            /* Success state */
-            <div
-              className={`transition-all duration-800 ${
-                loaded ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-4 blur-sm"
-              }`}
-              style={{ transitionDelay: "450ms" }}
-            >
-              <div className="flex items-center justify-center gap-3 px-6 py-5 rounded-xl border border-accent-green/20 bg-accent-green/5">
-                <svg
-                  className="w-6 h-6 text-accent-green flex-shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                <div className="text-left">
-                  <p className="text-sm font-semibold text-[#1A1A1A]">Check your email</p>
-                  <p className="text-sm text-[#6B7280]">
-                    We sent a sign-in link. Click it to access your portal.
-                  </p>
-                </div>
-              </div>
+          <form
+            onSubmit={handleSubmit}
+            className={`flex flex-col gap-3 transition-all duration-800 ${
+              loaded ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-4 blur-sm"
+            }`}
+            style={{ transitionDelay: "450ms" }}
+          >
+            <input
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="parent@email.com"
+              disabled={status === "signing"}
+              className="w-full px-5 py-3.5 rounded-xl border border-[#E5E7EB] bg-white text-sm text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-accent-blue/30 focus:border-accent-blue transition-all duration-200 disabled:opacity-50"
+            />
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="password"
+                required
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                disabled={status === "signing"}
+                className="flex-1 px-5 py-3.5 rounded-xl border border-[#E5E7EB] bg-white text-sm text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-accent-blue/30 focus:border-accent-blue transition-all duration-200 disabled:opacity-50"
+              />
               <button
-                onClick={() => setStatus("idle")}
-                className="mt-6 text-sm text-accent-blue hover:text-accent-blue-hover transition-colors duration-200 underline underline-offset-2"
+                type="submit"
+                disabled={status === "signing"}
+                className="px-6 py-3.5 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(74,144,217,0.4)] hover:shadow-[0_4px_24px_rgba(74,144,217,0.55)] hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 whitespace-nowrap disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:scale-100"
               >
-                Use a different email
+                {status === "signing" ? "Signing in..." : "Sign In"}
               </button>
             </div>
-          ) : (
-            <>
-              <form
-                onSubmit={handleSubmit}
-                className={`flex flex-col sm:flex-row gap-3 transition-all duration-800 ${
-                  loaded ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-4 blur-sm"
-                }`}
-                style={{ transitionDelay: "450ms" }}
-              >
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="parent@email.com"
-                  disabled={status === "sending"}
-                  className="flex-1 px-5 py-3.5 rounded-xl border border-[#E5E7EB] bg-white text-sm text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-accent-blue/30 focus:border-accent-blue transition-all duration-200 disabled:opacity-50"
-                />
-                <button
-                  type="submit"
-                  disabled={status === "sending"}
-                  className="px-6 py-3.5 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(74,144,217,0.4)] hover:shadow-[0_4px_24px_rgba(74,144,217,0.55)] hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 whitespace-nowrap disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:scale-100"
-                >
-                  {status === "sending" ? "Sending..." : "Send Sign-In Link"}
-                </button>
-              </form>
 
-              {status === "error" && (
-                <p className="text-sm text-red-500 mt-4">{errorMsg}</p>
-              )}
-            </>
-          )}
+            {status === "error" && (
+              <p className="text-sm text-red-500 mt-1 text-left">{errorMsg}</p>
+            )}
+          </form>
         </div>
 
         {/* ─── Registration invitation card ─── */}

@@ -289,7 +289,7 @@ export async function POST(request: NextRequest) {
   try {
     const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
       guardian_email,
-      { redirectTo: `${request.nextUrl.origin}/api/auth/callback` },
+      { redirectTo: `${request.nextUrl.origin}/fees` },
     );
     if (inviteError) {
       console.error(

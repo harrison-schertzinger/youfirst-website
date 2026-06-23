@@ -14,6 +14,9 @@ import GuardiansEditableCard, {
   type GuardianWithLink,
 } from "@/components/admin/GuardiansEditableCard";
 import PaymentLinksSection from "@/components/admin/PaymentLinksSection";
+import ChargesSection, {
+  type AdminCharge,
+} from "@/components/admin/ChargesSection";
 import SendReminderTrigger from "@/components/admin/SendReminderTrigger";
 import type { ReminderGuardian } from "@/components/admin/SendReminderModal";
 
@@ -173,8 +176,8 @@ export default async function PlayerProfilePage({
     );
   }
 
-  // Parallel: guardians (via player_guardians), payments, and the most-recent plan.
-  const [linksRes, paymentsRes, planRes] = await Promise.all([
+  // Parallel: guardians (via player_guardians), payments, plan, and charges.
+  const [linksRes, paymentsRes, planRes, chargesRes] = await Promise.all([
     admin
       .from("player_guardians")
       .select("guardian_id, is_primary")
@@ -194,6 +197,11 @@ export default async function PlayerProfilePage({
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    admin
+      .from("player_charges")
+      .select("id, label, amount_cents, season, status, paid_at, created_at")
+      .eq("player_id", id)
+      .order("created_at", { ascending: false }),
   ]);
 
   const links: LinkRow[] = (linksRes.data ?? []) as LinkRow[];
@@ -232,6 +240,7 @@ export default async function PlayerProfilePage({
 
   const payments: PaymentRow[] = (paymentsRes.data ?? []) as PaymentRow[];
   const plan: PlanRow | null = (planRes.data ?? null) as PlanRow | null;
+  const charges: AdminCharge[] = (chargesRes.data ?? []) as AdminCharge[];
 
   // ── Source inference ──────────────────────────────────────────────────
   const sourceInput: PlayerSourceInput = {
@@ -348,6 +357,14 @@ export default async function PlayerProfilePage({
           </div>
         )}
       </section>
+
+      {/* One-off charges — always available, even with no plan balance, so a
+          player can be charged for something extra (missed tournaments, etc.). */}
+      <ChargesSection
+        playerId={p.id}
+        playerName={fullName}
+        initialCharges={charges}
+      />
 
       {/* Payment Management — visible only when there's an outstanding balance. */}
       {balanceCents > 0 && (

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
+import { readPortalSession } from "@/lib/portal-session";
 
 const ALLOWED_SIZES = new Set(["XS", "S", "M", "L", "XL", "XXL"]);
 
@@ -16,27 +16,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing playerId" }, { status: 400 });
   }
 
-  // Auth — read user from session cookie
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll() {
-          // No-op — we don't set cookies in this route
-        },
-      },
-    }
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  // Auth — portal token (parents are not on Supabase Auth)
+  const session = readPortalSession(request);
+  if (!session) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
@@ -46,21 +28,11 @@ export async function POST(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Verify the caller is linked (via guardian) to this player
-  const { data: guardian } = await admin
-    .from("guardians")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .single();
-
-  if (!guardian) {
-    return NextResponse.json({ error: "Guardian record not found" }, { status: 403 });
-  }
-
+  // Editing a player's profile stays scoped to the parent's linked players.
   const { data: link } = await admin
     .from("player_guardians")
     .select("player_id")
-    .eq("guardian_id", guardian.id)
+    .eq("guardian_id", session.guardianId)
     .eq("player_id", playerId)
     .maybeSingle();
 

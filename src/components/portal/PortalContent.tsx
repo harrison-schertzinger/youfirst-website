@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { SITE_CONFIG } from "@/lib/constants";
 import PlayerCard from "./PlayerCard";
 import PaymentDashboard from "./PaymentDashboard";
 import PlayerProfileCard from "./PlayerProfileCard";
+import PlayerPicker from "./PlayerPicker";
 
 interface Guardian {
   id: string;
@@ -59,147 +60,70 @@ interface PaymentPlan {
   next_due_date: string | null;
 }
 
+export interface PortalCharge {
+  id: string;
+  label: string;
+  amount_cents: number;
+  season: string | null;
+  status: "open" | "paid" | "void";
+  paid_at: string | null;
+  created_at: string | null;
+}
+
 interface PlayerWithData extends Player {
   guardians: Guardian[];
   payments: Payment[];
   paymentPlan: PaymentPlan | null;
+  charges: PortalCharge[];
 }
 
-export default function PortalContent({
-  userEmail,
-  userId,
-}: {
-  userEmail: string;
-  userId: string;
-}) {
-  const [loading, setLoading] = useState(true);
-  const [notSetUp, setNotSetUp] = useState(false);
-  const [loadError, setLoadError] = useState("");
+export default function PortalContent() {
+  const router = useRouter();
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [players, setPlayers] = useState<PlayerWithData[]>([]);
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-
-    async function loadData() {
-      const supabase = createClient();
-
-      // Find guardian record for this auth user
-      const { data: guardian } = await supabase
-        .from("guardians")
-        .select("*")
-        .eq("auth_user_id", userId)
-        .maybeSingle();
-
-      if (!guardian) {
-        // Guardian exists but auth_user_id not yet linked: link it
-        // server-side (the endpoint matches by user.email — never trust
-        // the client to specify which guardian to claim).
-        const linkRes = await fetch("/api/auth/link-guardian", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        });
-
+    (async () => {
+      try {
+        const res = await fetch("/api/portal/data", { cache: "no-store" });
         if (cancelled) return;
-
-        if (linkRes.status === 404) {
-          // No guardian for this email — friendly "not set up" state.
-          setNotSetUp(true);
-          setLoading(false);
+        if (res.status === 401) {
+          router.replace("/fees");
           return;
         }
-
-        if (!linkRes.ok) {
-          // Don't reload — that would loop. Surface the error.
-          const { error } = await linkRes.json().catch(() => ({}));
-          setLoadError(
-            error || "We couldn't link your account. Please contact us."
-          );
-          setLoading(false);
+        if (!res.ok) {
+          setLoadError("We couldn’t load your portal. Please refresh.");
+          setStatus("error");
           return;
         }
-
-        // Successfully linked — reload once to pick up the auth_user_id.
-        window.location.reload();
-        return;
+        const data = (await res.json()) as { players: PlayerWithData[] };
+        if (cancelled) return;
+        setPlayers(data.players ?? []);
+        setStatus("ready");
+      } catch {
+        if (!cancelled) {
+          setLoadError("Network error. Please refresh.");
+          setStatus("error");
+        }
       }
-
-      // Get linked player IDs
-      const { data: links } = await supabase
-        .from("player_guardians")
-        .select("player_id")
-        .eq("guardian_id", guardian.id);
-
-      if (!links || links.length === 0) {
-        setNotSetUp(true);
-        setLoading(false);
-        return;
-      }
-
-      const playerIds = links.map((l) => l.player_id);
-
-      // Fetch players
-      const { data: playersData } = await supabase
-        .from("players")
-        .select("*")
-        .in("id", playerIds);
-
-      if (!playersData || playersData.length === 0) {
-        setNotSetUp(true);
-        setLoading(false);
-        return;
-      }
-
-      // For each player, fetch guardians, payments, and payment plan
-      const enriched: PlayerWithData[] = await Promise.all(
-        playersData.map(async (player) => {
-          // All guardians for this player
-          const { data: pgLinks } = await supabase
-            .from("player_guardians")
-            .select("guardian_id")
-            .eq("player_id", player.id);
-
-          const guardianIds = pgLinks?.map((l) => l.guardian_id) || [];
-          const { data: guardians } = await supabase
-            .from("guardians")
-            .select("*")
-            .in("id", guardianIds);
-
-          // Payments
-          const { data: payments } = await supabase
-            .from("payments")
-            .select("*")
-            .eq("player_id", player.id)
-            .order("payment_date", { ascending: false });
-
-          // Payment plan (most recent)
-          const { data: plans } = await supabase
-            .from("payment_plans")
-            .select("*")
-            .eq("player_id", player.id)
-            .order("created_at", { ascending: false })
-            .limit(1);
-
-          return {
-            ...player,
-            guardians: guardians || [],
-            payments: payments || [],
-            paymentPlan: plans?.[0] || null,
-          };
-        })
-      );
-
-      if (cancelled) return;
-      setPlayers(enriched);
-      setLoading(false);
-    }
-
-    loadData();
+    })();
     return () => {
       cancelled = true;
     };
-  }, [userEmail, userId]);
+  }, [reloadKey, router]);
 
-  if (loading) {
+  // Bump to re-pull the portal after linking a new player.
+  const reload = () => setReloadKey((k) => k + 1);
+
+  async function signOut() {
+    await fetch("/api/portal/logout", { method: "POST" }).catch(() => {});
+    router.replace("/fees");
+  }
+
+  if (status === "loading") {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-4">
@@ -210,31 +134,39 @@ export default function PortalContent({
     );
   }
 
-  if (notSetUp || loadError) {
+  if (status === "error") {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="max-w-md mx-auto px-6 text-center">
-          <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-[#F0F1F3] flex items-center justify-center">
-            <svg className="w-8 h-8 text-[#9CA3AF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-          </div>
           <h2 className="text-2xl font-bold text-[#1A1A1A] mb-3">
-            {loadError ? "Something Went Wrong" : "Account Not Set Up"}
+            Something Went Wrong
           </h2>
-          <p className="text-[#6B7280] mb-8 leading-relaxed">
-            {loadError
-              ? loadError
-              : "Your account hasn\u2019t been set up yet. Contact us and we\u2019ll get you connected to your player\u2019s profile."}
-          </p>
+          <p className="text-[#6B7280] mb-8 leading-relaxed">{loadError}</p>
           <a
             href={`mailto:${SITE_CONFIG.email}`}
-            className="inline-block px-6 py-3.5 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(74,144,217,0.4)] hover:shadow-[0_4px_24px_rgba(74,144,217,0.55)] hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 break-all"
+            className="inline-block px-6 py-3.5 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(74,144,217,0.4)] hover:shadow-[0_4px_24px_rgba(74,144,217,0.55)] transition-all duration-300 break-all"
           >
             Email {SITE_CONFIG.email}
           </a>
         </div>
       </div>
+    );
+  }
+
+  // Signed in but not linked to any player yet → find-your-athlete picker.
+  if (players.length === 0) {
+    return (
+      <>
+        <PlayerPicker onLinked={reload} />
+        <div className="text-center pb-12">
+          <button
+            onClick={signOut}
+            className="text-sm text-[#9CA3AF] hover:text-[#6B7280] transition-colors duration-200 underline underline-offset-2"
+          >
+            Sign out
+          </button>
+        </div>
+      </>
     );
   }
 
@@ -251,7 +183,7 @@ export default function PortalContent({
       {/* Player cards */}
       {players.map((player) => (
         <div key={player.id} className="mb-16">
-          <PlayerCard player={player} guardians={player.guardians} />
+          <PlayerCard player={player} />
           <PlayerProfileCard
             player={player}
             onUpdated={(next) =>
@@ -264,6 +196,7 @@ export default function PortalContent({
             playerId={player.id}
             payments={player.payments}
             paymentPlan={player.paymentPlan}
+            charges={player.charges}
           />
         </div>
       ))}
@@ -271,11 +204,7 @@ export default function PortalContent({
       {/* Sign out */}
       <div className="text-center pt-8 border-t border-[#E5E7EB]">
         <button
-          onClick={async () => {
-            const supabase = createClient();
-            await supabase.auth.signOut();
-            window.location.href = "/fees";
-          }}
+          onClick={signOut}
           className="text-sm text-[#9CA3AF] hover:text-[#6B7280] transition-colors duration-200 underline underline-offset-2"
         >
           Sign out

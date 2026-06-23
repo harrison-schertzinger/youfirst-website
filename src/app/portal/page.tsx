@@ -3,9 +3,10 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ScrollProgressBar from "@/components/layout/ScrollProgressBar";
+import { cookies } from "next/headers";
 import PortalContent from "@/components/portal/PortalContent";
 import PaymentBanner from "@/components/portal/PaymentBanner";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { PORTAL_COOKIE_NAME, verifyPortalToken } from "@/lib/portal-session";
 
 export const metadata: Metadata = {
   title: "Player Portal | YOU. FIRST Elite Lacrosse",
@@ -17,12 +18,10 @@ export default async function PortalPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const store = await cookies();
+  const session = verifyPortalToken(store.get(PORTAL_COOKIE_NAME)?.value);
 
-  if (!user) {
+  if (!session) {
     redirect("/fees");
   }
 
@@ -38,7 +37,7 @@ export default async function PortalPage({
         {(paidTicket || canceledTicket) && (
           <PaymentBanner paid={paidTicket} canceled={canceledTicket} />
         )}
-        <PortalContent userEmail={user.email!} userId={user.id} />
+        <PortalContent />
       </main>
       <Footer />
     </>

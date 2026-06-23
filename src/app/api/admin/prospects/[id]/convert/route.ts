@@ -254,7 +254,7 @@ export async function POST(
   try {
     const { error: inviteErr } = await admin.auth.admin.inviteUserByEmail(
       parent_email,
-      { redirectTo: `${request.nextUrl.origin}/api/auth/callback` },
+      { redirectTo: `${request.nextUrl.origin}/fees` },
     );
     if (inviteErr) {
       console.error("[prospects/convert] invite failed:", inviteErr);

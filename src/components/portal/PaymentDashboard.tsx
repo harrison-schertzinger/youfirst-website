@@ -271,24 +271,201 @@ function StatusBadge({ status }: { status: PaymentTicket["status"] }) {
   );
 }
 
+// ─── Charge line item ─────────────────────────────────────────────────────────
+
+export interface PortalChargeLine {
+  id: string;
+  label: string;
+  amount_cents: number;
+  status: "open" | "paid" | "void";
+  paid_at: string | null;
+}
+
+function ChargeCard({ charge }: { charge: PortalChargeLine }) {
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
+  const isPaid = charge.status === "paid";
+
+  // Charges get a distinct violet accent so parents don't confuse a one-off
+  // charge with a season-plan installment.
+  const gradient = "linear-gradient(135deg, #0A0A0B 0%, #1A1D24 45%, #7C5CFB 100%)";
+
+  async function handlePay() {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      // The ONLY thing we send is the charge id. The server looks up the
+      // amount from player_charges — the browser can't influence the price.
+      const res = await fetch("/api/portal/charge-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ charge_id: charge.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      setErrorMsg(
+        typeof data.error === "string"
+          ? data.error
+          : "Couldn't start checkout. Please try again.",
+      );
+      setLoading(false);
+      inFlightRef.current = false;
+    } catch {
+      setErrorMsg("Network error. Please try again.");
+      setLoading(false);
+      inFlightRef.current = false;
+    }
+  }
+
+  return (
+    <article
+      className={[
+        "group relative rounded-2xl overflow-hidden bg-white transition-all",
+        "shadow-[0_2px_12px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]",
+        isPaid ? "opacity-75 saturate-[0.6]" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <div
+        className="relative h-40 p-6 flex flex-col justify-end"
+        style={{ background: gradient }}
+      >
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none opacity-40"
+          style={{
+            background:
+              "radial-gradient(circle at 85% 15%, rgba(255,255,255,0.18) 0%, transparent 55%)",
+          }}
+        />
+        {isPaid && (
+          <div
+            aria-hidden="true"
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/25"
+          >
+            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        )}
+        <div className="relative text-[10px] font-semibold uppercase tracking-[0.22em] text-white/60">
+          One-Off Charge
+        </div>
+        <h3 className="relative mt-1.5 text-[20px] sm:text-[22px] font-bold text-white leading-[1.1] tracking-tight">
+          {charge.label}
+        </h3>
+      </div>
+
+      <div className="bg-white p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#9CA3AF]">
+              {isPaid ? "Amount Paid" : "Amount Due"}
+            </div>
+            <div
+              className={`mt-1 text-2xl font-bold tabular-nums leading-none ${
+                isPaid
+                  ? "text-[#9CA3AF] line-through decoration-[#9CA3AF]/40"
+                  : "text-[#1A1A1A]"
+              }`}
+            >
+              {formatCurrency(charge.amount_cents / 100)}
+            </div>
+            {isPaid && charge.paid_at && (
+              <div className="mt-2 text-[12px] text-[#6B7280] tabular-nums">
+                Received {formatShortDate(charge.paid_at)}
+              </div>
+            )}
+          </div>
+          {isPaid ? (
+            <StatusBadge status="paid" />
+          ) : (
+            <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#7C5CFB]/10 text-[#7C5CFB]">
+              Due
+            </span>
+          )}
+        </div>
+
+        {isPaid ? (
+          <div className="mt-5 flex items-center justify-center gap-2 w-full min-h-[48px] px-4 rounded-xl border border-[#34D399]/25 bg-[#34D399]/5 text-[#34D399] text-[12px] font-bold uppercase tracking-[0.12em]">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Paid in Full
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handlePay}
+            disabled={loading}
+            className={[
+              "mt-5 flex items-center justify-center gap-2 w-full min-h-[48px] px-4 rounded-xl",
+              "text-[12px] font-bold uppercase tracking-[0.12em] text-white transition-all",
+              "hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed",
+              "bg-[#7C5CFB] hover:bg-[#6A47F0] shadow-[0_4px_14px_rgba(124,92,251,0.3)] hover:shadow-[0_8px_24px_rgba(124,92,251,0.5)]",
+            ].join(" ")}
+          >
+            {loading ? (
+              "Redirecting..."
+            ) : errorMsg ? (
+              <span className="text-white text-[11px] normal-case tracking-normal">
+                {errorMsg} · Tap to retry
+              </span>
+            ) : (
+              <>
+                Pay {formatCurrency(charge.amount_cents / 100)}
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </>
+            )}
+          </button>
+        )}
+      </div>
+    </article>
+  );
+}
+
 // ─── Main component ─────────────────────────────────────────────────────────
 
 export default function PaymentDashboard({
   playerId,
   payments,
   paymentPlan,
+  charges = [],
 }: {
   playerId: string;
   payments: PortalPayment[];
   paymentPlan: PortalPaymentPlan | null;
+  charges?: PortalChargeLine[];
 }) {
   const tickets = buildTickets(playerId, payments, paymentPlan);
+  const visibleCharges = charges.filter((c) => c.status !== "void");
 
-  const totalBilled = tickets.reduce((s, t) => s + t.amount, 0);
-  const totalPaid = tickets
+  const ticketBilled = tickets.reduce((s, t) => s + t.amount, 0);
+  const ticketPaid = tickets
     .filter((t) => t.status === "paid")
     .reduce((s, t) => s + t.amount, 0);
+  const chargeBilled = visibleCharges.reduce(
+    (s, c) => s + c.amount_cents / 100,
+    0,
+  );
+  const chargePaid = visibleCharges
+    .filter((c) => c.status === "paid")
+    .reduce((s, c) => s + c.amount_cents / 100, 0);
+
+  const totalBilled = ticketBilled + chargeBilled;
+  const totalPaid = ticketPaid + chargePaid;
   const totalRemaining = Math.max(0, totalBilled - totalPaid);
+
+  const nothing = tickets.length === 0 && visibleCharges.length === 0;
 
   return (
     <div className="max-w-2xl mx-auto mt-12">
@@ -315,13 +492,27 @@ export default function PaymentDashboard({
       </div>
 
       {/* Ticket grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {tickets.map((ticket) => (
-          <TicketCard key={ticket.ticketId} ticket={ticket} />
-        ))}
-      </div>
+      {tickets.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {tickets.map((ticket) => (
+            <TicketCard key={ticket.ticketId} ticket={ticket} />
+          ))}
+        </div>
+      )}
 
-      {tickets.length === 0 && (
+      {/* One-off charges — separate from the season plan */}
+      {visibleCharges.length > 0 && (
+        <div className="mt-10">
+          <p className="section-label mb-6">One-Off Charges</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {visibleCharges.map((charge) => (
+              <ChargeCard key={charge.id} charge={charge} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {nothing && (
         <div className="p-8 rounded-xl border border-[#E5E7EB] bg-white text-center">
           <p className="text-sm text-[#9CA3AF]">No payments found.</p>
         </div>

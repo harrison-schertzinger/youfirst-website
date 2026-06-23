@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
     // "User already registered" — that's expected and fine.
     const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
       d.guardian1Email.trim(),
-      { redirectTo: `${request.nextUrl.origin}/api/auth/callback` }
+      { redirectTo: `${request.nextUrl.origin}/fees` }
     );
 
     let inviteWarning: string | null = null;
