@@ -64,11 +64,11 @@ export default function CollegeCommitments() {
         <div className="mx-auto max-w-[1280px] px-6 lg:px-8 text-center mb-14 lg:mb-20">
           <p className="section-label mb-5">Where Our Players Compete</p>
           <h2 className="text-[2.5rem] md:text-[3.5rem] lg:text-[4rem] font-bold tracking-tight leading-[1.0] mb-5">
-            <span className="text-[#1A1A1A]">Our Players. Their Dreams.</span>
+            <span className="text-text-primary">Our Players. Their Dreams.</span>
             <br />
-            <span className="gradient-text-accent">Real Results.</span>
+            <span className="text-accent-blue">Real Results.</span>
           </h2>
-          <p className="text-lg text-[#6B7280] max-w-xl mx-auto leading-[1.75]">
+          <p className="text-lg text-text-secondary max-w-xl mx-auto leading-[1.75]">
             From Cincinnati fields to the nation&apos;s top programs — our athletes
             earn their spots at the highest level.
           </p>
@@ -130,12 +130,12 @@ export default function CollegeCommitments() {
                 Players Committed
               </p>
             </div>
-            <div className="w-px h-14 bg-[#E5E7EB] hidden sm:block" />
+            <div className="w-px h-14 bg-[#E5E8EC] hidden sm:block" />
             <div>
-              <p className="text-5xl sm:text-6xl font-bold text-[#1A1A1A] tracking-tight">
-                <AnimatedCounter end={20} />
+              <p className="text-5xl sm:text-6xl font-bold text-[#0A0A0A] tracking-tight">
+                <AnimatedCounter end={20} suffix="+" />
               </p>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9CA3AF] mt-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#98A0AB] mt-2">
                 College Programs
               </p>
             </div>

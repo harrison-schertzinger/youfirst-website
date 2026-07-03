@@ -2,30 +2,34 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ScrollProgressBar from "@/components/layout/ScrollProgressBar";
 import Hero from "@/components/home/Hero";
-import Mission from "@/components/home/Mission";
-import CompetitiveEdge from "@/components/home/CompetitiveEdge";
+import ProofBand from "@/components/home/ProofBand";
+import ProgramTiers from "@/components/home/ProgramTiers";
+import SeasonSection from "@/components/home/SeasonSection";
+import TournamentsSection from "@/components/home/TournamentsSection";
 import CollegeCommitments from "@/components/home/CollegeCommitments";
-import AllAmerican from "@/components/home/AllAmerican";
-import Philosophy from "@/components/home/Philosophy";
 import PhotoStrip from "@/components/home/PhotoStrip";
-import PlayerJourney from "@/components/home/PlayerJourney";
-import CallToAction from "@/components/home/CallToAction";
+import TryoutsNext from "@/components/home/TryoutsNext";
+import FaqSection from "@/components/home/FaqSection";
+import AskAnything from "@/components/home/AskAnything";
+import ContactSection from "@/components/home/ContactSection";
 
 export default function Home() {
   return (
     <>
       <ScrollProgressBar />
-      <Navbar />
+      <Navbar initialTheme="light" />
       <main>
         <Hero />
-        <Mission />
-        <CompetitiveEdge />
+        <ProofBand />
+        <ProgramTiers />
+        <SeasonSection />
+        <TournamentsSection />
         <CollegeCommitments />
-        <Philosophy />
-        <AllAmerican />
         <PhotoStrip />
-        <PlayerJourney />
-        <CallToAction />
+        <TryoutsNext />
+        <FaqSection />
+        <AskAnything />
+        <ContactSection />
       </main>
       <Footer />
     </>
