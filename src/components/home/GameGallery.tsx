@@ -4,13 +4,13 @@ import ScrollReveal from "./ScrollReveal";
 // Real game photography — the proof behind "reps against real competition."
 const SHOTS = [
   {
-    src: "/images/game/game-save-88.jpg",
-    alt: "You First goalie #88 making a high save at the crease",
-    caption: "Every save counts",
+    src: "/images/game/game-dodge.jpg",
+    alt: "You First player #3 dodging past a defender in a tournament game",
+    caption: "Beating her defender",
   },
   {
-    src: "/images/game/game-attack-22.jpg",
-    alt: "You First player #22 pushing the ball upfield against a defender",
+    src: "/images/game/game-sprint-12.jpg",
+    alt: "You First player #12 sprinting upfield in the black game uniform",
     caption: "Pushing tempo",
   },
   {

@@ -22,18 +22,18 @@ export default function Hero() {
       {/* Full-bleed game photography — real competition, real uniforms */}
       <div className="absolute inset-0">
         <Image
-          src="/images/game/game-dodge.jpg"
-          alt="You First player #3 dodging past a defender in a tournament game"
+          src="/images/game/game-attack-22.jpg"
+          alt="You First player #22 pushing the ball upfield against a defender"
           fill
-          className="hidden sm:block object-cover object-[center_22%]"
+          className="hidden sm:block object-cover object-[center_42%]"
           sizes="100vw"
           priority
         />
         <Image
-          src="/images/game/game-sprint-12.jpg"
-          alt="You First player #12 sprinting upfield in the black game uniform"
+          src="/images/game/game-save-88.jpg"
+          alt="You First goalie #88 making a high save at the crease"
           fill
-          className="sm:hidden object-cover object-[center_30%]"
+          className="sm:hidden object-cover object-[center_32%]"
           sizes="100vw"
           priority
         />
