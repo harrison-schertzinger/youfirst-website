@@ -17,7 +17,13 @@ const SLOT_NAMES = [
   "levels-jumpstart.jpg",
   "levels-launch.jpg",
   "levels-elite.jpg",
+  "getstarted-tryouts.jpg",
+  "getstarted-film.jpg",
+  "getstarted-fees.jpg",
 ];
+
+// Slots rendered in black & white (Harrison's art direction for /get-started).
+const GRAYSCALE = new Set(["getstarted-tryouts.jpg", "getstarted-film.jpg", "getstarted-fees.jpg"]);
 
 mkdirSync(OUT, { recursive: true });
 const inbox = readdirSync(IN);
@@ -34,11 +40,11 @@ for (const slot of SLOT_NAMES) {
     console.log(`— ${slot}  (not in inbox yet)`);
     continue;
   }
-  await sharp(IN + match)
+  let img = sharp(IN + match)
     .rotate()
-    .resize({ width: 2400, withoutEnlargement: true })
-    .jpeg({ quality: 80, mozjpeg: true })
-    .toFile(OUT + slot);
+    .resize({ width: 2400, withoutEnlargement: true });
+  if (GRAYSCALE.has(slot)) img = img.grayscale();
+  await img.jpeg({ quality: 80, mozjpeg: true }).toFile(OUT + slot);
   console.log(`✓ ${slot}  ←  ${match}`);
   filled++;
 }
