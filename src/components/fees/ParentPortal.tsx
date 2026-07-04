@@ -144,7 +144,7 @@ export default function ParentPortal() {
 
           <div className="relative bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden group hover:shadow-[0_12px_40px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-500">
             {/* Accent top edge */}
-            <div className="h-1 bg-gradient-to-r from-accent-blue via-accent-blue to-accent-green" />
+            <div className="h-1 bg-accent-blue" />
 
             <div className="p-8 sm:p-10 text-center">
               {/* Welcome icon */}

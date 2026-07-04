@@ -374,7 +374,7 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
                     <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
                       <path
                         d="M7 3v2m6-2v2M3.5 8h13M5 5h10a1.5 1.5 0 011.5 1.5V15A1.5 1.5 0 0115 16.5H5A1.5 1.5 0 013.5 15V6.5A1.5 1.5 0 015 5z"
-                        stroke="#4A90D9"
+                        stroke="#4B9CD3"
                         strokeWidth="1.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"

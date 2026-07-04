@@ -8,25 +8,25 @@ const STAGES = [
     number: "01",
     title: "Tryout",
     description: "Show us what you've got. We're looking for coachability, work ethic, and hunger.",
-    color: "#4A90D9",
+    color: "#4B9CD3",
   },
   {
     number: "02",
     title: "Training",
     description: "Year-round elite development — stick skills, conditioning, film, and lacrosse IQ.",
-    color: "#8B5CF6",
+    color: "#4B9CD3",
   },
   {
     number: "03",
     title: "Showcase",
     description: "Compete at the nation's biggest events. Get seen by the coaches who matter.",
-    color: "#10B981",
+    color: "#4B9CD3",
   },
   {
     number: "04",
     title: "Commitment",
     description: "Earn your spot. 30+ players have committed to 20 college programs — and counting.",
-    color: "#3B82F6",
+    color: "#4B9CD3",
   },
 ];
 
@@ -34,7 +34,7 @@ function AnimatedPath({ visible }: { visible: boolean }) {
   return (
     <div className="hidden lg:block absolute top-[60px] left-0 right-0 h-[2px] z-0">
       <div
-        className="h-full bg-gradient-to-r from-[#4A90D9] via-[#8B5CF6] via-[#10B981] to-[#3B82F6] rounded-full transition-all duration-[1.5s] ease-out origin-left"
+        className="h-full bg-gradient-to-r from-[#4B9CD3] to-white rounded-full transition-all duration-[1.5s] ease-out origin-left"
         style={{
           transform: visible ? "scaleX(1)" : "scaleX(0)",
           opacity: visible ? 0.3 : 0,
@@ -118,7 +118,7 @@ export default function PlayerJourney() {
                     <div
                       className="sm:hidden flex-1 h-[2px] rounded-full transition-all duration-700"
                       style={{
-                        background: `linear-gradient(to right, ${stage.color}, ${STAGES[i + 1].color})`,
+                        background: stage.color,
                         opacity: visible ? 0.3 : 0,
                         transitionDelay: `${i * 200 + 600}ms`,
                       }}

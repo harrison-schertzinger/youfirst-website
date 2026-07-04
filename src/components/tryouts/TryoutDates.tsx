@@ -38,7 +38,7 @@ export default function TryoutDates() {
           </ScrollReveal>
           <ScrollReveal delay={100}>
             <h2 className="text-[2.5rem] md:text-[3.5rem] lg:text-[4rem] font-bold leading-[1.0] mb-6 tracking-tight text-white">
-              Find Her <span className="text-accent-blue">Date.</span>
+              Find Her <span className="gradient-text-blue">Date.</span>
             </h2>
           </ScrollReveal>
           <ScrollReveal delay={200}>

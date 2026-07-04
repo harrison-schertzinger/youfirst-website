@@ -19,13 +19,14 @@ export interface ScheduleEvent {
   isAllDay: boolean;
 }
 
+// Brand palette only — tints/shades of Carolina blue, black, and gray.
 export const EVENT_COLORS: Record<EventType, string> = {
-  tournament: "#4A90D9",
-  practice: "#34D399",
-  camp: "#9B59B6",
-  showcase: "#E8453C",
-  meeting: "#6B6B6B",
-  training: "#F59E0B",
+  tournament: "#4B9CD3",
+  practice: "#0A0A0A",
+  camp: "#7FB8E0",
+  showcase: "#2D6E9E",
+  meeting: "#98A0AB",
+  training: "#5B6470",
 };
 
 export const EVENT_LABELS: Record<EventType, string> = {

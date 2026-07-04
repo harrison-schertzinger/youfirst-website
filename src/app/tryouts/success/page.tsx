@@ -114,7 +114,7 @@ export default async function TryoutSuccessPage({
               <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
                 <path
                   d="M5 12.5l4.5 4.5L19 7.5"
-                  stroke="#4A90D9"
+                  stroke="#4B9CD3"
                   strokeWidth="2.25"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -156,7 +156,7 @@ export default async function TryoutSuccessPage({
                       <li key={item} className="flex items-center gap-3 text-[15px] text-white/85">
                         <span className="flex-shrink-0 w-5 h-5 rounded-full bg-accent-blue/20 flex items-center justify-center">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                            <path d="M5 12.5l4.5 4.5L19 7.5" stroke="#4A90D9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M5 12.5l4.5 4.5L19 7.5" stroke="#4B9CD3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         </span>
                         {item}

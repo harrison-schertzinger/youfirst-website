@@ -7,8 +7,8 @@
   --color-text-primary: #1A1A1A;
   --color-text-secondary: #6B7280;
   --color-text-muted: #9CA3AF;
-  --color-accent-blue: #4A90D9;
-  --color-accent-blue-hover: #3A7BC8;
+  --color-accent-blue: #4B9CD3;
+  --color-accent-blue-hover: #3D87BC;
   --color-accent-green: #10B981;
   --color-dark: #0A0A0B;
   --color-footer-bg: #0A0A0B;
@@ -48,7 +48,7 @@ body {
 }
 
 ::selection {
-  background-color: rgba(74, 144, 217, 0.2);
+  background-color: rgba(75, 156, 211, 0.2);
   color: #1A1A1A;
 }
 
@@ -63,7 +63,7 @@ body {
   font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: #4A90D9;
+  color: #4B9CD3;
 }
 
 /* ─── Gradient Text Utility ─── */
@@ -75,22 +75,22 @@ body {
 }
 
 .gradient-text-light {
-  background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.6) 100%);
+  background: linear-gradient(135deg, #FFFFFF 0%, #A8CFEA 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .gradient-text-accent {
-  background: linear-gradient(to left, #10B981, #4A90D9 40%, #1A1A1A 100%);
+  background: linear-gradient(to right, #1A1A1A 0%, #2D6E9E 45%, #4B9CD3 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* Accent gradient for light backgrounds — blue standalone */
+/* Dark backgrounds: Carolina -> white */
 .gradient-text-blue {
-  background: linear-gradient(135deg, #4A90D9 0%, #3A7BC8 100%);
+  background: linear-gradient(to right, #4B9CD3 0%, #9CC5EF 55%, #FFFFFF 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -109,7 +109,7 @@ body {
 /* ─── Gradient Divider ─── */
 .gradient-divider {
   height: 1px;
-  background: linear-gradient(to right, transparent, rgba(74, 144, 217, 0.3), transparent);
+  background: linear-gradient(to right, transparent, rgba(75, 156, 211, 0.3), transparent);
 }
 
 /* ─── Card base ─── */
@@ -129,7 +129,7 @@ body {
 /* ─── Focus States ─── */
 a:focus-visible,
 button:focus-visible {
-  outline: 2px solid #4A90D9;
+  outline: 2px solid #4B9CD3;
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -258,7 +258,7 @@ button:focus-visible {
   left: 0;
   height: 1.5px;
   width: 0;
-  background: #4A90D9;
+  background: #4B9CD3;
   transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
