@@ -19,14 +19,13 @@ export interface ScheduleEvent {
   isAllDay: boolean;
 }
 
-// Brand palette only — tints/shades of Carolina blue, black, and gray.
 export const EVENT_COLORS: Record<EventType, string> = {
-  tournament: "#4B9CD3",
-  practice: "#0A0A0A",
-  camp: "#7FB8E0",
-  showcase: "#2D6E9E",
-  meeting: "#98A0AB",
-  training: "#5B6470",
+  tournament: "#4A90D9",
+  practice: "#34D399",
+  camp: "#9B59B6",
+  showcase: "#E8453C",
+  meeting: "#6B6B6B",
+  training: "#F59E0B",
 };
 
 export const EVENT_LABELS: Record<EventType, string> = {
@@ -169,9 +168,61 @@ function transformEvent(gcal: GCalEvent): ScheduleEvent {
   };
 }
 
+// ── Fetch ──
+
+/**
+ * Fetch schedule events from Google Calendar API.
+ * Falls back to placeholder data if the API call fails.
+ * Uses Next.js ISR — revalidates every 5 minutes.
+ */
+export async function getEvents(): Promise<ScheduleEvent[]> {
+  const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
+  const calendarId = process.env.GOOGLE_CALENDAR_ID;
+
+  if (!apiKey || !calendarId) {
+    console.warn("[calendar] Missing GOOGLE_CALENDAR_API_KEY or GOOGLE_CALENDAR_ID — using placeholder data");
+    return PLACEHOLDER_EVENTS;
+  }
+
+  try {
+    const now = new Date();
+    const timeMin = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    const params = new URLSearchParams({
+      key: apiKey,
+      timeMin,
+      timeMax: "2027-12-31T23:59:59Z",
+      singleEvents: "true",
+      orderBy: "startTime",
+      maxResults: "250",
+    });
+
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`;
+
+    const res = await fetch(url, { next: { revalidate: 300 } });
+
+    if (!res.ok) {
+      console.error(`[calendar] Google Calendar API error: ${res.status} ${res.statusText}`);
+      return PLACEHOLDER_EVENTS;
+    }
+
+    const data: GCalResponse = await res.json();
+
+    if (!data.items || data.items.length === 0) {
+      console.warn("[calendar] Google Calendar returned no events — using placeholder data");
+      return PLACEHOLDER_EVENTS;
+    }
+
+    return data.items.map(transformEvent);
+  } catch (err) {
+    console.error("[calendar] Failed to fetch from Google Calendar:", err);
+    return PLACEHOLDER_EVENTS;
+  }
+}
+
 // ── Placeholder fallback data ──
 
-const PLACEHOLDER_EVENTS_DEV: ScheduleEvent[] = [
+const PLACEHOLDER_EVENTS: ScheduleEvent[] = [
   {
     id: "prac-0603",
     title: "Team Practice",
@@ -229,61 +280,3 @@ const PLACEHOLDER_EVENTS_DEV: ScheduleEvent[] = [
     isAllDay: false,
   },
 ];
-
-// ── Fetch ──
-
-/**
- * Fetch schedule events from Google Calendar API.
- * Uses Next.js ISR — revalidates every 5 minutes.
- *
- * Placeholder events are a DEV-ONLY convenience. In production a missing key,
- * an API failure, or an empty calendar renders an empty schedule — never fake
- * events that parents could mistake for real ones.
- */
-const FALLBACK_EVENTS: ScheduleEvent[] =
-  process.env.NODE_ENV === "production" ? [] : PLACEHOLDER_EVENTS_DEV;
-
-export async function getEvents(): Promise<ScheduleEvent[]> {
-  const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
-  const calendarId = process.env.GOOGLE_CALENDAR_ID;
-
-  if (!apiKey || !calendarId) {
-    console.warn("[calendar] Missing GOOGLE_CALENDAR_API_KEY or GOOGLE_CALENDAR_ID — schedule will be empty in production");
-    return FALLBACK_EVENTS;
-  }
-
-  try {
-    const now = new Date();
-    const timeMin = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-
-    const params = new URLSearchParams({
-      key: apiKey,
-      timeMin,
-      timeMax: "2027-12-31T23:59:59Z",
-      singleEvents: "true",
-      orderBy: "startTime",
-      maxResults: "250",
-    });
-
-    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`;
-
-    const res = await fetch(url, { next: { revalidate: 300 } });
-
-    if (!res.ok) {
-      console.error(`[calendar] Google Calendar API error: ${res.status} ${res.statusText}`);
-      return FALLBACK_EVENTS;
-    }
-
-    const data: GCalResponse = await res.json();
-
-    if (!data.items || data.items.length === 0) {
-      console.warn("[calendar] Google Calendar returned no events — using placeholder data");
-      return FALLBACK_EVENTS;
-    }
-
-    return data.items.map(transformEvent);
-  } catch (err) {
-    console.error("[calendar] Failed to fetch from Google Calendar:", err);
-    return FALLBACK_EVENTS;
-  }
-}
