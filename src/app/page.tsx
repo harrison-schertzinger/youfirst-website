@@ -22,8 +22,8 @@ export default function Home() {
         <Hero />
         <Mission />
         <ThreeResources />
-        <CompetitiveEdge />
         <CollegeCommitments />
+        <CompetitiveEdge />
         <Philosophy />
         <AllAmerican />
         <PhotoStrip />
