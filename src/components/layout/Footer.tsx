@@ -11,14 +11,14 @@ export default function Footer() {
             href="/"
             className="text-xl font-bold tracking-tight text-white hover:text-white/80 transition-colors duration-200"
           >
-            YOU<span className="text-[#4A90D9]">.</span> FIRST
+            YOU<span className="text-[#4B9CD3]">.</span> FIRST
           </Link>
 
           {/* Links */}
           <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm">
             <Link
               href="/"
-              className="text-white/40 hover:text-[#4A90D9] transition-colors duration-200 py-2"
+              className="text-white/40 hover:text-[#4B9CD3] transition-colors duration-200 py-2"
             >
               Home
             </Link>
@@ -26,14 +26,14 @@ export default function Footer() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-white/40 hover:text-[#4A90D9] transition-colors duration-200 py-2"
+                className="text-white/40 hover:text-[#4B9CD3] transition-colors duration-200 py-2"
               >
                 {link.label}
               </Link>
             ))}
             <a
               href={`mailto:${SITE_CONFIG.email}`}
-              className="text-white/40 hover:text-[#4A90D9] transition-colors duration-200 py-2"
+              className="text-white/40 hover:text-[#4B9CD3] transition-colors duration-200 py-2"
             >
               Contact
             </a>

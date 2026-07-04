@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { MISSION } from "@/lib/program";
 
 export default function Hero() {
   const [loaded, setLoaded] = useState(false);
@@ -12,138 +13,91 @@ export default function Hero() {
     return () => clearTimeout(timer);
   }, []);
 
+  const reveal = `transition-all duration-700 ${
+    loaded ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-4 blur-sm"
+  }`;
+
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Background photo with Ken Burns */}
+    <section className="relative min-h-[92vh] flex items-end overflow-hidden bg-[#0A0A0A]">
+      {/* Full-bleed game photography — real competition, real uniforms */}
       <div className="absolute inset-0">
-        <div className="absolute inset-0 animate-ken-burns">
-          <Image
-            src="/images/team/DSC09932_Original.JPG"
-            alt="You. First team in blue jerseys huddled arm-in-arm on the field"
-            fill
-            className="object-cover object-[center_40%]"
-            sizes="100vw"
-            priority
-          />
-        </div>
+        <Image
+          src="/images/game/game-dodge.jpg"
+          alt="You First player #3 dodging past a defender in a tournament game"
+          fill
+          className="hidden sm:block object-cover object-[center_22%]"
+          sizes="100vw"
+          priority
+        />
+        <Image
+          src="/images/game/game-sprint-12.jpg"
+          alt="You First player #12 sprinting upfield in the black game uniform"
+          fill
+          className="sm:hidden object-cover object-[center_30%]"
+          sizes="100vw"
+          priority
+        />
       </div>
 
-      {/* Heavy gradient overlay — text area gets maximum coverage */}
+      {/* Legibility scrim — black, bottom-weighted */}
       <div
         className="absolute inset-0"
         style={{
-          background: `
-            linear-gradient(to bottom,
-              rgba(0,0,0,0.78) 0%,
-              rgba(0,0,0,0.68) 25%,
-              rgba(0,0,0,0.62) 50%,
-              rgba(0,0,0,0.55) 75%,
-              rgba(0,0,0,0.65) 100%
-            )
-          `,
+          background:
+            "linear-gradient(to top, rgba(10,10,10,0.88) 0%, rgba(10,10,10,0.55) 38%, rgba(10,10,10,0.18) 70%, rgba(10,10,10,0.25) 100%)",
         }}
       />
 
-      {/* Content — staggered reveal */}
-      <div className="relative z-10 text-center px-6 max-w-5xl mx-auto">
-        {/* Pill badge */}
-        <div
-          className={`inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm mb-10 transition-all duration-700 ${
-            loaded
-              ? "opacity-100 translate-y-0 blur-0"
-              : "opacity-0 translate-y-4 blur-sm"
-          }`}
-        >
-          <span className="w-2 h-2 rounded-full bg-accent-blue animate-pulse" />
-          <span className="text-[13px] text-white/80 tracking-[0.15em] uppercase font-semibold">
-            Premier College Prep Club
-          </span>
-        </div>
+      {/* Content — anchored low, editorial left on desktop */}
+      <div className="relative z-10 w-full mx-auto max-w-[1280px] px-6 lg:px-8 pb-16 sm:pb-20 pt-40">
+        <div className="max-w-3xl text-center sm:text-left mx-auto sm:mx-0">
+          <div className={reveal}>
+            <Link
+              href="/tryouts"
+              className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-white/10 border border-white/25 backdrop-blur-sm mb-7 hover:border-accent-blue transition-colors duration-200"
+            >
+              <span className="w-2 h-2 rounded-full bg-accent-blue animate-pulse" />
+              <span className="text-[13px] text-white/90 tracking-[0.12em] uppercase font-semibold">
+                Tryouts · Saturday, July 11
+              </span>
+            </Link>
+          </div>
 
-        {/* Main headline — MASSIVE */}
-        <h1
-          className={`mb-5 transition-all duration-800 ${
-            loaded
-              ? "opacity-100 translate-y-0 blur-0"
-              : "opacity-0 translate-y-4 blur-sm"
-          }`}
-          style={{ transitionDelay: "200ms", textShadow: "0 2px 40px rgba(0,0,0,0.5)" }}
-        >
-          <span className="block text-[2.75rem] sm:text-[5rem] md:text-[6rem] lg:text-[8rem] font-extrabold text-white tracking-[-0.03em] leading-[0.85]">
-            YOU
-            <span className="text-accent-blue">.</span>
-            {" "}FIRST
-          </span>
-        </h1>
+          <h1 className={reveal} style={{ transitionDelay: "150ms" }}>
+            <span className="block text-[2.5rem] sm:text-[3.7rem] lg:text-[4.6rem] font-extrabold tracking-[-0.025em] leading-[1.02] text-white text-balance">
+              {MISSION.headline}
+            </span>
+            <span className="block text-[2.5rem] sm:text-[3.7rem] lg:text-[4.6rem] font-extrabold tracking-[-0.025em] leading-[1.02] text-accent-blue text-balance">
+              {MISSION.headlineAccent}
+            </span>
+          </h1>
 
-        {/* Elite Lacrosse — BOLDER, more present */}
-        <p
-          className={`text-xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white/90 tracking-[0.15em] sm:tracking-[0.2em] uppercase mb-6 transition-all duration-800 ${
-            loaded
-              ? "opacity-100 translate-y-0 blur-0"
-              : "opacity-0 translate-y-4 blur-sm"
-          }`}
-          style={{ transitionDelay: "350ms", textShadow: "0 2px 30px rgba(0,0,0,0.5)" }}
-        >
-          Elite Lacrosse
-        </p>
-
-        {/* Tagline — readable */}
-        <p
-          className={`text-base sm:text-lg text-white/60 font-light tracking-[0.15em] uppercase max-w-xl mx-auto mb-14 transition-all duration-800 ${
-            loaded
-              ? "opacity-100 translate-y-0 blur-0"
-              : "opacity-0 translate-y-4 blur-sm"
-          }`}
-          style={{ transitionDelay: "500ms", textShadow: "0 1px 12px rgba(0,0,0,0.4)" }}
-        >
-          Build &amp; Bring the Best Together
-        </p>
-
-        {/* CTA buttons */}
-        <div
-          className={`flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-800 ${
-            loaded
-              ? "opacity-100 translate-y-0 blur-0"
-              : "opacity-0 translate-y-4 blur-sm"
-          }`}
-          style={{ transitionDelay: "650ms" }}
-        >
-          <Link
-            href="/tryouts"
-            className="inline-flex items-center justify-center px-8 py-4 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(74,144,217,0.4)] hover:shadow-[0_4px_24px_rgba(74,144,217,0.55)] hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 min-w-[200px]"
+          <p
+            className={`mt-6 text-lg sm:text-xl text-white/85 leading-[1.65] max-w-2xl mx-auto sm:mx-0 ${reveal}`}
+            style={{ transitionDelay: "300ms", textShadow: "0 1px 20px rgba(0,0,0,0.4)" }}
           >
-            2026 Tryouts
-          </Link>
-          <Link
-            href="/schedule"
-            className="inline-flex items-center justify-center px-8 py-4 border border-white/25 text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl hover:bg-white/10 hover:border-white/40 hover:-translate-y-0.5 transition-all duration-300 min-w-[200px] backdrop-blur-sm"
-          >
-            View Schedule
-          </Link>
-          <Link
-            href="/fees"
-            className="inline-flex items-center justify-center px-8 py-4 border border-white/25 text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl hover:bg-white/10 hover:border-white/40 hover:-translate-y-0.5 transition-all duration-300 min-w-[200px] backdrop-blur-sm"
-          >
-            Join the Family
-          </Link>
-        </div>
-      </div>
+            Girls&apos; lacrosse in Cincinnati, built around one promise: every
+            price, the whole season, and the full path — published right here.
+            No &ldquo;text Coach for details.&rdquo;
+          </p>
 
-      {/* Scroll indicator */}
-      <div
-        className={`absolute bottom-8 left-1/2 -translate-x-1/2 z-10 transition-all duration-700 ${
-          loaded ? "opacity-100" : "opacity-0"
-        }`}
-        style={{ transitionDelay: "900ms" }}
-      >
-        <div className="flex flex-col items-center gap-2 animate-pulse-chevron">
-          <span className="text-[10px] uppercase tracking-[0.2em] text-white/30 font-medium">
-            Scroll
-          </span>
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-white/30">
-            <path d="M4 8L10 14L16 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <div
+            className={`mt-9 flex flex-col sm:flex-row items-center sm:items-start gap-4 ${reveal}`}
+            style={{ transitionDelay: "450ms" }}
+          >
+            <Link
+              href="/tryouts"
+              className="inline-flex items-center justify-center px-8 py-4 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_20px_rgba(75,156,211,0.5)] hover:bg-accent-blue-hover hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300 min-w-[230px]"
+            >
+              Register for Tryouts — $50
+            </Link>
+            <a
+              href="#programs"
+              className="inline-flex items-center justify-center px-8 py-4 border-[1.5px] border-white/35 text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl backdrop-blur-sm hover:bg-white/10 hover:border-white/60 hover:-translate-y-0.5 transition-all duration-300 min-w-[230px]"
+            >
+              Programs &amp; Pricing
+            </a>
+          </div>
         </div>
       </div>
     </section>

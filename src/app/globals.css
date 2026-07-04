@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Brand Colors */
-  --color-background: #F8F9FA;
+  /* Brand Colors — Black, Carolina Blue, White. Nothing else. */
+  --color-background: #FFFFFF;
   --color-surface: #FFFFFF;
-  --color-text-primary: #1A1A1A;
-  --color-text-secondary: #6B7280;
-  --color-text-muted: #9CA3AF;
-  --color-accent-blue: #4A90D9;
-  --color-accent-blue-hover: #3A7BC8;
-  --color-accent-green: #10B981;
-  --color-dark: #0A0A0B;
-  --color-footer-bg: #0A0A0B;
-  --color-section-alt: #F0F1F3;
+  --color-text-primary: #0A0A0A;
+  --color-text-secondary: #5B6470;
+  --color-text-muted: #98A0AB;
+  --color-accent-blue: #4B9CD3;
+  --color-accent-blue-hover: #3D87BC;
+  --color-accent-wash: #EDF5FB;
+  --color-dark: #0A0A0A;
+  --color-footer-bg: #0A0A0A;
+  --color-section-alt: #F5F7F9;
   --color-card-shadow: rgba(0, 0, 0, 0.06);
-  --color-border: #E5E7EB;
+  --color-border: #E5E8EC;
 
   /* Typography */
   --font-sans: var(--font-inter);
@@ -40,16 +40,16 @@ html {
 }
 
 body {
-  background: #F8F9FA;
-  color: #1A1A1A;
+  background: #FFFFFF;
+  color: #0A0A0A;
   font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 ::selection {
-  background-color: rgba(74, 144, 217, 0.2);
-  color: #1A1A1A;
+  background-color: rgba(75, 156, 211, 0.22);
+  color: #0A0A0A;
 }
 
 ::-webkit-scrollbar { width: 8px; }
@@ -63,7 +63,7 @@ body {
   font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: #4A90D9;
+  color: #4B9CD3;
 }
 
 /* ─── Gradient Text Utility ─── */
@@ -81,19 +81,9 @@ body {
   background-clip: text;
 }
 
-.gradient-text-accent {
-  background: linear-gradient(to left, #10B981, #4A90D9 40%, #1A1A1A 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Accent gradient for light backgrounds — blue standalone */
+/* Accent text for light backgrounds — solid Carolina blue (no multi-hue gradients) */
 .gradient-text-blue {
-  background: linear-gradient(135deg, #4A90D9 0%, #3A7BC8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #4B9CD3;
 }
 
 /* Arrow link hover animation */
@@ -109,7 +99,7 @@ body {
 /* ─── Gradient Divider ─── */
 .gradient-divider {
   height: 1px;
-  background: linear-gradient(to right, transparent, rgba(74, 144, 217, 0.3), transparent);
+  background: linear-gradient(to right, transparent, rgba(75, 156, 211, 0.3), transparent);
 }
 
 /* ─── Card base ─── */
@@ -129,7 +119,7 @@ body {
 /* ─── Focus States ─── */
 a:focus-visible,
 button:focus-visible {
-  outline: 2px solid #4A90D9;
+  outline: 2px solid #4B9CD3;
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -226,6 +216,27 @@ button:focus-visible {
   animation-play-state: paused;
 }
 
+/* ─── Journey arc draw-on-scroll (JourneyArc.tsx) ─── */
+.journey-progress {
+  stroke-dasharray: 1100;
+  stroke-dashoffset: 1100;
+}
+
+.scroll-reveal.visible .journey-progress {
+  animation: journey-draw 1.8s cubic-bezier(0.6, 0, 0.2, 1) 0.3s forwards;
+}
+
+@keyframes journey-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journey-progress {
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
+}
+
 /* ─── Scroll-triggered reveal system ─── */
 .scroll-reveal {
   opacity: 0;
@@ -258,7 +269,7 @@ button:focus-visible {
   left: 0;
   height: 1.5px;
   width: 0;
-  background: #4A90D9;
+  background: #4B9CD3;
   transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 

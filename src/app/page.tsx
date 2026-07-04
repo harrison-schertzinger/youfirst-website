@@ -2,14 +2,17 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ScrollProgressBar from "@/components/layout/ScrollProgressBar";
 import Hero from "@/components/home/Hero";
-import Mission from "@/components/home/Mission";
-import CompetitiveEdge from "@/components/home/CompetitiveEdge";
+import ProofBand from "@/components/home/ProofBand";
+import ProgramTiers from "@/components/home/ProgramTiers";
+import SeasonSection from "@/components/home/SeasonSection";
+import TournamentsSection from "@/components/home/TournamentsSection";
+import GameGallery from "@/components/home/GameGallery";
 import CollegeCommitments from "@/components/home/CollegeCommitments";
-import AllAmerican from "@/components/home/AllAmerican";
-import Philosophy from "@/components/home/Philosophy";
-import PhotoStrip from "@/components/home/PhotoStrip";
-import PlayerJourney from "@/components/home/PlayerJourney";
-import CallToAction from "@/components/home/CallToAction";
+import TrainingBand from "@/components/home/TrainingBand";
+import TryoutsNext from "@/components/home/TryoutsNext";
+import FaqSection from "@/components/home/FaqSection";
+import ContactSection from "@/components/home/ContactSection";
+import FieldDivider from "@/components/graphics/FieldDivider";
 
 export default function Home() {
   return (
@@ -18,14 +21,19 @@ export default function Home() {
       <Navbar />
       <main>
         <Hero />
-        <Mission />
-        <CompetitiveEdge />
+        <ProofBand />
+        <FieldDivider />
+        <ProgramTiers />
+        <SeasonSection />
+        <FieldDivider />
+        <TournamentsSection />
+        <GameGallery />
         <CollegeCommitments />
-        <Philosophy />
-        <AllAmerican />
-        <PhotoStrip />
-        <PlayerJourney />
-        <CallToAction />
+        <TrainingBand />
+        <TryoutsNext />
+        <FieldDivider />
+        <FaqSection />
+        <ContactSection />
       </main>
       <Footer />
     </>
