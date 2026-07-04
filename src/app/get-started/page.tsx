@@ -58,7 +58,7 @@ export default function GetStartedPage() {
     <>
       <ScrollProgressBar />
       <Navbar />
-      <main>
+      <main className="bw-site">
         {/* Hero — dark band, exact copy */}
         <section className="bg-[#0A0A0B] pt-40 pb-20 sm:pt-48 sm:pb-24">
           <div className="mx-auto max-w-[1280px] px-6 lg:px-8 text-center">

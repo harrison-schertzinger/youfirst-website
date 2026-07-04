@@ -30,7 +30,7 @@ export default function PhotoStrip() {
   return (
     <section className="py-16 sm:py-24 overflow-hidden">
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6">
-        <div className="flex gap-4 sm:gap-6 items-end">
+        <div className="flex gap-4 sm:gap-6 items-end keep-color">
           {PHOTOS.map((photo, i) => (
             <ScrollReveal
               key={photo.src}

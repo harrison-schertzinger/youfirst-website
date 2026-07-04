@@ -160,7 +160,7 @@ export default function LevelsPage() {
     <>
       <ScrollProgressBar />
       <Navbar />
-      <main>
+      <main className="bw-site">
         {/* Hero — dark, matching the site's premium bands */}
         <section className="bg-[#0A0A0B] pt-40 pb-20 sm:pt-48 sm:pb-24">
           <div className="mx-auto max-w-[1280px] px-6 lg:px-8 text-center">
@@ -201,7 +201,7 @@ export default function LevelsPage() {
               <ScrollReveal key={level.name} delay={i * 100}>
                 <div className="card overflow-hidden">
                   <div className="grid grid-cols-1 lg:grid-cols-5 lg:min-h-[594px]">
-                    <div className="relative h-56 sm:h-64 lg:h-auto lg:col-span-2">
+                    <div className="relative h-56 sm:h-64 lg:h-auto lg:col-span-2 keep-color">
                       <PhotoSlot
                         name={level.slot}
                         alt={`${level.name} — ${level.grades}`}

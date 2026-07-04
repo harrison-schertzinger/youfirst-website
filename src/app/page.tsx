@@ -18,7 +18,7 @@ export default function Home() {
     <>
       <ScrollProgressBar />
       <Navbar />
-      <main>
+      <main className="bw-site">
         <Hero />
         <Mission />
         <ThreeResources />

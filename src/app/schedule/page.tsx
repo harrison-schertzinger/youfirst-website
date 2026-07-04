@@ -22,7 +22,7 @@ export default async function SchedulePage() {
   return (
     <>
       <Navbar />
-      <main>
+      <main className="bw-site">
         <ScheduleHero />
         <ScheduleContent events={events} />
       </main>

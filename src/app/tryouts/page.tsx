@@ -34,7 +34,7 @@ export default async function TryoutsPage({
       <ScrollProgressBar />
       {/* Dark hero ⇒ default (white-text) navbar that flips dark on scroll */}
       <Navbar />
-      <main>
+      <main className="bw-site">
         <TryoutsHero />
         <TryoutDates />
         <TryoutMakeup />

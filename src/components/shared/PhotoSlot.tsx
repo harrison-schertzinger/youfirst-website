@@ -31,14 +31,21 @@ export default function PhotoSlot({
 
   if (filled) {
     return (
-      <Image
-        src={`/images/slots/${name}`}
-        alt={alt}
-        fill
-        className={`object-cover ${positionClassName}`}
-        sizes={sizes}
-        priority={priority}
-      />
+      <>
+        <Image
+          src={`/images/slots/${name}`}
+          alt={alt}
+          fill
+          className={`object-cover ${positionClassName}`}
+          sizes={sizes}
+          priority={priority}
+        />
+        {/* whisper of Carolina — elegant gradient accent over the photo */}
+        <div
+          className="absolute inset-0 bg-gradient-to-tr from-[#4B9CD3]/[0.16] via-transparent to-transparent pointer-events-none"
+          aria-hidden="true"
+        />
+      </>
     );
   }
 

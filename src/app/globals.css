@@ -275,3 +275,13 @@ button:focus-visible {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ─── Monochrome concept: Carolina-toned B&W photos site-wide ───
+   Applied on public pages via <main className="bw-site">.
+   .keep-color exempts a photo (the Three Resources trio). */
+.bw-site img {
+  filter: grayscale(1) sepia(0.22) hue-rotate(165deg) saturate(0.85) brightness(1.02);
+}
+.bw-site .keep-color img {
+  filter: none;
+}

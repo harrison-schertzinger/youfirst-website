@@ -82,7 +82,7 @@ export default function CollegeCommitments() {
         <div className="absolute right-0 top-0 bottom-0 w-24 sm:w-40 bg-gradient-to-l from-section-alt to-transparent z-10 pointer-events-none" />
 
         {/* Row 1 */}
-        <div className="animate-marquee flex items-center gap-5 sm:gap-6 w-max">
+        <div className="animate-marquee flex items-center gap-5 sm:gap-6 w-max keep-color">
           {row1Doubled.map((logo, i) => (
             <div
               key={`r1-${i}`}
@@ -100,7 +100,7 @@ export default function CollegeCommitments() {
         </div>
 
         {/* Row 2 — slightly different speed */}
-        <div className="animate-marquee-slow flex items-center gap-5 sm:gap-6 w-max">
+        <div className="animate-marquee-slow flex items-center gap-5 sm:gap-6 w-max keep-color">
           {row2Doubled.map((logo, i) => (
             <div
               key={`r2-${i}`}
