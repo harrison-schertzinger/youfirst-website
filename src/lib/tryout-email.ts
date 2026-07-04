@@ -6,11 +6,14 @@
  *
  * Required env to actually send:
  *   RESEND_API_KEY        — your Resend API key
- *   TRYOUT_FROM_EMAIL     — verified sender, e.g. "YOU. FIRST Lacrosse <tryouts@youfirstlacrosse.com>"
+ *   TRYOUT_FROM_EMAIL     — verified sender, e.g. "YOU. FIRST Lacrosse <noreply@youfirstlacrosse.com>"
  *                           (falls back to onboarding@resend.dev for testing)
  */
 
 import { TRYOUT_FEE_LABEL, type TryoutDisplay } from "@/lib/tryouts";
+
+// Replies land in a real inbox (Kathleen handles registration questions).
+const REPLY_TO = "kathleen@youfirstlacrosse.com";
 
 interface SendArgs {
   to: string;
@@ -35,7 +38,7 @@ export async function sendTryoutConfirmationEmail({
     process.env.TRYOUT_FROM_EMAIL ||
     "YOU. FIRST Lacrosse <onboarding@resend.dev>";
 
-  const subject = `You're registered — ${playerFullName}'s YOU. FIRST tryout (${display.dateLine})`;
+  const subject = `You're registered: ${playerFullName}'s YOU. FIRST tryout, ${display.dateLine}`;
 
   const html = buildHtml({ parentName, playerFullName, display });
   const text = buildText({ parentName, playerFullName, display });
@@ -47,7 +50,7 @@ export async function sendTryoutConfirmationEmail({
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ from, to, subject, html, text }),
+      body: JSON.stringify({ from, to, subject, html, text, reply_to: REPLY_TO }),
     });
 
     if (!res.ok) {
@@ -70,18 +73,18 @@ function buildText({
   return [
     `Hi ${parentName},`,
     ``,
-    `${playerFullName} is registered for YOU. FIRST Elite Lacrosse 2026 tryouts. Your ${TRYOUT_FEE_LABEL} registration is confirmed.`,
+    `We are glad to have her. ${playerFullName} is officially registered for YOU. FIRST 2026 tryouts, and your ${TRYOUT_FEE_LABEL} payment went through. Her spot is secured.`,
     ``,
     `TRYOUT (${display.typeLabel}): ${display.dateLine}`,
     `TIME: ${display.time}`,
     `LOCATION: ${display.location}`,
     ``,
-    `What to bring: lacrosse stick, cleats, goggles, mouthguard, water, and a light + dark shirt. Arrive 15 minutes early to check in.`,
+    `What to expect: check-in opens 15 minutes early. She will warm up, play, and compete with our college-player coaching staff. Bring her stick, cleats, goggles, mouthguard, water, and a light and a dark shirt.`,
     ``,
-    `Questions? Just reply or email kathleen@youfirstlacrosse.com.`,
+    `We will be in touch with placement and next steps within a few days of her tryout. If anything comes up before then, just reply to this email and it will reach us.`,
     ``,
-    `Build & bring the best together.`,
-    `— YOU. FIRST Elite Lacrosse`,
+    `See you on the field,`,
+    `YOU. FIRST Elite Lacrosse`,
   ].join("\n");
 }
 
@@ -101,7 +104,7 @@ function buildHtml({
             <tr>
               <td style="background:#0a0a0b;padding:32px 32px 28px;text-align:center;">
                 <div style="font-size:22px;font-weight:800;letter-spacing:-0.02em;color:#ffffff;">
-                  YOU<span style="color:#4a90d9;">.</span> FIRST
+                  YOU<span style="color:#4B9CD3;">.</span> FIRST
                 </div>
                 <div style="margin-top:6px;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.5);">
                   Elite Lacrosse · 2026 Tryouts
@@ -113,35 +116,38 @@ function buildHtml({
               <td style="padding:32px;">
                 <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hi ${escapeHtml(parentName)},</p>
                 <p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
-                  <strong>${escapeHtml(playerFullName)}</strong> is registered for tryouts. Your
-                  <strong>${TRYOUT_FEE_LABEL}</strong> registration is confirmed — her spot is secured.
+                  We are glad to have her. <strong>${escapeHtml(playerFullName)}</strong> is officially
+                  registered for YOU. FIRST 2026 tryouts, and your <strong>${TRYOUT_FEE_LABEL}</strong>
+                  payment went through. Her spot is secured.
                 </p>
 
                 <!-- Date card -->
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f6fc;border:1px solid rgba(74,144,217,0.25);border-radius:12px;margin-bottom:24px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EDF5FB;border:1px solid rgba(75,156,211,0.25);border-radius:12px;margin-bottom:24px;">
                   <tr>
                     <td style="padding:20px 24px;">
-                      <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#4a90d9;font-weight:600;">${escapeHtml(display.typeLabel)} Tryout</div>
+                      <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#4B9CD3;font-weight:600;">${escapeHtml(display.typeLabel)} Tryout</div>
                       <div style="font-size:24px;font-weight:800;color:#1a1a1a;margin-top:4px;">${escapeHtml(display.dateLine)}</div>
                       <div style="font-size:14px;color:#6b7280;margin-top:4px;">${escapeHtml(display.time)} · ${escapeHtml(display.location)}</div>
                     </td>
                   </tr>
                 </table>
 
-                <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#9ca3af;font-weight:600;margin-bottom:8px;">What to bring</div>
+                <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#9ca3af;font-weight:600;margin-bottom:8px;">What to expect</div>
                 <p style="margin:0 0 24px;font-size:15px;line-height:1.7;color:#374151;">
-                  Lacrosse stick, cleats, goggles, mouthguard, water, and a light + dark shirt.
-                  Arrive 15 minutes early to check in.
+                  Check-in opens 15 minutes early. She will warm up, play, and compete with our
+                  college-player coaching staff. Bring her stick, cleats, goggles, mouthguard,
+                  water, and a light and a dark shirt.
                 </p>
 
                 <p style="margin:0 0 24px;font-size:15px;line-height:1.7;color:#374151;">
-                  Questions? Just reply, or email
-                  <a href="mailto:kathleen@youfirstlacrosse.com" style="color:#4a90d9;text-decoration:none;">kathleen@youfirstlacrosse.com</a>.
+                  We will be in touch with placement and next steps within a few days of her
+                  tryout. If anything comes up before then, just reply to this email and it
+                  will reach us.
                 </p>
 
                 <p style="margin:0;font-size:15px;line-height:1.6;color:#1a1a1a;">
-                  Build &amp; bring the best together.<br/>
-                  <strong>— YOU. FIRST Elite Lacrosse</strong>
+                  See you on the field,<br/>
+                  <strong>YOU. FIRST Elite Lacrosse</strong>
                 </p>
               </td>
             </tr>
