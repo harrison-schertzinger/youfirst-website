@@ -11,7 +11,6 @@ import CollegeCommitments from "@/components/home/CollegeCommitments";
 import TrainingBand from "@/components/home/TrainingBand";
 import TryoutsNext from "@/components/home/TryoutsNext";
 import FaqSection from "@/components/home/FaqSection";
-import AskAnything from "@/components/home/AskAnything";
 import ContactSection from "@/components/home/ContactSection";
 import FieldDivider from "@/components/graphics/FieldDivider";
 
@@ -34,7 +33,6 @@ export default function Home() {
         <TryoutsNext />
         <FieldDivider />
         <FaqSection />
-        <AskAnything />
         <ContactSection />
       </main>
       <Footer />
