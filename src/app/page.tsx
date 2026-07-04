@@ -3,12 +3,14 @@ import Footer from "@/components/layout/Footer";
 import ScrollProgressBar from "@/components/layout/ScrollProgressBar";
 import Hero from "@/components/home/Hero";
 import Mission from "@/components/home/Mission";
+import ThreeResources from "@/components/home/ThreeResources";
 import CompetitiveEdge from "@/components/home/CompetitiveEdge";
 import CollegeCommitments from "@/components/home/CollegeCommitments";
 import AllAmerican from "@/components/home/AllAmerican";
 import Philosophy from "@/components/home/Philosophy";
 import PhotoStrip from "@/components/home/PhotoStrip";
 import PlayerJourney from "@/components/home/PlayerJourney";
+import Backyard from "@/components/home/Backyard";
 import CallToAction from "@/components/home/CallToAction";
 
 export default function Home() {
@@ -19,12 +21,14 @@ export default function Home() {
       <main>
         <Hero />
         <Mission />
+        <ThreeResources />
         <CompetitiveEdge />
         <CollegeCommitments />
         <Philosophy />
         <AllAmerican />
         <PhotoStrip />
         <PlayerJourney />
+        <Backyard />
         <CallToAction />
       </main>
       <Footer />

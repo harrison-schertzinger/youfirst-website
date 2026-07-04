@@ -41,7 +41,7 @@ export default function CallToAction() {
           <h2 className="text-[2.5rem] sm:text-[3.5rem] lg:text-[4rem] xl:text-[5rem] font-bold leading-[1.0] mb-6 tracking-tight">
             <span className="text-white">Ready to Compete at the</span>
             <br />
-            <span className="gradient-text-light"> Next Level?</span>
+            <span className="gradient-text-blue"> Next Level?</span>
           </h2>
         </ScrollReveal>
 

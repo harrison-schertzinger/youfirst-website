@@ -77,7 +77,7 @@ export default function ParentPortal() {
             }`}
             style={{ transitionDelay: "150ms" }}
           >
-            <span className="gradient-text">Welcome Back</span>
+            <span className="gradient-text-accent">Welcome Back</span>
           </h1>
 
           {/* Subline */}

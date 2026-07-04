@@ -49,7 +49,7 @@ export default function AllAmerican() {
 
         <ScrollReveal delay={200}>
           <h2 className="text-[2.25rem] sm:text-[3rem] lg:text-[3.5rem] font-bold tracking-tight leading-[1.05] text-white max-w-3xl">
-            We trained 7 of the region&apos;s 8 All-Americans.
+            We trained 7 of the region&apos;s <span className="gradient-text-blue">8 All-Americans.</span>
           </h2>
         </ScrollReveal>
 

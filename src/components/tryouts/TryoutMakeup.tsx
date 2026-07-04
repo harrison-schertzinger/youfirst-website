@@ -44,7 +44,7 @@ export default function TryoutMakeup() {
         <ScrollReveal delay={100}>
           <h2 className="text-[2.25rem] md:text-[3.25rem] font-bold leading-[1.05] tracking-tight text-white mb-6">
             Come See If You First Is{" "}
-            <span className="text-accent-blue">Right for You.</span>
+            <span className="gradient-text-blue">Right for You.</span>
           </h2>
         </ScrollReveal>
         <ScrollReveal delay={200}>

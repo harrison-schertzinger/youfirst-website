@@ -60,7 +60,7 @@ export default function ScheduleHero() {
           style={{ transitionDelay: "150ms", textShadow: "0 2px 40px rgba(0,0,0,0.5)" }}
         >
           <span className="text-white">Season </span>
-          <span className="gradient-text-light">Schedule</span>
+          <span className="gradient-text-blue">Schedule</span>
         </h1>
 
         <p
