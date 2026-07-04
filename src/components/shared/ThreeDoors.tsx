@@ -5,8 +5,9 @@ import PhotoSlot from "@/components/shared/PhotoSlot";
 // ── The three doors in — ONE shared block used on /get-started and /tryouts.
 // Edit copy here once and both pages update together.
 
-// TODO: Harrison will provide the real number — swap it in here.
-const HARRISON_SMS = "sms:PHONE_PLACEHOLDER";
+// Harrison's placement/film line — sms: opens a text on phones.
+const HARRISON_PHONE_DISPLAY = "(513) 575-6174";
+const HARRISON_SMS = "sms:+15135756174";
 
 const BTN_PRIMARY =
   "inline-flex items-center justify-center px-7 py-3.5 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(75,156,211,0.4)] hover:bg-accent-blue-hover hover:-translate-y-0.5 transition-all duration-300";
@@ -121,7 +122,10 @@ export default function ThreeDoors({ includeTryoutTile = true }: ThreeDoorsProps
             <a href={HARRISON_SMS} className={`${BTN_PRIMARY} mt-6 self-start`}>
               Text Harrison
             </a>
-            <p className="mt-4 text-[12px] text-[#9CA3AF] leading-[1.6] border-t border-[#E5E8EC] pt-3">
+            <p className="mt-3 text-[14px] font-semibold text-[#1A1A1A] tracking-wide">
+              {HARRISON_PHONE_DISPLAY}
+            </p>
+            <p className="mt-3 text-[12px] text-[#9CA3AF] leading-[1.6] border-t border-[#E5E8EC] pt-3">
               This line is for player placement and film only. For questions,
               use the chat or email below.
             </p>
