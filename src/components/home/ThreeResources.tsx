@@ -11,6 +11,7 @@ const RESOURCES = [
     href: "/levels",
     external: false,
     slot: "resource-club.jpg",
+    pos: "object-[center_28%]",
   },
   {
     name: "THE ACADEMY",
@@ -20,6 +21,7 @@ const RESOURCES = [
     href: "https://cincinnatilacrosseacademy.com/",
     external: true,
     slot: "resource-academy.jpg",
+    pos: "object-[center_74%]",
   },
   {
     name: "YOU.PRJCT+",
@@ -29,6 +31,7 @@ const RESOURCES = [
     href: "https://www.youprjct.com/",
     external: true,
     slot: "resource-youprjct.jpg",
+    pos: "object-[center_55%]",
   },
 ];
 
@@ -72,6 +75,7 @@ export default function ThreeResources() {
                     name={r.slot}
                     alt={`${r.name} — ${r.label}`}
                     sizes="(max-width: 1024px) 100vw, 33vw"
+                    positionClassName={r.pos}
                   />
                 </div>
                 <div className="p-7 sm:p-8 flex flex-col flex-1">
