@@ -40,7 +40,7 @@ export default function ThreeResources() {
           <div className="text-center max-w-2xl mx-auto mb-12 lg:mb-14">
             <p className="section-label mb-5">One Conviction, Three Resources</p>
             <h2 className="text-[2.5rem] md:text-[3.5rem] lg:text-[4rem] font-bold tracking-tight leading-[1.0] text-[#1A1A1A]">
-              We build the best <span className="gradient-text-accent">people and players.</span>
+              We build <span className="gradient-text-accent">the best</span>
             </h2>
             <p className="mt-5 text-lg text-[#6B7280] leading-[1.75]">
               Everything we do grows from that. Here is how it reaches a player,
