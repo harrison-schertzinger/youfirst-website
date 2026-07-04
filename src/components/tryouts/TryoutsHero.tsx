@@ -22,7 +22,7 @@ export default function TryoutsHero() {
             src={TRYOUT_PHOTOS.hero}
             alt="You. First team huddled together on the field"
             fill
-            className="object-cover object-[center_35%]"
+            className="object-cover object-[center_30%]"
             sizes="100vw"
             priority
           />

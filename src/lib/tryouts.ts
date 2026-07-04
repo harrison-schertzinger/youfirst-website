@@ -16,7 +16,7 @@
  */
 export const TRYOUT_PHOTOS = {
   /** Full-bleed cinematic hero background. */
-  hero: "/images/team/DSC09764_Original.JPG",
+  hero: "/images/team/tryouts-hero-defender.jpg",
   /** Heavily-darkened backdrop behind the two date cards. */
   datesBackground: "/images/team/DWW07819NEW.jpg",
   /** Mid-page emotional photo band ("build & bring the best"). */

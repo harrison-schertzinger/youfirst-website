@@ -10,7 +10,7 @@ export const SITE_CONFIG = {
 
 export const NAV_LINKS = [
   { label: "Levels", href: "/levels" },
-  { label: "Get Started", href: "/get-started" },
+  { label: "Questions & Answers", href: "/get-started" },
   { label: "Tryouts", href: "/tryouts" },
   { label: "Schedule", href: "/schedule" },
   { label: "Player Portal", href: "/fees" },

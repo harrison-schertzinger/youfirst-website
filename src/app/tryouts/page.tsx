@@ -1,3 +1,4 @@
+import ThreeDoors from "@/components/shared/ThreeDoors";
 import type { Metadata } from "next";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -37,6 +38,15 @@ export default async function TryoutsPage({
       <main className="bw-site">
         <TryoutsHero />
         <TryoutDates />
+
+
+        {/* More ways in — shared tiles (edit once in components/shared/ThreeDoors) */}
+        <section className="py-20 sm:py-24 bg-background">
+          <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
+            <ThreeDoors />
+          </div>
+        </section>
+
         <TryoutMakeup />
         <TryoutBand />
         <TryoutForm canceled={canceled} />
