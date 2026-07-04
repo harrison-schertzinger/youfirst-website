@@ -9,9 +9,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "YOU. FIRST Elite Lacrosse | Girls' Lacrosse in Cincinnati — Pricing & Programs Published",
+  title: "YOU. FIRST Elite Lacrosse | Southern Ohio's Premier College Prep Club",
   description:
-    "Elite girls' lacrosse club in Cincinnati, Ohio. Jumpstart, Launch, and Elite programs with every price, practice block, and tournament published. Tryouts July 11. Part of the Cincinnati Lacrosse Academy.",
+    "Elite girls' lacrosse club in Cincinnati, Ohio. College prep training, recruiting support, and personal development for competitive female athletes. Part of the Cincinnati Lacrosse Academy.",
   keywords: [
     "girls lacrosse Cincinnati",
     "elite lacrosse club Ohio",
