@@ -1,4 +1,5 @@
 import ScrollReveal from "./ScrollReveal";
+import SeasonBandSvg from "@/components/graphics/SeasonBandSvg";
 import { SEASON } from "@/lib/program";
 
 export default function SeasonSection() {
@@ -15,27 +16,10 @@ export default function SeasonSection() {
           </div>
         </ScrollReveal>
 
-        {/* Month strip */}
+        {/* Season calendar band — custom SVG */}
         <ScrollReveal>
           <div className="card p-6 sm:p-8">
-            <div className="flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide pb-1">
-              {SEASON.months.map((m) => (
-                <span
-                  key={m}
-                  className="flex-1 min-w-[52px] text-center text-[11px] sm:text-xs font-bold tracking-[0.08em] py-3 rounded-lg bg-accent-wash text-accent-blue-hover"
-                >
-                  {m}
-                </span>
-              ))}
-              {SEASON.offMonths.map((m) => (
-                <span
-                  key={m}
-                  className="flex-1 min-w-[52px] text-center text-[11px] sm:text-xs font-semibold tracking-[0.08em] py-3 rounded-lg bg-section-alt text-text-muted"
-                >
-                  {m}
-                </span>
-              ))}
-            </div>
+            <SeasonBandSvg />
             <p className="mt-6 text-[15px] text-text-secondary leading-[1.75] text-center max-w-3xl mx-auto">
               <span className="font-bold text-text-primary">
                 Opportunities, not mandates.

@@ -6,27 +6,33 @@ import ProofBand from "@/components/home/ProofBand";
 import ProgramTiers from "@/components/home/ProgramTiers";
 import SeasonSection from "@/components/home/SeasonSection";
 import TournamentsSection from "@/components/home/TournamentsSection";
+import GameGallery from "@/components/home/GameGallery";
 import CollegeCommitments from "@/components/home/CollegeCommitments";
-import PhotoStrip from "@/components/home/PhotoStrip";
+import TrainingBand from "@/components/home/TrainingBand";
 import TryoutsNext from "@/components/home/TryoutsNext";
 import FaqSection from "@/components/home/FaqSection";
 import AskAnything from "@/components/home/AskAnything";
 import ContactSection from "@/components/home/ContactSection";
+import FieldDivider from "@/components/graphics/FieldDivider";
 
 export default function Home() {
   return (
     <>
       <ScrollProgressBar />
-      <Navbar initialTheme="light" />
+      <Navbar />
       <main>
         <Hero />
         <ProofBand />
+        <FieldDivider />
         <ProgramTiers />
         <SeasonSection />
+        <FieldDivider />
         <TournamentsSection />
+        <GameGallery />
         <CollegeCommitments />
-        <PhotoStrip />
+        <TrainingBand />
         <TryoutsNext />
+        <FieldDivider />
         <FaqSection />
         <AskAnything />
         <ContactSection />

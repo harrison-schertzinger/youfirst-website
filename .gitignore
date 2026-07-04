@@ -50,3 +50,6 @@ parent-emails.csv
 # Separate Node tooling sub-project — own package.json, node_modules,
 # raw photos, generated PNGs. Don't track from this repo.
 /scripts/recruiting-graphics/
+
+# Photo inbox — drop originals here; optimized copies live in public/images/game
+public/images/new-photos/

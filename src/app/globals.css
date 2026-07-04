@@ -216,6 +216,27 @@ button:focus-visible {
   animation-play-state: paused;
 }
 
+/* ─── Journey arc draw-on-scroll (JourneyArc.tsx) ─── */
+.journey-progress {
+  stroke-dasharray: 1100;
+  stroke-dashoffset: 1100;
+}
+
+.scroll-reveal.visible .journey-progress {
+  animation: journey-draw 1.8s cubic-bezier(0.6, 0, 0.2, 1) 0.3s forwards;
+}
+
+@keyframes journey-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journey-progress {
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
+}
+
 /* ─── Scroll-triggered reveal system ─── */
 .scroll-reveal {
   opacity: 0;
