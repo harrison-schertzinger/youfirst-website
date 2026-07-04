@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
+import { ClipboardCheck,
   LayoutDashboard,
   Users,
   UserPlus,
@@ -24,6 +24,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", Icon: LayoutDashboard },
   { href: "/admin/prospects", label: "Prospects", Icon: UserPlus },
+  { href: "/admin/tryouts", label: "Tryouts", Icon: ClipboardCheck },
   { href: "/admin/players", label: "Players", Icon: Users },
   { href: "/admin/expenses", label: "Expenses", Icon: Receipt },
   { href: "/admin/tournaments", label: "Tournaments", Icon: Trophy },
