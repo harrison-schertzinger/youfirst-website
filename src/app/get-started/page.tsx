@@ -108,6 +108,7 @@ export default function GetStartedPage() {
                   <div className="relative h-48 sm:h-52">
                     <PhotoSlot
                       name="getstarted-tryouts.jpg"
+                      positionClassName="object-[center_15%]"
                       alt="You First players competing at tryouts"
                       sizes="(max-width: 1024px) 100vw, 33vw"
                     />
@@ -142,6 +143,7 @@ export default function GetStartedPage() {
                   <div className="relative h-48 sm:h-52">
                     <PhotoSlot
                       name="getstarted-film.jpg"
+                      positionClassName="object-[center_15%]"
                       alt="Game film of a You First player"
                       sizes="(max-width: 1024px) 100vw, 33vw"
                     />
@@ -178,6 +180,7 @@ export default function GetStartedPage() {
                   <div className="relative h-48 sm:h-52">
                     <PhotoSlot
                       name="getstarted-fees.jpg"
+                      positionClassName="object-[center_15%]"
                       alt="You First coaches and families"
                       sizes="(max-width: 1024px) 100vw, 33vw"
                     />
