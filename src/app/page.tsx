@@ -23,12 +23,12 @@ export default function Home() {
         <Mission />
         <ThreeResources />
         <CollegeCommitments />
-        <CompetitiveEdge />
         <Philosophy />
         <AllAmerican />
         <PhotoStrip />
         <PlayerJourney />
         <Backyard />
+        <CompetitiveEdge />
         <CallToAction />
       </main>
       <Footer />
