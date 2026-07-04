@@ -159,12 +159,17 @@ export default function ThreeDoors({ includeTryoutTile = true }: ThreeDoorsProps
               We can work with any family. For an arrangement that fits yours,
               reach out to Kathleen.
             </p>
-            <a
-              href="mailto:kathleen@youfirstlacrosse.com"
-              className={`${BTN_PRIMARY} mt-6 self-start`}
-            >
-              Email Kathleen
-            </a>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <a href="mailto:kathleen@youfirstlacrosse.com" className={BTN_PRIMARY}>
+                Email Kathleen
+              </a>
+              <Link
+                href="/levels"
+                className="inline-flex items-center justify-center px-7 py-3.5 border-2 border-accent-blue text-accent-blue text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl hover:bg-accent-wash hover:-translate-y-0.5 transition-all duration-300"
+              >
+                Check Levels
+              </Link>
+            </div>
           </div>
         </div>
       </ScrollReveal>
