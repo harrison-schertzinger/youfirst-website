@@ -32,20 +32,29 @@ const RESOURCES = [
   },
 ];
 
-export default function ThreeResources() {
+interface ThreeResourcesProps {
+  eyebrow?: string;
+  headingStart?: string;
+  headingFade?: string;
+  sub?: string;
+}
+
+export default function ThreeResources({
+  eyebrow = "One Conviction, Three Resources",
+  headingStart = "WE BUILD",
+  headingFade = "THE BEST",
+  sub = "Everything we do grows from that. Here is how it reaches a player, wherever she is.",
+}: ThreeResourcesProps) {
   return (
     <section className="py-24 sm:py-32 bg-background">
       <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
         <ScrollReveal>
-          <div className="text-center max-w-2xl mx-auto mb-12 lg:mb-14">
-            <p className="section-label mb-5">One Conviction, Three Resources</p>
+          <div className="text-center max-w-3xl mx-auto mb-12 lg:mb-14">
+            <p className="section-label mb-5">{eyebrow}</p>
             <h2 className="text-[2.5rem] md:text-[3.5rem] lg:text-[4rem] font-bold tracking-tight leading-[1.0] text-[#1A1A1A]">
-              WE BUILD <span className="gradient-text-accent">THE BEST</span>
+              {headingStart} <span className="gradient-text-accent">{headingFade}</span>
             </h2>
-            <p className="mt-5 text-lg text-[#6B7280] leading-[1.75]">
-              Everything we do grows from that. Here is how it reaches a player,
-              wherever she is.
-            </p>
+            <p className="mt-5 text-lg text-[#6B7280] leading-[1.75]">{sub}</p>
           </div>
         </ScrollReveal>
 

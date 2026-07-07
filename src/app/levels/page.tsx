@@ -5,6 +5,7 @@ import Footer from "@/components/layout/Footer";
 import ScrollProgressBar from "@/components/layout/ScrollProgressBar";
 import ScrollReveal from "@/components/home/ScrollReveal";
 import PhotoSlot from "@/components/shared/PhotoSlot";
+import ThreeResources from "@/components/home/ThreeResources";
 
 export const metadata: Metadata = {
   title: "Levels | YOU. FIRST Elite Lacrosse",
@@ -194,9 +195,32 @@ export default function LevelsPage() {
           </div>
         </section>
 
-        {/* The three levels */}
+        {/* The teams */}
         <section className="pb-20 sm:pb-24 bg-background">
           <div className="mx-auto max-w-[1280px] px-6 lg:px-8 space-y-8">
+            <ScrollReveal>
+              <div className="text-center max-w-3xl mx-auto pt-4">
+                <p className="section-label mb-5">The Teams · Classes 2032–2034</p>
+                <h2 className="text-[2rem] sm:text-[2.75rem] font-bold tracking-tight leading-[1.08] text-[#1A1A1A]">
+                  Youth teams, <span className="gradient-text-accent">built to develop.</span>
+                </h2>
+                <p className="mt-5 text-lg text-[#6B7280] leading-[1.75]">
+                  One to two teams per age group where we can field them. Any
+                  younger player who&apos;s ready will play up.
+                </p>
+                <div className="mt-8 flex flex-wrap justify-center gap-3">
+                  {["6v6", "Stick skills", "Fundamentals", "Learning to love to compete"].map((f) => (
+                    <span
+                      key={f}
+                      className="inline-flex items-center gap-2.5 rounded-xl bg-white border border-[#E5E8EC] shadow-[0_2px_10px_rgba(0,0,0,0.05)] px-5 py-3 text-[15px] font-semibold text-[#1A1A1A]"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-accent-blue" aria-hidden="true" />
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </ScrollReveal>
             {LEVELS.map((level, i) => (
               <ScrollReveal key={level.name} delay={i * 100}>
                 <div className="card overflow-hidden">
@@ -267,6 +291,74 @@ export default function LevelsPage() {
         </section>
 
         {/* The Season */}
+        {/* The proof — credibility, infographic treatment */}
+        <section
+          className="py-24 sm:py-28 overflow-hidden"
+          style={{ background: "linear-gradient(160deg, #0A0A0B 0%, #0E1C28 45%, #1F4E75 100%)" }}
+        >
+          <div className="mx-auto max-w-[1080px] px-6 lg:px-8 text-center">
+            <ScrollReveal>
+              <p className="section-label mb-5">The Proof</p>
+              <h2 className="text-[2.25rem] sm:text-[3rem] lg:text-[3.5rem] font-bold tracking-tight leading-[1.06] text-white max-w-4xl mx-auto">
+                We trained 7 of the region&apos;s 8{" "}
+                <span className="gradient-text-blue">High School All-Americans.</span>
+              </h2>
+            </ScrollReveal>
+            <ScrollReveal delay={120}>
+              <div className="mt-10 flex justify-center gap-3 sm:gap-4" aria-label="7 of 8 All-Americans">
+                {Array.from({ length: 8 }, (_, i) => (
+                  <div
+                    key={i}
+                    className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center ${
+                      i < 7 ? "" : "border-2 border-white/20"
+                    }`}
+                    style={
+                      i < 7
+                        ? { background: "linear-gradient(135deg, #4B9CD3 0%, #9CC5EF 70%, #FFFFFF 130%)" }
+                        : undefined
+                    }
+                  >
+                    {i < 7 ? (
+                      <svg viewBox="0 0 24 24" className="w-6 h-6 sm:w-8 sm:h-8" fill="none" aria-hidden="true">
+                        <path d="M5 13l5 5 9-11" stroke="#0A0A0B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-white/25" aria-hidden="true" />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="mt-6 text-[15px] sm:text-base text-white/65 leading-[1.7]">
+                Up from 5 of 8 the year before, plus 3 more from out of state.
+              </p>
+            </ScrollReveal>
+            <ScrollReveal delay={220}>
+              <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+                <div className="rounded-2xl bg-white/[0.07] border border-white/12 px-6 py-7">
+                  <p className="text-4xl font-extrabold tracking-tight text-white [font-feature-settings:'tnum']">30+</p>
+                  <p className="mt-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/55">College commitments</p>
+                </div>
+                <div className="rounded-2xl bg-white/[0.07] border border-white/12 px-6 py-7">
+                  <p className="text-4xl font-extrabold tracking-tight text-white [font-feature-settings:'tnum']">20+</p>
+                  <p className="mt-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/55">College programs</p>
+                </div>
+                <div className="rounded-2xl bg-white/[0.07] border border-white/12 px-6 py-7">
+                  <p className="text-4xl font-extrabold tracking-tight gradient-text-blue">Every coach</p>
+                  <p className="mt-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/55">Is a college player</p>
+                </div>
+              </div>
+            </ScrollReveal>
+          </div>
+        </section>
+
+        {/* The resources — we build these */}
+        <ThreeResources
+          eyebrow="The Resources"
+          headingStart="We build"
+          headingFade="the resources."
+          sub="We're the team behind the Cincinnati Lacrosse Academy and the creators of YOU.PRJCT+. Our focus is building the very resources that develop great players and well-developed people."
+        />
+
         <section className="py-20 sm:py-24 bg-surface">
           <div className="mx-auto max-w-[880px] px-6 lg:px-8 text-center">
             <ScrollReveal>
