@@ -448,12 +448,18 @@ export default function LevelsPage() {
               ))}
             </div>
             <ScrollReveal>
-              <div className="mt-11 text-center">
+              <div className="mt-11 flex flex-wrap justify-center gap-4">
                 <Link
                   href="/tryouts"
                   className="inline-flex items-center justify-center px-8 py-4 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(75,156,211,0.4)] hover:bg-accent-blue-hover hover:-translate-y-0.5 transition-all duration-300"
                 >
                   Register for Tryouts — July 11
+                </Link>
+                <Link
+                  href="/"
+                  className="inline-flex items-center justify-center px-8 py-4 border-2 border-accent-blue text-accent-blue text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl hover:bg-accent-wash hover:-translate-y-0.5 transition-all duration-300"
+                >
+                  Visit Our Website
                 </Link>
               </div>
             </ScrollReveal>
