@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { sendTryoutConfirmationEmail } from "@/lib/tryout-email";
+import { sendTryoutAdminNotification } from "@/lib/tryout-admin-notify";
 import { syncTryoutToSheet } from "@/lib/google-sheets";
 import { describeTryout, type TryoutType } from "@/lib/tryouts";
 
@@ -343,6 +344,33 @@ async function handleTryoutPaid(
         .update({ confirmation_email_sent: true })
         .eq("id", reg.id);
     }
+  }
+
+  // ── Admin notification (fail-soft) — the informative "someone registered"
+  // ping to the club. Runs on the winning delivery only (the race-guard above),
+  // so it fires exactly once per paid registration. #count is the true total.
+  try {
+    const { count: regCount } = await supabase
+      .from("tryout_registrations")
+      .select("id", { count: "exact", head: true });
+    await sendTryoutAdminNotification(
+      {
+        player_full_name: reg.player_full_name,
+        parent_name: reg.parent_name,
+        email: reg.email,
+        phone: reg.phone,
+        graduation_year: reg.graduation_year,
+        position: reg.position,
+        tryout_group: reg.tryout_group,
+        tryout_type: reg.tryout_type,
+        tryout_date: reg.tryout_date,
+        payment_status: "paid",
+        amount_cents: amountCents ?? 5000,
+      },
+      regCount ?? 0,
+    );
+  } catch (notifyErr) {
+    console.error("Tryout admin notification failed (non-fatal):", notifyErr);
   }
 
   // ── Google Sheet sync (fail-soft) — runs once per paid reg; the
