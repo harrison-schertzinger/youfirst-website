@@ -20,6 +20,12 @@ const SLOT_NAMES = [
   "getstarted-tryouts.jpg",
   "getstarted-film.jpg",
   "getstarted-fees.jpg",
+  // /coaches wave two — skill trainers + Brett (strength). Drop the photos
+  // into the inbox under these names and run this script.
+  "coach-skill-1.jpg",
+  "coach-skill-2.jpg",
+  "coach-skill-3.jpg",
+  "coach-brett.jpg",
 ];
 
 // Slots rendered in black & white (Harrison's art direction for /get-started).

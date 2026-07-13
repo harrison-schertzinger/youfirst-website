@@ -10,6 +10,7 @@ export const SITE_CONFIG = {
 
 export const NAV_LINKS = [
   { label: "Teams", href: "/levels" },
+  { label: "Coaches", href: "/coaches" },
   { label: "Questions & Answers", href: "/get-started" },
   { label: "Tryouts", href: "/tryouts" },
   { label: "Schedule", href: "/schedule" },
