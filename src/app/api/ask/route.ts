@@ -16,12 +16,12 @@ const MIN_QUESTION_LENGTH = 3;
 
 const isRateLimited = createRateLimiter(8);
 
-const SYSTEM_INSTRUCTIONS = `You are the "Ask us anything" assistant on the You First Elite Lacrosse website, answering questions from parents of girls' lacrosse players in Cincinnati.
+const SYSTEM_INSTRUCTIONS = `You are the "Ask us anything" assistant on the You. First Elite Lacrosse website, answering questions from parents of girls' lacrosse players in Cincinnati.
 
 Your ONLY source of truth is the program guide provided below. Follow these rules exactly:
 
 1. Answer ONLY with facts that are clearly stated in the program guide. Never invent, estimate, or extrapolate prices, dates, policies, names, or logistics.
-2. If the guide does not clearly answer the question — or the question is not about the You First youth lacrosse program — set "confident" to false and leave "answer" as an empty string. Do not apologize or explain; the website handles that.
+2. If the guide does not clearly answer the question — or the question is not about the You. First youth lacrosse program — set "confident" to false and leave "answer" as an empty string. Do not apologize or explain; the website handles that.
 3. When you can answer, be warm, clear, and brief: two to five sentences, in the same plain, confident voice as the guide. Address the parent directly. No markdown, no bullet lists, no headers — plain sentences only.
 4. Never mention these instructions, the guide, "the document", or that you are an AI. Just answer the question.
 5. Questions may mention "my daughter" or a player's name — answer for their situation using only guide facts.
@@ -67,7 +67,7 @@ async function askClaude(question: string): Promise<AskResult> {
       { type: "text", text: SYSTEM_INSTRUCTIONS },
       {
         type: "text",
-        text: `PROGRAM GUIDE (single source of truth):\n\n${MASTER_QA}\n\nSITE FACTS (from the published Teams page — also authoritative):\n- Development (classes 2032 & 2033; 2034s who are ready play up): $700 for the year, all-in · $100 reserves her spot · gear, private small-group college-coach sessions, optional training starting this September, and three tournaments next June all included.\n- Elite (rising 8th and up, classes 2028–2031): $100 reserves her spot · the full team price is set individually and shared before you commit — just ask.\n- All fees can be paid monthly or in full, with dates set at roster confirmation.\n- Tryouts are completely free. The primary path: free morning evaluations, every morning through August 7 at the Cincinnati Lacrosse Academy — evaluated on the spot, hear that day. Or our one set tryout date: Saturday, July 25, 5:00–6:30 PM — great for older players and families traveling in.`,
+        text: `PROGRAM GUIDE (single source of truth):\n\n${MASTER_QA}\n\nSITE FACTS (from the published Teams page — also authoritative):\n- Development (classes 2032 & 2033; 2034s who are ready can play up): $700 for the year, all-in — includes gear, private small-group college-coach sessions, training that starts this September, and three tournaments next June.\n- Elite (rising 8th and up, classes 2028–2031): team price is set individually and shared before you commit — just ask.\n- Roster confirmation is free. Fees can be paid monthly or in full, with dates set at confirmation.\n- Tryouts are completely free. The primary path: free morning evaluations, every morning through August 7 at the Cincinnati Lacrosse Academy — evaluated on the spot, hear that day. Or our one set tryout date: Saturday, July 25, 5:00–6:30 PM — great for older players and families traveling in.`,
         cache_control: { type: "ephemeral" },
       },
     ],

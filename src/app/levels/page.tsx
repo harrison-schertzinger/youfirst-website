@@ -22,7 +22,6 @@ interface PriceOption {
 }
 
 interface Team {
-  eyebrow: string;
   name: string;
   grades: string;
   /** Optional prominent start line, styled like the grades line. */
@@ -39,7 +38,6 @@ interface Team {
 
 const TEAMS: Team[] = [
   {
-    eyebrow: "Development",
     name: "Development",
     grades: "Classes 2032 & 2033 · 2034s who are ready can play up.",
     startLine:
@@ -66,7 +64,6 @@ const TEAMS: Team[] = [
     ],
   },
   {
-    eyebrow: "Elite",
     name: "Elite",
     grades: "Rising 8th grade and up · Classes 2028–2031",
     slot: "levels-elite.jpg",
@@ -75,7 +72,7 @@ const TEAMS: Team[] = [
       "The complete competitive team on the national circuit, development aimed squarely at the college path, our college-player coaches every step of the way.",
     prices: null,
     priceNote:
-      "$100 reserves her spot · the full team price is set individually and shared before you commit. Just ask.",
+      "Team price is set individually and shared before you commit. Just ask.",
   },
 ];
 
@@ -89,8 +86,8 @@ const ROSTER_STEPS = [
     body: "Evaluations hear the same day. July 25 tryout families hear from us within two to three days.",
   },
   {
-    title: "Reserve her spot.",
-    body: "A $100 roster confirmation reserves her spot — Development and Elite alike. The rest can be paid monthly or in full, with dates set at confirmation so you always know what is due.",
+    title: "Roster confirmation.",
+    body: "Once she's in, you'll get a roster confirmation link to lock her spot — quick and free. Fees can be paid monthly or in full, with dates set at confirmation so you always know what is due.",
   },
   {
     title: "The season begins.",
@@ -141,10 +138,7 @@ export default function LevelsPage() {
                       />
                     </div>
                     <div className="lg:col-span-3 p-7 sm:p-10">
-                      <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-accent-blue">
-                        {team.eyebrow}
-                      </p>
-                      <h2 className="mt-1.5 text-3xl sm:text-4xl font-bold tracking-[-0.015em]">
+                      <h2 className="text-3xl sm:text-4xl font-bold tracking-[-0.015em]">
                         <span className="gradient-text-accent">{team.name}</span>
                       </h2>
                       <p className="mt-2 text-sm font-medium text-[#6B7280]">{team.grades}</p>

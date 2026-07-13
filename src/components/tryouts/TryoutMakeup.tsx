@@ -16,7 +16,7 @@ export default function TryoutMakeup() {
         </ScrollReveal>
         <ScrollReveal delay={100}>
           <h2 className="text-[2.25rem] md:text-[3.25rem] font-bold leading-[1.05] tracking-tight text-[#1A1A1A] mb-6">
-            Come See If You First Is
+            Come See If You. First Is
             <span className="block gradient-text-accent">Right for You.</span>
           </h2>
         </ScrollReveal>

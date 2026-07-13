@@ -1,8 +1,8 @@
-# You First Elite Lacrosse
+# You. First Elite Lacrosse
 ## Youth Program Master Q&A — Source of Truth
 Cincinnati Girls' Lacrosse · 2026–27 Season
 
-*This document is the single source of truth for the You First Elite Lacrosse youth program. Every price, name, and fact on the website, in graphics, and in the AI question helper comes from here. When something changes, it changes here first.*
+*This document is the single source of truth for the You. First Elite Lacrosse youth program. Every price, name, and fact on the website, in graphics, and in the AI question helper comes from here. When something changes, it changes here first.*
 
 ---
 
@@ -10,7 +10,7 @@ Cincinnati Girls' Lacrosse · 2026–27 Season
 
 The standard for lacrosse in Cincinnati is low. We exist to raise it.
 
-You First Elite Lacrosse is built to develop the best girls' lacrosse players in the region, and to make college lacrosse a real, viable path for players here. That mission runs from our youngest teams to our college-bound ones: elevate the game in this area, and build great players.
+You. First Elite Lacrosse is built to develop the best girls' lacrosse players in the region, and to make college lacrosse a real, viable path for players here. That mission runs from our youngest teams to our college-bound ones: elevate the game in this area, and build great players.
 
 Our youth program is the front end of that mission. This is our first year running youth teams, and our commitment is simple: maximize touches, maximize playing and development, and have a lot of fun competing.
 
@@ -28,15 +28,15 @@ A player's journey through the club has two teams. Development builds toward Eli
 
 | Team | Classes | What it is |
 |---|---|---|
-| **Development** | 2032 & 2033 — 2034s who are ready play up with the 2033 team | Where it starts. First tournaments next June; optional training starts this September at the Cincinnati Lacrosse Academy and builds all the way to summer. Built around maximum touches: 6v6, stick skills, fundamentals, learning to love to compete. |
+| **Development** | 2032 & 2033 — 2034s who are ready can play up with the 2033 team | Where it starts. First tournaments next June; optional training starts this September at the Cincinnati Lacrosse Academy and builds all the way to summer. Built around maximum touches: 6v6, stick skills, fundamentals, learning to love to compete. |
 | **Elite** | 2028–2031 (rising 8th grade and up) | The full competitive teams playing the national circuit and building toward college — competing this year. |
 
 ## Current team fees
 
-A $100 roster confirmation reserves her spot on any team — Development and Elite alike. Payment can be made in full or in installments. Dates are set at roster confirmation, so families always know what is due and when.
+Roster confirmation is free. Payment can be made in full or in installments. Dates are set at roster confirmation, so families always know what is due and when.
 
-- **Development (classes 2032 & 2033; 2034s who are ready play up): $700, all-in.** $100 reserves her spot. Gear, private small-group sessions with our college coaches and players, optional training starting this September, and three tournaments next June — all included.
-- **Elite (classes 2028–2031): $100 reserves her spot;** the full team price is set individually and shared before you commit — just ask.
+- **Development (classes 2032 & 2033; 2034s who are ready can play up): $700, all-in.** Includes gear, private small-group sessions with our college coaches and players, training that starts this September, and three tournaments next June.
+- **Elite (classes 2028–2031):** team price is set individually and shared before you commit — just ask.
 
 ## The season: training options June through February
 
@@ -80,7 +80,7 @@ At the youth level we are not looking to cut players. Tryouts and evaluations ar
 
 ## What does it cost, and what is included?
 
-Development is $700, all-in — $100 reserves her spot, and gear, private small-group sessions with our college coaches and players, optional training starting this September, and three tournaments next June are all included. Elite is $100 to reserve her spot, with the full team price set individually and shared before you commit. You can pay in full or in installments.
+Development is $700, all-in — gear, private small-group sessions with our college coaches and players, training that starts this September, and three tournaments next June are all included. Elite's team price is set individually and shared before you commit. Roster confirmation is free, and you can pay in full or in installments.
 
 ## Are there cuts?
 
@@ -112,4 +112,4 @@ The path is Development to Elite. Development (classes 2032 & 2033, with 2034s w
 
 ---
 
-*You First Elite Lacrosse · Cincinnati · Building the best players in the region. Questions? Email us and we will get back to you shortly.*
+*You. First Elite Lacrosse · Cincinnati · Building the best players in the region. Questions? Email us and we will get back to you shortly.*

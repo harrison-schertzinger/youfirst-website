@@ -4,7 +4,7 @@ import ScrollReveal from "@/components/home/ScrollReveal";
 const FAQ_ITEMS = [
   {
     q: "What does it cost, and what is included?",
-    a: "Development is $700, all-in — $100 reserves her spot, and gear, private small-group sessions with our college coaches and players, optional training starting this September, and three tournaments next June are all included. Elite is $100 to reserve her spot, with the full team price set individually and shared before you commit. You can pay in full or in installments. See the Teams page for details.",
+    a: "Development is $700, all-in — gear, private small-group sessions with our college coaches and players, training that starts this September, and three tournaments next June are all included. Elite's team price is set individually and shared before you commit. Roster confirmation is free, and you can pay in full or in installments. See the Teams page for details.",
   },
   {
     q: "Are there cuts?",

@@ -64,7 +64,7 @@ export default function ThreeDoors({ includeTryoutTile = true }: ThreeDoorsProps
             <div className="relative h-48 sm:h-52">
               <PhotoSlot
                 name="getstarted-tryouts.jpg"
-                alt="You First players competing at tryouts"
+                alt="You. First players competing at tryouts"
                 sizes="(max-width: 1024px) 100vw, 33vw"
                 positionClassName="object-[center_15%]"
               />
@@ -101,7 +101,7 @@ export default function ThreeDoors({ includeTryoutTile = true }: ThreeDoorsProps
           <div className="relative h-48 sm:h-52">
             <PhotoSlot
               name="getstarted-film.jpg"
-              alt="Game film of a You First player"
+              alt="Game film of a You. First player"
               sizes="(max-width: 1024px) 100vw, 33vw"
               positionClassName="object-[center_15%]"
             />
@@ -140,7 +140,7 @@ export default function ThreeDoors({ includeTryoutTile = true }: ThreeDoorsProps
           <div className="relative h-48 sm:h-52">
             <PhotoSlot
               name="getstarted-fees.jpg"
-              alt="You First coaches and families"
+              alt="You. First coaches and families"
               sizes="(max-width: 1024px) 100vw, 33vw"
               positionClassName="object-[center_15%]"
             />
