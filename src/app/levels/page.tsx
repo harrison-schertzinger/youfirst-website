@@ -10,7 +10,7 @@ import ThreeResources from "@/components/home/ThreeResources";
 export const metadata: Metadata = {
   title: "Teams | YOU. FIRST Elite Lacrosse",
   description:
-    "Built to develop and compete. Elite (classes 2027–2031) and Development (classes 2032–2034) — every price published.",
+    "Built to develop and compete. Elite (classes 2028–2031) and Development (classes 2032–2034) — every price published.",
 };
 
 interface PriceOption {
@@ -40,7 +40,7 @@ const TEAMS: Team[] = [
   {
     eyebrow: "Elite",
     name: "Elite",
-    grades: "Rising 8th grade and up · Classes 2027–2031",
+    grades: "Rising 8th grade and up · Classes 2028–2031",
     slot: "levels-elite.jpg",
     who: "Players building toward college lacrosse and ready for the full competitive experience.",
     included:
@@ -99,13 +99,12 @@ export default function LevelsPage() {
           <div className="mx-auto max-w-[1280px] px-6 lg:px-8 space-y-8">
             <ScrollReveal>
               <div className="text-center max-w-3xl mx-auto">
-                <p className="section-label mb-5">The Teams · Classes 2027–2034</p>
+                <p className="section-label mb-5">The Teams · Classes 2028–2034</p>
                 <h1 className="text-[2rem] sm:text-[2.75rem] font-bold tracking-tight leading-[1.08] text-[#1A1A1A]">
                   Built to <span className="gradient-text-accent">develop and compete.</span>
                 </h1>
                 <p className="mt-5 text-lg text-[#6B7280] leading-[1.75]">
-                  One to two teams per age group where we can field them. Any
-                  younger player who&apos;s ready will play up.
+                  One team per age group — 34s who are ready can play up.
                 </p>
                 <div className="mt-8 flex flex-wrap justify-center gap-3">
                   {["6v6", "Stick skills", "Fundamentals", "Learning to love to compete"].map((f) => (
