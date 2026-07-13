@@ -125,7 +125,7 @@ const SKILL_COACHES: SkillCoach[] = [
   },
   {
     name: "Lily Kaplan",
-    school: "Elon (commit)",
+    school: "Elon",
     position: "Attack",
     img: "/images/coaches/lily.jpg",
     pos: "object-[center_28%]",
