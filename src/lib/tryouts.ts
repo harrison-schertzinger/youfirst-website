@@ -125,7 +125,7 @@ export const YOUTH_EVALUATION = {
   headline: "Free Evaluations — Any Morning",
   dateLine: "Any morning, now through August 7",
   rangeLabel: "Now through August 7",
-  time: "Mornings",
+  time: "10:00 AM–12:00 PM",
   location: TRYOUT_LOCATION,
   endIso: "2026-08-07",
 } as const;

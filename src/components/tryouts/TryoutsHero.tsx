@@ -122,8 +122,9 @@ export default function TryoutsHero() {
             href="#youth"
             className="arrow-link inline-flex items-center gap-1.5 text-[13px] text-white/55 hover:text-white/90 transition-colors duration-200"
           >
-            Free evaluations every morning through Aug 7 — get evaluated on the
-            spot and hear that day. Prefer a set date? Saturday, July 25.
+            Free evaluations every morning, 10:00 AM&ndash;12:00 PM through Aug
+            7 — get evaluated on the spot and hear that day. Prefer a set date?
+            Saturday, July 25.
             <span className="arrow">&rarr;</span>
           </a>
         </div>

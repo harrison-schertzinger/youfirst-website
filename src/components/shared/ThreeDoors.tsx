@@ -83,11 +83,12 @@ export default function ThreeDoors({ includeTryoutTile = true }: ThreeDoorsProps
                 chance.
               </p>
               <p className="mt-3 text-[15px] font-semibold text-[#1A1A1A] leading-[1.65] flex-1">
-                Tryouts are completely free. Free evaluations every morning
-                through August 7 — or our one set tryout date, Saturday, July
-                25. All at the Cincinnati Lacrosse Academy.
+                Tryouts are completely free. Free evaluations every morning,
+                10:00 AM&ndash;12:00 PM through August 7 — or our one set
+                tryout date, Saturday, July 25, 5:00&ndash;6:30 PM. All at the
+                Cincinnati Lacrosse Academy.
               </p>
-              <Link href="/tryouts" className={`${BTN_PRIMARY} mt-6 self-start`}>
+              <Link href="/tryouts#register" className={`${BTN_PRIMARY} mt-6 self-start`}>
                 Register for Tryouts
               </Link>
             </div>

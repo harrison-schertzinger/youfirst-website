@@ -21,10 +21,10 @@ export default function TryoutDates() {
           </ScrollReveal>
           <ScrollReveal delay={200}>
             <p className="text-lg text-[#6B7280] leading-[1.75]">
-              Free morning evaluations run every morning through August 7 —
-              come when it works, get evaluated on the spot, hear that day. Or
-              come to our one set tryout date, Saturday, July 25. Either way,
-              completely free.
+              Free morning evaluations run every morning, 10:00 AM&ndash;12:00
+              PM, through August 7 — come when it works, get evaluated on the
+              spot, hear that day. Or come to our one set tryout date,
+              Saturday, July 25. Either way, completely free.
             </p>
           </ScrollReveal>
         </div>
@@ -44,10 +44,11 @@ export default function TryoutDates() {
             </h3>
 
             <p className="text-[17px] sm:text-lg text-[#6B7280] leading-[1.8]">
-              Come any morning to the Cincinnati Lacrosse Academy and get
-              evaluated on the spot — come when it works, and hear that day
-              whether she&apos;s in or we&apos;d like to see her once more.
-              Every morning through August 7th — completely free.
+              Come any morning, 10:00 AM&ndash;12:00 PM, to the Cincinnati
+              Lacrosse Academy and get evaluated on the spot — come when it
+              works, and hear that day whether she&apos;s in or we&apos;d like
+              to see her once more. Every morning through August 7th —
+              completely free.
             </p>
 
             <p className="mt-5 text-[17px] sm:text-lg text-[#1A1A1A] font-medium leading-[1.8]">
@@ -76,7 +77,7 @@ export default function TryoutDates() {
                 href="#evaluation"
                 className="inline-flex items-center justify-center px-8 py-4 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(75,156,211,0.4)] hover:bg-accent-blue-hover hover:-translate-y-0.5 transition-all duration-300 self-start"
               >
-                Register — Free
+                Register — Free Evaluation
               </a>
               <p className="text-[14px] text-[#6B7280] leading-[1.7]">
                 Already paid the $50 tryout fee? We&apos;ll refund it or credit
@@ -122,6 +123,15 @@ export default function TryoutDates() {
                     Free evaluations run every morning through August 7.
                   </p>
                 </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-[#E5E8EC]">
+                <a
+                  href="#july25"
+                  className="inline-flex items-center justify-center px-8 py-4 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(75,156,211,0.4)] hover:bg-accent-blue-hover hover:-translate-y-0.5 transition-all duration-300"
+                >
+                  Register — July 25
+                </a>
               </div>
             </div>
           </ScrollReveal>

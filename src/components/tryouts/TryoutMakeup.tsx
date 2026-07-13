@@ -23,9 +23,10 @@ export default function TryoutMakeup() {
         <ScrollReveal delay={200}>
           <p className="text-lg sm:text-xl text-[#6B7280] leading-[1.7] mb-8 max-w-xl mx-auto">
             Can&apos;t make July 25, need to try out earlier, or just want a
-            player evaluation? Come any morning to the {YOUTH_EVALUATION.location},
-            get evaluated on the spot, and hear that day whether she&apos;s in
-            or we&apos;d like to see her once more. Completely free.
+            player evaluation? Come any morning, {YOUTH_EVALUATION.time}, to
+            the {YOUTH_EVALUATION.location} — get evaluated on the spot, and
+            hear that day whether she&apos;s in or we&apos;d like to see her
+            once more. Completely free.
           </p>
         </ScrollReveal>
 

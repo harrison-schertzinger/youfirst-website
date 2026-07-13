@@ -53,14 +53,22 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  // Deep-link: the evaluations CTA (#evaluation, legacy #makeup) flips the form
-  // into evaluation mode and scrolls here.
+  // Deep-links: register CTAs carry their context into the form so a family
+  // never re-picks the option they just clicked. #evaluation (legacy #makeup)
+  // pre-sets Morning Evaluation; #july25 pre-sets the July 25 tryout. Both
+  // scroll here.
   useEffect(() => {
     const applyHash = () => {
       if (typeof window === "undefined") return;
       const h = window.location.hash;
-      if (h === "#evaluation" || h === "#makeup") {
-        setForm((f) => (f.mode === "evaluation" ? f : { ...f, mode: "evaluation" }));
+      const mode: TryoutMode | null =
+        h === "#evaluation" || h === "#makeup"
+          ? "evaluation"
+          : h === "#july25"
+            ? "scheduled"
+            : null;
+      if (mode) {
+        setForm((f) => (f.mode === mode ? f : { ...f, mode }));
         document.getElementById("register")?.scrollIntoView({ behavior: "smooth" });
       }
     };
@@ -258,7 +266,7 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
               </div>
               <p className="mt-2.5 text-[13px] text-white/50 leading-relaxed">
                 {isEvaluation
-                  ? `Any morning, now through August 7 at the ${YOUTH_EVALUATION.location}. Evaluated on the spot — you'll hear the same day.`
+                  ? `Any morning, ${YOUTH_EVALUATION.time}, now through August 7 at the ${YOUTH_EVALUATION.location}. Evaluated on the spot — you'll hear the same day.`
                   : `Saturday, July 25, ${ELITE_TRYOUT.time} at the ${ELITE_TRYOUT.location}. Our one set tryout date.`}
               </p>
             </div>
