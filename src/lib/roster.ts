@@ -58,7 +58,7 @@ export const ROSTER_TEAM_INFO: Record<RosterTeam, RosterTeamInfo> = {
   development: {
     key: "development",
     name: "Development",
-    classes: "Classes 2032 & 2033 · 2034s who are ready play up",
+    classes: "Classes 2032 & 2033 · 2034s who are ready can play up",
     nextLine:
       "The Development team debuts at its first tournaments next June — optional training starts this September at the Cincinnati Lacrosse Academy.",
   },

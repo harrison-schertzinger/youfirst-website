@@ -38,7 +38,7 @@ export default function RosterPage() {
             </ScrollReveal>
             <ScrollReveal delay={100}>
               <h1 className="text-[2.5rem] md:text-[3.4rem] font-bold leading-[1.05] tracking-tight text-white mb-5">
-                Reserve Her <span className="gradient-text-blue">Spot.</span>
+                Lock Her <span className="gradient-text-blue">Spot.</span>
               </h1>
             </ScrollReveal>
             <ScrollReveal delay={200}>
