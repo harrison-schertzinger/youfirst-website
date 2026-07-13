@@ -7,7 +7,7 @@ import ScrollReveal from "@/components/home/ScrollReveal";
 const TEAMS = [
   {
     name: "Development",
-    grades: "Classes 2032 & 2033 · 2034s who are ready play up.",
+    grades: "Classes 2032 & 2033 · 2034s who are ready can play up.",
     body: "Debuts with three tournaments next June; optional training starts September.",
   },
   {

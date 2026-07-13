@@ -10,7 +10,7 @@ import ThreeResources from "@/components/home/ThreeResources";
 export const metadata: Metadata = {
   title: "Teams | YOU. FIRST Elite Lacrosse",
   description:
-    "Built to develop and compete. Development (classes 2032 & 2033 — 2034s who are ready play up) and Elite (classes 2028–2031) — every price published.",
+    "Built to develop and compete. Development (classes 2032 & 2033 — 2034s who are ready can play up) and Elite (classes 2028–2031) — every price published.",
 };
 
 interface PriceOption {
@@ -41,9 +41,9 @@ const TEAMS: Team[] = [
   {
     eyebrow: "Development",
     name: "Development",
-    grades: "Classes 2032 & 2033 · 2034s who are ready play up.",
+    grades: "Classes 2032 & 2033 · 2034s who are ready can play up.",
     startLine:
-      "First tournaments next June. Optional training starts this September at the Cincinnati Lacrosse Academy and builds all the way to summer.",
+      "First tournaments next June. Training starts this September at the Cincinnati Lacrosse Academy and builds all the way to summer.",
     slot: "levels-jumpstart.jpg",
     who: "Players building their foundation and falling in love with the game, whether she is brand new or already has a few seasons in. We want as many young players as want to come. This is where the area's lacrosse gets built.",
     logistics: {
@@ -51,7 +51,7 @@ const TEAMS: Team[] = [
       items: [
         "Three tournaments in June",
         "Two practices a week",
-        "Optional evening small-group sessions with our college coaches and players",
+        "Evening small-group sessions with our college coaches and players",
       ],
       footnote:
         "The focus is development. For players in fall and winter sports, the weekend practice blocks and training times are optional — purely for development, never required.",
@@ -61,7 +61,7 @@ const TEAMS: Team[] = [
         monthly: "$700",
         suffix: "all-in",
         detail:
-          "$100 reserves her spot · gear, private small-group college-coach sessions, optional training starting this September, and three tournaments next June — all included.",
+          "Includes gear, private small-group college-coach sessions, training that starts this September, and three tournaments next June.",
       },
     ],
   },
