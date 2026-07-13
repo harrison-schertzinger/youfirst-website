@@ -83,8 +83,9 @@ export default function ThreeDoors({ includeTryoutTile = true }: ThreeDoorsProps
                 chance.
               </p>
               <p className="mt-3 text-[15px] font-semibold text-[#1A1A1A] leading-[1.65] flex-1">
-                First tryout: Saturday, July 11. Makeup tryouts: August 3 to 7.
-                Both at the Cincinnati Lacrosse Academy.
+                Tryouts are completely free. Elite (2027–2030): Saturday, July
+                25. Youth &amp; development: free evaluations any morning
+                through August 7. All at the Cincinnati Lacrosse Academy.
               </p>
               <Link href="/tryouts" className={`${BTN_PRIMARY} mt-6 self-start`}>
                 Register for Tryouts
@@ -171,7 +172,7 @@ export default function ThreeDoors({ includeTryoutTile = true }: ThreeDoorsProps
                 href="/levels"
                 className="inline-flex items-center justify-center px-7 py-3.5 border-2 border-accent-blue text-accent-blue text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl hover:bg-accent-wash hover:-translate-y-0.5 transition-all duration-300"
               >
-                Check Levels
+                See the Teams
               </Link>
             </div>
           </div>

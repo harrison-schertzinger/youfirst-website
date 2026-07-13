@@ -30,16 +30,18 @@ function getServiceClient() {
 }
 
 function groupLabel(r: RegRow): string {
+  if (r.tryout_type === "evaluation") return "Youth Evaluations · Any Morning through Aug 7";
   if (r.tryout_type === "makeup") return "Make-up Tryouts · August 3–7";
   if (r.tryout_date === "2026-07-11") return "Saturday, July 11 · Youth";
-  if (r.tryout_date === "2026-07-25") return "Saturday, July 25 · Older";
+  if (r.tryout_date === "2026-07-25") return "Saturday, July 25 · Elite";
   return "Other";
 }
 
 const GROUP_ORDER = [
-  "Saturday, July 11 · Youth",
-  "Saturday, July 25 · Older",
+  "Youth Evaluations · Any Morning through Aug 7",
+  "Saturday, July 25 · Elite",
   "Make-up Tryouts · August 3–7",
+  "Saturday, July 11 · Youth",
   "Other",
 ];
 
@@ -78,7 +80,12 @@ export default async function TryoutSignupsPage() {
 
   const rows = (data ?? []) as RegRow[];
   const paid = rows.filter((r) => r.payment_status === "paid");
-  const pending = rows.filter((r) => r.payment_status !== "paid");
+  const confirmed = rows.filter(
+    (r) => r.payment_status === "paid" || r.payment_status === "free",
+  );
+  const pending = rows.filter(
+    (r) => r.payment_status !== "paid" && r.payment_status !== "free",
+  );
 
   const groups = new Map<string, RegRow[]>();
   for (const r of rows) {
@@ -95,7 +102,12 @@ export default async function TryoutSignupsPage() {
     gradYear: r.graduation_year ? String(r.graduation_year) : "",
     position: r.position ?? "",
     tryout: groupLabel(r),
-    status: r.payment_status === "paid" ? "Paid" : "Pending (no payment taken)",
+    status:
+      r.payment_status === "paid"
+        ? "Paid"
+        : r.payment_status === "free"
+          ? "Registered (free)"
+          : "Pending (no payment taken)",
     signedUp: fmtDate(r.created_at),
   }));
 
@@ -121,15 +133,15 @@ export default async function TryoutSignupsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
         <div className="rounded-2xl border border-[#E5E8EC] bg-white p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9CA3AF] mb-1">
-            Paid registrations
+            Confirmed registrations
           </p>
           <p className="text-4xl font-extrabold tracking-tight text-[#1A1A1A]">
-            {paid.length}
+            {confirmed.length}
           </p>
         </div>
         <div className="rounded-2xl border border-[#E5E8EC] bg-white p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9CA3AF] mb-1">
-            Started, not paid
+            Started, not finished
           </p>
           <p className="text-4xl font-extrabold tracking-tight text-[#9CA3AF]">
             {pending.length}
@@ -137,7 +149,7 @@ export default async function TryoutSignupsPage() {
         </div>
         <div className="rounded-2xl border border-[#E5E8EC] bg-white p-5 col-span-2 sm:col-span-1">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9CA3AF] mb-1">
-            Collected
+            Collected (past $50 fees)
           </p>
           <p className="text-4xl font-extrabold tracking-tight text-[#1A1A1A]">
             ${paid.length * 50}
@@ -148,13 +160,15 @@ export default async function TryoutSignupsPage() {
       {/* Groups */}
       {GROUP_ORDER.filter((g) => groups.has(g)).map((label) => {
         const list = groups.get(label)!;
-        const paidCount = list.filter((r) => r.payment_status === "paid").length;
+        const confirmedCount = list.filter(
+          (r) => r.payment_status === "paid" || r.payment_status === "free",
+        ).length;
         return (
           <section key={label} className="mb-10">
             <div className="flex items-center gap-3 mb-3">
               <h2 className="text-base font-bold text-[#1A1A1A]">{label}</h2>
               <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-accent-wash text-accent-blue-hover text-[11px] font-semibold">
-                {paidCount} paid{list.length > paidCount ? ` · ${list.length - paidCount} pending` : ""}
+                {confirmedCount} confirmed{list.length > confirmedCount ? ` · ${list.length - confirmedCount} pending` : ""}
               </span>
             </div>
             <div className="rounded-2xl border border-[#E5E8EC] bg-white overflow-x-auto">
@@ -174,11 +188,12 @@ export default async function TryoutSignupsPage() {
                 <tbody>
                   {list.map((r) => {
                     const isPaid = r.payment_status === "paid";
+                    const isFree = r.payment_status === "free";
                     return (
                       <tr
                         key={r.id}
                         className={`border-b border-[#F1F3F6] last:border-0 ${
-                          isPaid ? "text-[#1A1A1A]" : "text-[#B7BEC9]"
+                          isPaid || isFree ? "text-[#1A1A1A]" : "text-[#B7BEC9]"
                         }`}
                       >
                         <td className="px-5 py-3.5 font-semibold whitespace-nowrap">
@@ -193,6 +208,10 @@ export default async function TryoutSignupsPage() {
                           {isPaid ? (
                             <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#E8F5EE] text-[#177245] text-[11px] font-semibold">
                               Paid
+                            </span>
+                          ) : isFree ? (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-accent-wash text-accent-blue-hover text-[11px] font-semibold">
+                              Free
                             </span>
                           ) : (
                             <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#F1F3F6] text-[#9CA3AF] text-[11px] font-semibold">

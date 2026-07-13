@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { TRYOUT_FEE_LABEL, TRYOUT_PHOTOS } from "@/lib/tryouts";
+import { TRYOUT_PHOTOS } from "@/lib/tryouts";
 
 export default function TryoutsHero() {
   const [loaded, setLoaded] = useState(false);
@@ -52,7 +52,7 @@ export default function TryoutsHero() {
         >
           <span className="w-2 h-2 rounded-full bg-accent-blue animate-pulse" />
           <span className="text-[13px] text-white/80 tracking-[0.15em] uppercase font-semibold">
-            2026 Tryouts — Registration Open
+            2026 Tryouts — Completely Free
           </span>
         </div>
 
@@ -99,7 +99,7 @@ export default function TryoutsHero() {
             href="#register"
             className="inline-flex items-center justify-center px-8 py-4 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(74,144,217,0.4)] hover:shadow-[0_4px_24px_rgba(74,144,217,0.55)] hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 min-w-[220px]"
           >
-            Register — {TRYOUT_FEE_LABEL}
+            Register — Free
           </a>
           <a
             href="#dates"
@@ -119,10 +119,10 @@ export default function TryoutsHero() {
           style={{ transitionDelay: "780ms" }}
         >
           <a
-            href="#makeup-info"
+            href="#youth"
             className="arrow-link inline-flex items-center gap-1.5 text-[13px] text-white/55 hover:text-white/90 transition-colors duration-200"
           >
-            Can&apos;t make July 11 or 25? Make-up tryouts Aug 3&ndash;7
+            Youth &amp; development: free evaluations, any morning through Aug 7
             <span className="arrow">&rarr;</span>
           </a>
         </div>

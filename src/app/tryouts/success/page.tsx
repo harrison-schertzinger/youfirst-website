@@ -7,7 +7,6 @@ import Footer from "@/components/layout/Footer";
 import ScrollProgressBar from "@/components/layout/ScrollProgressBar";
 import { getStripe } from "@/lib/stripe";
 import {
-  TRYOUT_FEE_LABEL,
   TRYOUT_PHOTOS,
   describeTryout,
   type TryoutDisplay,
@@ -131,8 +130,7 @@ export default async function TryoutSuccessPage({
                 </h1>
                 <p className="text-lg text-white/65 leading-[1.7] mb-8">
                   <strong className="text-white">{reg.playerFullName}</strong> is
-                  registered and your {TRYOUT_FEE_LABEL} fee is paid — her spot is
-                  secured.
+                  registered — her spot is secured.
                 </p>
 
                 <div className="rounded-xl border border-accent-blue/30 bg-accent-blue/[0.10] px-6 py-5 mb-8 text-left">

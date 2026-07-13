@@ -4,11 +4,11 @@ import ScrollReveal from "@/components/home/ScrollReveal";
 const FAQ_ITEMS = [
   {
     q: "What does it cost, and what is included?",
-    a: "Fees are all-in, with the $200 roster confirmation (toward jerseys) already inside the number. The fee covers coaching from our college-player staff, practices at the Cincinnati Lacrosse Academy, weekend 6v6, and the tournament slate for the team's stage. Training options run June through February. You can pay in full or in installments. See the Levels page for the number by stage.",
+    a: "Fees are all-in, with the $200 roster confirmation (toward jerseys) already inside the number. The fee covers coaching from our college-player staff, practices at the Cincinnati Lacrosse Academy, weekend 6v6, and the tournament slate for the team's stage. Training options run June through February. You can pay in full or in installments. See the Teams page for the number by stage.",
   },
   {
     q: "Are there cuts?",
-    a: "No. At the youth level we are not looking to cut players. Tryouts on July 11 are about placement, getting each girl on the right team and developing and playing.",
+    a: "No. At the youth level we are not looking to cut players. Tryouts and evaluations are about placement, getting each girl on the right team and developing and playing.",
   },
   {
     q: "Does my daughter have to train at the Cincinnati Lacrosse Academy?",
@@ -27,8 +27,8 @@ const FAQ_ITEMS = [
     a: "For a field player: a girls' lacrosse stick, ASTM-rated goggles, a mouthguard (colored, not clear or white), cleats, and no jewelry at practice or games. Goalies need additional gear, and we will walk you through exactly what to get. Not sure what to buy? Ask us first.",
   },
   {
-    q: "What happens after July 11?",
-    a: "Families are notified within 2 to 3 days, roster confirmation follows, and practice opportunities begin in mid-August and run through February.",
+    q: "What happens after her tryout or evaluation?",
+    a: "Youth evaluations hear the same day — whether she's in or whether we'd like to see her one more time. Elite tryout families are notified within 2 to 3 days. Roster confirmation follows, and practice opportunities begin in mid-August and run through February.",
   },
 ];
 

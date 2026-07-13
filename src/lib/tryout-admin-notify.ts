@@ -25,9 +25,9 @@ export interface TryoutNotifyRecord {
   graduation_year: number;
   position: string;      // Attack | Defense | Midfield | Undecided
   tryout_group: string;  // older | youth
-  tryout_type: string;   // scheduled | makeup
-  tryout_date: string;   // ISO date, e.g. 2026-08-03
-  payment_status: string; // paid | pending | expired
+  tryout_type: string;   // scheduled | makeup | evaluation
+  tryout_date: string | null; // ISO date, e.g. 2026-08-03; null = open evaluation
+  payment_status: string; // paid | pending | expired | free
   amount_cents: number;
 }
 
@@ -52,11 +52,14 @@ function titleCase(s: string): string {
 function parseIsoDateUTC(iso: string): Date {
   return new Date(`${iso}T12:00:00Z`);
 }
-function monthDay(iso: string): string {
+// Evaluation rows have no fixed date — render the open-morning window instead.
+function monthDay(iso: string | null): string {
+  if (!iso) return "Any morning";
   const d = parseIsoDateUTC(iso);
   return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
-function longDate(iso: string): string {
+function longDate(iso: string | null): string {
+  if (!iso) return "Any morning, now through August 7";
   const d = parseIsoDateUTC(iso);
   return `${WEEKDAYS[d.getUTCDay()]}, ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
 }
@@ -97,9 +100,9 @@ export function buildTryoutAdminNotification(
     ``,
     `PLAYER`,
     `  ${reg.player_full_name}  ·  Class of ${reg.graduation_year}  ·  ${reg.position}`,
-    `  Group:  ${titleCase(reg.tryout_group)}   (${reg.tryout_type} tryout)`,
+    `  Group:  ${titleCase(reg.tryout_group)}   (${reg.tryout_type})`,
     `  Tryout: ${longDate(reg.tryout_date)}`,
-    `  Fee:    ${formatMoney(reg.amount_cents)} — ${status}`,
+    `  Fee:    ${reg.amount_cents === 0 ? "Free" : formatMoney(reg.amount_cents)} — ${status}`,
     ``,
     `PARENT`,
     `  ${reg.parent_name}`,
@@ -113,14 +116,19 @@ export function buildTryoutAdminNotification(
     `<tr><td style="padding:4px 16px 4px 0;color:#6b7280;font-size:13px;white-space:nowrap;vertical-align:top">${label}</td>`
     + `<td style="padding:4px 0;color:#111;font-size:14px;font-weight:600">${escapeHtml(value)}</td></tr>`;
 
-  const statusColor = status === "PAID" ? "#0F7B3E" : status === "PENDING" ? "#B45309" : "#6b7280";
+  const statusColor =
+    status === "PAID" || status === "FREE"
+      ? "#0F7B3E"
+      : status === "PENDING"
+        ? "#B45309"
+        : "#6b7280";
 
   const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111;max-width:560px;margin:0 auto;padding:8px">
   <div style="border-top:4px solid #4B9CD3;padding-top:18px">
     <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#4B9CD3;font-weight:700">New Tryout · #${count}</div>
     <h2 style="margin:6px 0 4px;font-size:20px;color:#111">${escapeHtml(reg.player_full_name)}
       <span style="font-weight:500;color:#6b7280;font-size:15px"> (${reg.graduation_year}, ${abbrevPosition(reg.position)})</span></h2>
-    <div style="display:inline-block;margin:2px 0 16px;padding:2px 10px;border-radius:999px;background:${statusColor}1a;color:${statusColor};font-size:12px;font-weight:700;letter-spacing:0.04em">${status} · ${formatMoney(reg.amount_cents)}</div>
+    <div style="display:inline-block;margin:2px 0 16px;padding:2px 10px;border-radius:999px;background:${statusColor}1a;color:${statusColor};font-size:12px;font-weight:700;letter-spacing:0.04em">${status}${reg.amount_cents === 0 ? "" : ` · ${formatMoney(reg.amount_cents)}`}</div>
     <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">
       ${row("Group", `${titleCase(reg.tryout_group)}  (${reg.tryout_type})`)}
       ${row("Tryout", longDate(reg.tryout_date))}

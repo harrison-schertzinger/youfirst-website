@@ -1,9 +1,16 @@
 /**
  * YOU. FIRST Elite Lacrosse — 2026 Tryouts
- * Single source of truth for tryout dates, the grad-year → date mapping,
- * positions, and the fee. Referenced by the /tryouts page, the registration
- * form, the checkout API route, the Stripe webhook, the success page, and the
- * confirmation email. Change a date or the fee HERE and it updates everywhere.
+ * Single source of truth for tryout dates, the grad-year → track mapping,
+ * positions, and display lines. Referenced by the /tryouts page, the
+ * registration form, the register API route, the success page, and the
+ * confirmation email. Change a date HERE and it updates everywhere.
+ *
+ * 2026-07-13: Tryouts are COMPLETELY FREE — the $50 Stripe fee was removed.
+ * Two tracks now:
+ *   • Elite / Older (grad years 2027–2030): scheduled tryout Saturday, July 25
+ *     (make-up mornings August 3–7 still available).
+ *   • Youth / Development (grad years 2031+): free open evaluations — come any
+ *     morning to the Academy, now through August 7. No fixed date.
  */
 
 /**
@@ -27,14 +34,8 @@ export const TRYOUT_PHOTOS = {
   success: "/images/team/DWW07763NEW.jpg",
 } as const;
 
-/** Venue for all tryouts (scheduled + make-up). */
+/** Venue for all tryouts and evaluations. */
 export const TRYOUT_LOCATION = "Cincinnati Lacrosse Academy";
-
-/** Registration fee in cents (Stripe charges in cents). $50.00 */
-export const TRYOUT_FEE_CENTS = 5000;
-
-/** Human dollar label derived from the cents value. */
-export const TRYOUT_FEE_LABEL = `$${(TRYOUT_FEE_CENTS / 100).toFixed(0)}`;
 
 /** Positions offered on the tryout form (distinct from roster positions). */
 export const TRYOUT_POSITIONS = [
@@ -66,7 +67,7 @@ export interface TryoutDate {
   gradYears: number[];
   weekday: string;
   dateLabel: string;
-  /** "Saturday, July 11" — used in copy and the email. */
+  /** "Saturday, July 25" — used in copy and the email. */
   fullLabel: string;
   /** Machine date stored in tryout_registrations.tryout_date (YYYY-MM-DD). */
   isoDate: string;
@@ -79,6 +80,9 @@ export interface TryoutDate {
 }
 
 export const TRYOUT_DATES: Record<"youth" | "older", TryoutDate> = {
+  // LEGACY — the scheduled youth session (July 11) already happened. Kept so
+  // historical registrations still render their correct date on the success
+  // page and in the admin roster. Not linked from any live page.
   youth: {
     id: "youth",
     group: "Youth",
@@ -93,22 +97,39 @@ export const TRYOUT_DATES: Record<"youth" | "older", TryoutDate> = {
   },
   older: {
     id: "older",
-    group: "Older",
-    gradYears: [2029, 2030],
+    group: "Elite",
+    gradYears: [2027, 2028, 2029, 2030],
     weekday: "Saturday",
     dateLabel: "July 25",
     fullLabel: "Saturday, July 25",
     isoDate: "2026-07-25",
     time: "5:00–6:30 PM",
     location: TRYOUT_LOCATION,
-    audience: "Grad years 2029 & 2030",
+    audience: "Grad years 2027, 2028, 2029 & 2030",
   },
 };
 
+/** The live elite tryout session (Saturday, July 25). */
+export const ELITE_TRYOUT = TRYOUT_DATES.older;
+
 /**
- * Make-up tryouts — softer, welcoming, no scheduled cohort. A fixed 5-day block
- * of mornings at the Academy. The parent picks ONE of the five days below — no
- * free date entry, no dates outside the block.
+ * Youth & development track — free open evaluations. Come any morning to the
+ * Academy, get evaluated on the spot, hear the same day. No fixed date, no
+ * charge. `endIso` is the last day of the window.
+ */
+export const YOUTH_EVALUATION = {
+  headline: "Free Evaluations — Any Morning",
+  dateLine: "Any morning, now through August 7",
+  rangeLabel: "Now through August 7",
+  time: "Mornings",
+  location: TRYOUT_LOCATION,
+  endIso: "2026-08-07",
+} as const;
+
+/**
+ * Make-up tryouts — for elite players (grad years 2027–2030) who can't make
+ * July 25. A fixed 5-day block of mornings at the Academy. The parent picks
+ * ONE of the five days below — no free date entry, no dates outside the block.
  */
 export const MAKEUP_TRYOUT = {
   rangeLabel: "August 3–7",
@@ -129,29 +150,35 @@ const MAKEUP_DATE_SET: ReadonlySet<string> = new Set(
   MAKEUP_DATE_OPTIONS.map((o) => o.iso),
 );
 
-/** Ordered list for rendering the two date sections. */
+/** Ordered list of scheduled sessions (incl. the legacy July 11 session). */
 export const TRYOUT_DATE_LIST: TryoutDate[] = [
   TRYOUT_DATES.youth,
   TRYOUT_DATES.older,
 ];
 
 /**
- * Grad-year options for the dropdown — 2029 (oldest) through 2038 (youngest).
+ * Grad-year options for the dropdown — 2027 (oldest) through 2038 (youngest).
  */
 export const GRAD_YEAR_OPTIONS: number[] = Array.from(
-  { length: 2038 - 2029 + 1 },
-  (_, i) => 2029 + i,
+  { length: 2038 - 2027 + 1 },
+  (_, i) => 2027 + i,
 );
 
+/** Which track a graduation year belongs to. */
+export type TryoutTrack =
+  | { kind: "elite"; session: TryoutDate }
+  | { kind: "youth" };
+
 /**
- * The smart touch: given a graduation year, which tryout does she belong at?
- * 2029–2030 → Older (Jul 25). 2031 and younger → Youth (Jul 11).
+ * The smart touch: given a graduation year, which track does she belong to?
+ * 2027–2030 → Elite scheduled tryout (Jul 25, make-ups Aug 3–7).
+ * 2031 and younger → Youth free evaluations (any morning through Aug 7).
  * Returns null for years outside the offered range.
  */
-export function tryoutForGradYear(year: number | null | undefined): TryoutDate | null {
+export function trackForGradYear(year: number | null | undefined): TryoutTrack | null {
   if (year == null || Number.isNaN(year)) return null;
-  if (year <= 2030 && year >= 2029) return TRYOUT_DATES.older;
-  if (year >= 2031 && year <= 2038) return TRYOUT_DATES.youth;
+  if (year >= 2027 && year <= 2030) return { kind: "elite", session: TRYOUT_DATES.older };
+  if (year >= 2031 && year <= 2038) return { kind: "youth" };
   return null;
 }
 
@@ -161,8 +188,8 @@ export function tryoutByIsoDate(isoDate: string | null | undefined): TryoutDate 
   return TRYOUT_DATE_LIST.find((t) => t.isoDate === isoDate) ?? null;
 }
 
-// ── Tryout type (scheduled vs make-up) ───────────────────────────────────
-export const TRYOUT_TYPES = ["scheduled", "makeup"] as const;
+// ── Tryout type (scheduled vs make-up vs open evaluation) ────────────────
+export const TRYOUT_TYPES = ["scheduled", "makeup", "evaluation"] as const;
 export type TryoutType = (typeof TRYOUT_TYPES)[number];
 
 export function isTryoutType(v: unknown): v is TryoutType {
@@ -194,27 +221,37 @@ export function formatTryoutDate(iso: string): string {
 export interface TryoutDisplay {
   type: TryoutType;
   typeLabel: string;
-  /** "Saturday, July 11" */
+  /** "Saturday, July 25" or "Any morning, now through August 7" */
   dateLine: string;
-  /** "5:00–6:30 PM" */
+  /** "5:00–6:30 PM" or "Mornings" */
   time: string;
   location: string;
-  /** "Saturday, July 11 · 5:00–6:30 PM · Cincinnati Lacrosse Academy" */
+  /** "Saturday, July 25 · 5:00–6:30 PM · Cincinnati Lacrosse Academy" */
   fullLine: string;
 }
 
 /**
  * Resolve the display for any registration. Scheduled rows render from the
  * canonical session; make-up rows render the parent-picked date + the make-up
- * window. ONE place builds these lines so the form, success page, email, and
- * sheet all agree.
+ * window; evaluation rows render the open-morning window. ONE place builds
+ * these lines so the form, success page, email, and sheet all agree.
  */
 export function describeTryout(input: {
   type: TryoutType;
-  isoDate: string;
+  isoDate: string | null;
   group?: string | null;
 }): TryoutDisplay {
-  if (input.type === "makeup") {
+  if (input.type === "evaluation") {
+    return {
+      type: "evaluation",
+      typeLabel: "Evaluation",
+      dateLine: YOUTH_EVALUATION.dateLine,
+      time: YOUTH_EVALUATION.time,
+      location: YOUTH_EVALUATION.location,
+      fullLine: `${YOUTH_EVALUATION.dateLine} · ${YOUTH_EVALUATION.time} · ${YOUTH_EVALUATION.location}`,
+    };
+  }
+  if (input.type === "makeup" && input.isoDate) {
     const dateLine = formatTryoutDate(input.isoDate);
     return {
       type: "makeup",
@@ -232,7 +269,7 @@ export function describeTryout(input: {
       ? TRYOUT_DATES.youth
       : input.group === "older"
         ? TRYOUT_DATES.older
-        : TRYOUT_DATES.youth);
+        : TRYOUT_DATES.older);
   return {
     type: "scheduled",
     typeLabel: "Scheduled",
