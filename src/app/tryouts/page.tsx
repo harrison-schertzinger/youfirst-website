@@ -19,6 +19,14 @@ export const metadata: Metadata = {
     description:
       "2026 YOU. FIRST Elite Lacrosse tryouts are completely free. Free evaluations every morning, 10:00 AM–12:00 PM through August 7, or our one set tryout date: Saturday, July 25, 5:00–6:30 PM.",
     url: "https://youfirstlacrosse.com/tryouts",
+    images: [
+      {
+        url: "/images/og/youfirst-share.jpg",
+        width: 1200,
+        height: 630,
+        alt: "You. First Elite Lacrosse — the team huddled arm-in-arm on the field",
+      },
+    ],
   },
   alternates: { canonical: "/tryouts" },
 };

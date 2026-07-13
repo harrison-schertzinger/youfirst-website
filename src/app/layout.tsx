@@ -28,19 +28,19 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "YOU. FIRST Elite Lacrosse",
+    title: "You. First Elite Lacrosse",
     description:
-      "Southern Ohio's premier college prep girls' lacrosse club. Build & Bring the Best Together.",
+      "The area's elite club, now with youth teams. Free evaluations through August 7.",
     type: "website",
     locale: "en_US",
-    siteName: "YOU. FIRST Elite Lacrosse",
+    siteName: "You. First Elite Lacrosse",
     url: "https://youfirstlacrosse.com",
   },
   twitter: {
     card: "summary_large_image",
-    title: "YOU. FIRST Elite Lacrosse",
+    title: "You. First Elite Lacrosse",
     description:
-      "Southern Ohio's premier college prep girls' lacrosse club. Build & Bring the Best Together.",
+      "The area's elite club, now with youth teams. Free evaluations through August 7.",
   },
   robots: {
     index: true,

@@ -13,6 +13,14 @@ export const metadata: Metadata = {
     title: "Schedule | YOU. FIRST Elite Lacrosse",
     description:
       "Summer 2026 schedule — practices, tournaments, camps, showcases, and team events.",
+    images: [
+      {
+        url: "/images/og/youfirst-share.jpg",
+        width: 1200,
+        height: 630,
+        alt: "You. First Elite Lacrosse — the team huddled arm-in-arm on the field",
+      },
+    ],
   },
 };
 

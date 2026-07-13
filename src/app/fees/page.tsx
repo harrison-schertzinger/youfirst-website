@@ -15,6 +15,14 @@ export const metadata: Metadata = {
     title: "My Account | YOU. FIRST Elite Lacrosse",
     description:
       "Sign in to your parent portal to view payment history and account balance.",
+    images: [
+      {
+        url: "/images/og/youfirst-share.jpg",
+        width: 1200,
+        height: 630,
+        alt: "You. First Elite Lacrosse — the team huddled arm-in-arm on the field",
+      },
+    ],
   },
 };
 
