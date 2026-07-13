@@ -21,9 +21,10 @@ export default function TryoutDates() {
           </ScrollReveal>
           <ScrollReveal delay={200}>
             <p className="text-lg text-[#6B7280] leading-[1.75]">
-              The set tryout is Saturday, July 25 — open to all ages. Free
-              morning evaluations run any morning, now through August 7. Either
-              way, it&apos;s completely free.
+              Free morning evaluations run every morning through August 7 —
+              come when it works, get evaluated on the spot, hear that day. Or
+              come to our one set tryout date, Saturday, July 25. Either way,
+              completely free.
             </p>
           </ScrollReveal>
         </div>
@@ -33,7 +34,7 @@ export default function TryoutDates() {
           <div className="card max-w-4xl mx-auto p-8 sm:p-12" id="youth">
             <div className="flex items-center gap-3 mb-8">
               <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-accent-wash text-accent-blue-hover text-[11px] font-semibold uppercase tracking-[0.15em]">
-                Youth &amp; Development · Any Age Welcome
+                The Key Path · Every Morning
               </span>
               <span className="h-px flex-1 bg-[#E5E8EC]" />
             </div>
@@ -43,11 +44,10 @@ export default function TryoutDates() {
             </h3>
 
             <p className="text-[17px] sm:text-lg text-[#6B7280] leading-[1.8]">
-              Can&apos;t make July 25, need to try out earlier, or just want a
-              player evaluation? Come any morning to the Cincinnati Lacrosse
-              Academy, get evaluated on the spot, and hear that day whether
-              she&apos;s in or we&apos;d like to see her once more. Open now
-              through August 7th — completely free.
+              Come any morning to the Cincinnati Lacrosse Academy and get
+              evaluated on the spot — come when it works, and hear that day
+              whether she&apos;s in or we&apos;d like to see her once more.
+              Every morning through August 7th — completely free.
             </p>
 
             <p className="mt-5 text-[17px] sm:text-lg text-[#1A1A1A] font-medium leading-[1.8]">
@@ -86,7 +86,7 @@ export default function TryoutDates() {
           </div>
         </ScrollReveal>
 
-        {/* ── The set date — Saturday, July 25, all ages ────────────────── */}
+        {/* ── The one set date — Saturday, July 25 ──────────────────────── */}
         <div className="max-w-4xl mx-auto mt-8">
           <ScrollReveal delay={120}>
             <div className="card p-8 sm:p-10">
@@ -113,15 +113,13 @@ export default function TryoutDates() {
                 </div>
                 <div className="sm:border-l sm:border-[#E5E8EC] sm:pl-8 flex flex-col justify-center">
                   <p className="text-[12px] uppercase tracking-[0.15em] text-[#9CA3AF] font-semibold mb-2">
-                    Who belongs here
+                    Prefer a set date?
                   </p>
                   <p className="text-base text-[#1A1A1A] font-medium leading-[1.6]">
-                    {ELITE_TRYOUT.audience} — the marquee tryout, the set date
-                    out-of-town players come in for.
+                    {ELITE_TRYOUT.audience}
                   </p>
                   <p className="mt-3 text-[14px] text-[#6B7280] leading-[1.7]">
-                    Can&apos;t make it? Free evaluations run any morning through
-                    August 7.
+                    Free evaluations run every morning through August 7.
                   </p>
                 </div>
               </div>

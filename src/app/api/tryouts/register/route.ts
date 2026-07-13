@@ -116,8 +116,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Two options, any age: the July 25 set date (default) or a free morning
-  // evaluation. Evaluations have no fixed date.
+  // Two options for every grad year: a free morning evaluation (the primary
+  // path) or the July 25 set date. Evaluations have no fixed date.
   const tType: TryoutType = tryoutType === "evaluation" ? "evaluation" : "scheduled";
   const tryoutDateIso = tType === "evaluation" ? null : ELITE_TRYOUT.isoDate;
   const group = groupForGradYear(gradYear);

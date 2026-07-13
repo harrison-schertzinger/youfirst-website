@@ -3,9 +3,9 @@ import { YOUTH_EVALUATION } from "@/lib/tryouts";
 
 /**
  * Evaluations reprise — light, welcoming framing to balance the page's darker
- * photography bands. The flexible option for any age: free morning
- * evaluations, any morning through August 7. The CTA deep-links to the form in
- * evaluation mode (#evaluation).
+ * photography bands. The primary path restated for anyone who scrolled past:
+ * free morning evaluations, every morning through August 7. The CTA deep-links
+ * to the form in evaluation mode (#evaluation).
  */
 export default function TryoutMakeup() {
   return (
@@ -25,7 +25,7 @@ export default function TryoutMakeup() {
             Can&apos;t make July 25, need to try out earlier, or just want a
             player evaluation? Come any morning to the {YOUTH_EVALUATION.location},
             get evaluated on the spot, and hear that day whether she&apos;s in
-            or we&apos;d like to see her once more. Any age, completely free.
+            or we&apos;d like to see her once more. Completely free.
           </p>
         </ScrollReveal>
 

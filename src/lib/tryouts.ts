@@ -6,12 +6,14 @@
  * confirmation email. Change a date HERE and it updates everywhere.
  *
  * 2026-07-13: Tryouts are COMPLETELY FREE — the $50 Stripe fee was removed.
- * Two OPTIONS, both open to every age (grad years 2028–2038):
- *   • Saturday, July 25 — the formal set-date tryout (5:00–6:30 PM, Academy).
- *   • Free morning evaluations — any morning, now through August 7. Evaluated
- *     on the spot, hear the same day. No fixed date.
- * Special case: class of 2031 is POINTED to the morning evaluations (the form
- * defaults them there), even though 2031 is an Elite-team class.
+ * Two OPTIONS for every grad year (2028–2038), anyone can pick either:
+ *   • Free morning evaluations — the PRIMARY path. Every morning through
+ *     August 7: evaluated on the spot, hear that day. No fixed date. The form
+ *     defaults here.
+ *   • Saturday, July 25 — our one set tryout date (5:00–6:30 PM, Academy),
+ *     for players who prefer a scheduled tryout or are traveling in.
+ * Teams by grad year: 2028–2031 Elite · 2032–2034 Development (2034 plays up)
+ * · 2035 and younger Development / Youth.
  */
 
 /**
@@ -106,11 +108,12 @@ export const TRYOUT_DATES: Record<"youth" | "older", TryoutDate> = {
     isoDate: "2026-07-25",
     time: "5:00–6:30 PM",
     location: TRYOUT_LOCATION,
-    audience: "All ages welcome",
+    audience:
+      "Our one set tryout date. Great for older players and families traveling in.",
   },
 };
 
-/** The live set-date tryout session (Saturday, July 25 — open to all ages). */
+/** The one set-date tryout session (Saturday, July 25). */
 export const ELITE_TRYOUT = TRYOUT_DATES.older;
 
 /**
@@ -174,13 +177,16 @@ export function isOfferedGradYear(year: number | null | undefined): boolean {
 }
 
 /**
- * Both options are open to every age; July 25 is the default set date. The one
- * special case: class of 2031 is pointed to the free morning evaluations.
+ * Grad-year → team label. 2028–2031 = Elite · 2032–2033 = Development ·
+ * 2034 = Development (plays up with the 2033s) · 2035 and younger =
+ * Development / Youth. Anyone can pick either tryout option — this only
+ * names the team she's trying out for.
  */
-export function defaultTryoutModeForGradYear(
-  year: number | null | undefined,
-): "scheduled" | "evaluation" {
-  return year === 2031 ? "evaluation" : "scheduled";
+export function teamForGradYear(year: number): string {
+  if (year >= 2028 && year <= 2031) return "Elite";
+  if (year === 2032 || year === 2033) return "Development";
+  if (year === 2034) return "Development (plays up)";
+  return "Development / Youth";
 }
 
 /** Informational cohort tag stored on the row (2028–2031 older, 2032+ youth). */

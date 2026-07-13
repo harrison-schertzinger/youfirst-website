@@ -59,10 +59,10 @@ Specific tournament names and dates are announced closer to the season.
 
 ## Tryouts and evaluations — completely free
 
-Two options, both open to every age and both completely free:
+Two options, both completely free. Anyone can pick either.
 
-1. **The set tryout: Saturday, July 25,** 5:00–6:30 PM at the Cincinnati Lacrosse Academy — the marquee date, open to all ages.
-2. **Free morning evaluations: any morning, now through August 7,** at the Cincinnati Lacrosse Academy. She is evaluated on the spot, and families hear the same day whether she is in or we would like to see her once more.
+1. **Free morning evaluations — the primary path: every morning through August 7** at the Cincinnati Lacrosse Academy. Come when it works — she is evaluated on the spot, and families hear that day whether she is in or we would like to see her once more.
+2. **Our one set tryout date: Saturday, July 25,** 5:00–6:30 PM at the Cincinnati Lacrosse Academy. Great for older players and families traveling in.
 
 Already paid the $50 tryout fee? We will refund it or credit it toward team fees — your choice.
 

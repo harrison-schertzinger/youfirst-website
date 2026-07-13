@@ -13,11 +13,11 @@ import TryoutForm from "@/components/tryouts/TryoutForm";
 export const metadata: Metadata = {
   title: "2026 Tryouts | YOU. FIRST Elite Lacrosse",
   description:
-    "2026 YOU. FIRST Elite Lacrosse tryouts are completely free. The set tryout: Saturday, July 25, 5:00–6:30 PM at the Cincinnati Lacrosse Academy — all ages. Or free evaluations any morning through August 7.",
+    "2026 YOU. FIRST Elite Lacrosse tryouts are completely free. Free evaluations every morning through August 7 at the Cincinnati Lacrosse Academy — evaluated on the spot, hear that day. Prefer a set date? Saturday, July 25, 5:00–6:30 PM.",
   openGraph: {
     title: "2026 Tryouts | YOU. FIRST Elite Lacrosse",
     description:
-      "2026 YOU. FIRST Elite Lacrosse tryouts are completely free. Set tryout Saturday, July 25 (all ages), or free evaluations any morning through August 7.",
+      "2026 YOU. FIRST Elite Lacrosse tryouts are completely free. Free evaluations every morning through August 7, or our one set tryout date: Saturday, July 25.",
     url: "https://youfirstlacrosse.com/tryouts",
   },
   alternates: { canonical: "/tryouts" },

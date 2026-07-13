@@ -7,8 +7,8 @@ import {
   GRAD_YEAR_OPTIONS,
   TRYOUT_POSITIONS,
   YOUTH_EVALUATION,
-  defaultTryoutModeForGradYear,
   describeTryout,
+  teamForGradYear,
 } from "@/lib/tryouts";
 
 type TryoutMode = "scheduled" | "evaluation";
@@ -24,8 +24,9 @@ interface FormState {
   position: string;
 }
 
+// Morning evaluations are the primary path — the form defaults there.
 const EMPTY: FormState = {
-  mode: "scheduled",
+  mode: "evaluation",
   playerFullName: "",
   parentName: "",
   email: "",
@@ -86,18 +87,6 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
       setForm((f) => ({ ...f, [key]: e.target.value }));
       if (error) setError(null);
     };
-
-  // Grad year picks the default option — the one special case: 2031 is pointed
-  // to the free morning evaluations. Any age can still switch to either.
-  const setGradYear = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    setForm((f) => ({
-      ...f,
-      graduationYear: value,
-      mode: defaultTryoutModeForGradYear(parseInt(value, 10)),
-    }));
-    if (error) setError(null);
-  };
 
   const setMode = (mode: TryoutMode) => {
     setForm((f) => ({ ...f, mode }));
@@ -245,8 +234,8 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
                 className="grid grid-cols-2 gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] p-1.5"
               >
                 {([
-                  { key: "scheduled", label: "July 25 Tryout" },
                   { key: "evaluation", label: "Morning Evaluation" },
+                  { key: "scheduled", label: "July 25 Tryout" },
                 ] as const).map((opt) => {
                   const active = form.mode === opt.key;
                   return (
@@ -270,12 +259,7 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
               <p className="mt-2.5 text-[13px] text-white/50 leading-relaxed">
                 {isEvaluation
                   ? `Any morning, now through August 7 at the ${YOUTH_EVALUATION.location}. Evaluated on the spot — you'll hear the same day.`
-                  : `Saturday, July 25, ${ELITE_TRYOUT.time} at the ${ELITE_TRYOUT.location}. The set date — open to all ages.`}
-                {gradYear === 2031 && !isEvaluation && (
-                  <span className="block mt-1">
-                    Class of 2031 evaluates at the free mornings.
-                  </span>
-                )}
+                  : `Saturday, July 25, ${ELITE_TRYOUT.time} at the ${ELITE_TRYOUT.location}. Our one set tryout date.`}
               </p>
             </div>
 
@@ -355,7 +339,7 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
                   <select
                     id="graduationYear"
                     value={form.graduationYear}
-                    onChange={setGradYear}
+                    onChange={set("graduationYear")}
                     className={`${fieldCls} appearance-none ${
                       form.graduationYear ? "text-white" : "text-white/40"
                     }`}
@@ -419,6 +403,11 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
                       {" "}· {matchedDisplay.time} · {matchedDisplay.location}
                     </span>
                   </p>
+                  {gradYear != null && !Number.isNaN(gradYear) && (
+                    <p className="text-[13px] text-white/50 mt-1 leading-relaxed">
+                      Team: {teamForGradYear(gradYear)}
+                    </p>
+                  )}
                   {isEvaluation && (
                     <p className="text-[13px] text-white/50 mt-1 leading-relaxed">
                       Come any morning, get evaluated on the spot, and hear the
