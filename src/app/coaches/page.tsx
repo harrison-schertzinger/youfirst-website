@@ -305,20 +305,18 @@ export default function CoachesPage() {
 
             <ScrollReveal delay={120}>
               <div className="card max-w-md mx-auto overflow-hidden">
-                <div className="relative h-64">
+                <div className="relative h-72 sm:h-80 keep-color">
                   <PhotoSlot
                     name="coach-brett.jpg"
-                    alt="Brett Finnie — strength trainer, photo coming soon"
+                    alt="Brett Finnie — Strength Trainer"
                     sizes="(max-width: 640px) 100vw, 448px"
+                    positionClassName="object-[center_26%]"
                   />
                 </div>
                 <div className="p-7 sm:p-8">
                   <h3 className="text-xl font-bold tracking-[-0.01em]">
                     <span className="gradient-text-accent">Brett Finnie</span>
                   </h3>
-                  <div className="mt-1.5">
-                    <Pending label="Photo" />
-                  </div>
                   <p className="mt-3 text-sm font-medium text-[#1A1A1A]">Strength Trainer</p>
                   <p className="mt-2 text-[15px] text-[#6B7280] leading-[1.75]">
                     Strength, conditioning, and any extra work the players need.
