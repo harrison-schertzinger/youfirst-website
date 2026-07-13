@@ -72,7 +72,7 @@ const TEAMS: Team[] = [
 const ROSTER_STEPS = [
   {
     title: "Tryouts & evaluations.",
-    body: "Elite (classes 2027–2030): Saturday, July 25 at the Cincinnati Lacrosse Academy. Youth & development: free evaluations, any morning now through August 7. It's about placement, finding each player her right team so she can develop and play.",
+    body: "Elite: Saturday, July 25 at the Cincinnati Lacrosse Academy. Youth & development: free evaluations, any morning now through August 7. It's about placement, finding each player her right team so she can develop and play.",
   },
   {
     title: "Notification.",
