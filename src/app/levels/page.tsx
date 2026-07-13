@@ -10,62 +10,8 @@ import ThreeResources from "@/components/home/ThreeResources";
 export const metadata: Metadata = {
   title: "Teams | YOU. FIRST Elite Lacrosse",
   description:
-    "One path, two teams. Elite (classes 2027–2031) and Development (classes 2032–2034) — from her first season to the national stage, with every price published.",
+    "Built to develop and compete. Elite (classes 2027–2031) and Development (classes 2032–2034) — every price published.",
 };
-
-// ── Clean Carolina progression mark: DEVELOPMENT → ELITE ──
-function TeamsPath() {
-  return (
-    <div className="overflow-x-auto scrollbar-hide">
-      <svg
-        viewBox="0 0 1100 190"
-        className="w-full min-w-[640px] h-auto"
-        role="img"
-        aria-label="The path: Development, then Elite"
-      >
-        <path
-          d="M60 150 H420 L560 60 H1040"
-          stroke="#4B9CD3"
-          strokeWidth="3.5"
-          fill="none"
-          strokeLinecap="round"
-        />
-        {[
-          { x: 240, y: 150, name: "DEVELOPMENT", sub: "Classes 2032–2034" },
-          { x: 800, y: 60, name: "ELITE", sub: "Classes 2027–2031" },
-        ].map((s) => (
-          <g key={s.name}>
-            <circle cx={s.x} cy={s.y} r="10" fill="#FFFFFF" stroke="#4B9CD3" strokeWidth="3" />
-            <circle cx={s.x} cy={s.y} r="3.5" fill="#4B9CD3" />
-            <text
-              x={s.x}
-              y={s.y - 24}
-              textAnchor="middle"
-              fontSize="19"
-              fontWeight="800"
-              letterSpacing="2"
-              fill="#1A1A1A"
-              fontFamily="inherit"
-            >
-              {s.name}
-            </text>
-            <text
-              x={s.x}
-              y={s.y + 34}
-              textAnchor="middle"
-              fontSize="12.5"
-              fontWeight="500"
-              fill="#6B7280"
-              fontFamily="inherit"
-            >
-              {s.sub}
-            </text>
-          </g>
-        ))}
-      </svg>
-    </div>
-  );
-}
 
 interface PriceOption {
   label?: string;
@@ -146,50 +92,17 @@ export default function LevelsPage() {
   return (
     <>
       <ScrollProgressBar />
-      <Navbar />
+      <Navbar initialTheme="light" />
       <main className="bw-site">
-        {/* Hero — dark, matching the site's premium bands */}
-        <section className="bg-[#0A0A0B] pt-40 pb-20 sm:pt-48 sm:pb-24">
-          <div className="mx-auto max-w-[1280px] px-6 lg:px-8 text-center">
-            <h1 className="text-[2.75rem] sm:text-[4rem] lg:text-[5rem] font-extrabold tracking-[-0.025em] leading-[1.02] text-white">
-              One path. <span className="gradient-text-blue">Two teams.</span>
-            </h1>
-            <p className="mt-6 text-lg sm:text-xl text-white/70 leading-[1.7] max-w-2xl mx-auto">
-              From her first season to the national stage, You. First is built
-              to develop her fully, wherever she is starting from.
-            </p>
-          </div>
-        </section>
-
-        {/* Intro + progression mark */}
-        <section className="py-20 sm:py-24 bg-background">
-          <div className="mx-auto max-w-[1080px] px-6 lg:px-8">
-            <ScrollReveal>
-              <p className="text-[17px] sm:text-lg text-[#6B7280] leading-[1.85] max-w-3xl mx-auto text-center">
-                Our commitment is to build the best players, compete at the
-                biggest events, and permanently transform the culture of
-                lacrosse in this area. This is for players who want to be
-                great. Wherever she is starting from, if she is willing to
-                work, there is a place for her here.
-              </p>
-            </ScrollReveal>
-            <ScrollReveal delay={150}>
-              <div className="mt-14">
-                <TeamsPath />
-              </div>
-            </ScrollReveal>
-          </div>
-        </section>
-
-        {/* The teams */}
-        <section className="pb-20 sm:pb-24 bg-background">
+        {/* The teams — the page opens right here */}
+        <section className="pt-32 sm:pt-40 pb-20 sm:pb-24 bg-background">
           <div className="mx-auto max-w-[1280px] px-6 lg:px-8 space-y-8">
             <ScrollReveal>
-              <div className="text-center max-w-3xl mx-auto pt-4">
+              <div className="text-center max-w-3xl mx-auto">
                 <p className="section-label mb-5">The Teams · Classes 2027–2034</p>
-                <h2 className="text-[2rem] sm:text-[2.75rem] font-bold tracking-tight leading-[1.08] text-[#1A1A1A]">
-                  Two teams, <span className="gradient-text-accent">built to develop.</span>
-                </h2>
+                <h1 className="text-[2rem] sm:text-[2.75rem] font-bold tracking-tight leading-[1.08] text-[#1A1A1A]">
+                  Built to <span className="gradient-text-accent">develop and compete.</span>
+                </h1>
                 <p className="mt-5 text-lg text-[#6B7280] leading-[1.75]">
                   One to two teams per age group where we can field them. Any
                   younger player who&apos;s ready will play up.
