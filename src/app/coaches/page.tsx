@@ -354,7 +354,7 @@ export default function CoachesPage() {
                     name="coach-brett.jpg"
                     alt="Brett Finnie — Strength Trainer"
                     sizes="(max-width: 640px) 100vw, 448px"
-                    positionClassName="object-[center_26%]"
+                    positionClassName="object-[center_46%]"
                   />
                 </div>
                 <div className="p-7 sm:p-8">
