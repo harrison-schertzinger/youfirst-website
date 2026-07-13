@@ -6,11 +6,12 @@
  * confirmation email. Change a date HERE and it updates everywhere.
  *
  * 2026-07-13: Tryouts are COMPLETELY FREE — the $50 Stripe fee was removed.
- * Two tracks now:
- *   • Elite / Older (grad years 2027–2030): scheduled tryout Saturday, July 25
- *     (make-up mornings August 3–7 still available).
- *   • Youth / Development (grad years 2031+): free open evaluations — come any
- *     morning to the Academy, now through August 7. No fixed date.
+ * Two OPTIONS, both open to every age (grad years 2028–2038):
+ *   • Saturday, July 25 — the formal set-date tryout (5:00–6:30 PM, Academy).
+ *   • Free morning evaluations — any morning, now through August 7. Evaluated
+ *     on the spot, hear the same day. No fixed date.
+ * Special case: class of 2031 is POINTED to the morning evaluations (the form
+ * defaults them there), even though 2031 is an Elite-team class.
  */
 
 /**
@@ -97,19 +98,19 @@ export const TRYOUT_DATES: Record<"youth" | "older", TryoutDate> = {
   },
   older: {
     id: "older",
-    group: "Elite",
-    gradYears: [2027, 2028, 2029, 2030],
+    group: "The Set Date",
+    gradYears: [2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035, 2036, 2037, 2038],
     weekday: "Saturday",
     dateLabel: "July 25",
     fullLabel: "Saturday, July 25",
     isoDate: "2026-07-25",
     time: "5:00–6:30 PM",
     location: TRYOUT_LOCATION,
-    audience: "Grad years 2027, 2028, 2029 & 2030",
+    audience: "All ages welcome",
   },
 };
 
-/** The live elite tryout session (Saturday, July 25). */
+/** The live set-date tryout session (Saturday, July 25 — open to all ages). */
 export const ELITE_TRYOUT = TRYOUT_DATES.older;
 
 /**
@@ -157,29 +158,34 @@ export const TRYOUT_DATE_LIST: TryoutDate[] = [
 ];
 
 /**
- * Grad-year options for the dropdown — 2027 (oldest) through 2038 (youngest).
+ * Grad-year options for the dropdown — 2028 (oldest) through 2038 (youngest).
  */
+export const GRAD_YEAR_MIN = 2028;
+export const GRAD_YEAR_MAX = 2038;
 export const GRAD_YEAR_OPTIONS: number[] = Array.from(
-  { length: 2038 - 2027 + 1 },
-  (_, i) => 2027 + i,
+  { length: GRAD_YEAR_MAX - GRAD_YEAR_MIN + 1 },
+  (_, i) => GRAD_YEAR_MIN + i,
 );
 
-/** Which track a graduation year belongs to. */
-export type TryoutTrack =
-  | { kind: "elite"; session: TryoutDate }
-  | { kind: "youth" };
+export function isOfferedGradYear(year: number | null | undefined): boolean {
+  return (
+    year != null && !Number.isNaN(year) && year >= GRAD_YEAR_MIN && year <= GRAD_YEAR_MAX
+  );
+}
 
 /**
- * The smart touch: given a graduation year, which track does she belong to?
- * 2027–2030 → Elite scheduled tryout (Jul 25, make-ups Aug 3–7).
- * 2031 and younger → Youth free evaluations (any morning through Aug 7).
- * Returns null for years outside the offered range.
+ * Both options are open to every age; July 25 is the default set date. The one
+ * special case: class of 2031 is pointed to the free morning evaluations.
  */
-export function trackForGradYear(year: number | null | undefined): TryoutTrack | null {
-  if (year == null || Number.isNaN(year)) return null;
-  if (year >= 2027 && year <= 2030) return { kind: "elite", session: TRYOUT_DATES.older };
-  if (year >= 2031 && year <= 2038) return { kind: "youth" };
-  return null;
+export function defaultTryoutModeForGradYear(
+  year: number | null | undefined,
+): "scheduled" | "evaluation" {
+  return year === 2031 ? "evaluation" : "scheduled";
+}
+
+/** Informational cohort tag stored on the row (2028–2031 older, 2032+ youth). */
+export function groupForGradYear(year: number): "older" | "youth" {
+  return year <= 2031 ? "older" : "youth";
 }
 
 /** Find a tryout session by its stored isoDate (used by the success page). */

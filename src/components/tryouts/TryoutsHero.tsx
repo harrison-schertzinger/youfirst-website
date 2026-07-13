@@ -122,7 +122,7 @@ export default function TryoutsHero() {
             href="#youth"
             className="arrow-link inline-flex items-center gap-1.5 text-[13px] text-white/55 hover:text-white/90 transition-colors duration-200"
           >
-            Youth &amp; development: free evaluations, any morning through Aug 7
+            Can&apos;t make July 25? Free evaluations, any morning through Aug 7
             <span className="arrow">&rarr;</span>
           </a>
         </div>

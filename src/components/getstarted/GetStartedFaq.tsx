@@ -28,7 +28,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "What happens after her tryout or evaluation?",
-    a: "Youth evaluations hear the same day — whether she's in or whether we'd like to see her one more time. Elite tryout families are notified within 2 to 3 days. Roster confirmation follows, and practice opportunities begin in mid-August and run through February.",
+    a: "Evaluations hear the same day — whether she's in or whether we'd like to see her one more time. July 25 tryout families are notified within 2 to 3 days. Roster confirmation follows.",
   },
 ];
 

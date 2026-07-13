@@ -2,8 +2,9 @@ import ScrollReveal from "@/components/home/ScrollReveal";
 import { ELITE_TRYOUT, YOUTH_EVALUATION } from "@/lib/tryouts";
 
 /**
- * The two tracks — youth/development first and visually prominent (full-width
- * card), elite below it. Everything is completely free.
+ * The two options, both open to every age — free morning evaluations first and
+ * visually prominent (full-width card; youth & development are the primary
+ * audience), the July 25 set-date tryout below it. Everything is free.
  */
 export default function TryoutDates() {
   return (
@@ -11,27 +12,28 @@ export default function TryoutDates() {
       <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-20">
           <ScrollReveal>
-            <p className="section-label mb-5">Two Tracks · Completely Free</p>
+            <p className="section-label mb-5">Two Options · Completely Free</p>
           </ScrollReveal>
           <ScrollReveal delay={100}>
             <h2 className="text-[2.5rem] md:text-[3.5rem] lg:text-[4rem] font-bold leading-[1.0] mb-6 tracking-tight text-[#1A1A1A]">
-              Find Her <span className="gradient-text-accent">Track.</span>
+              Find Her <span className="gradient-text-accent">Date.</span>
             </h2>
           </ScrollReveal>
           <ScrollReveal delay={200}>
             <p className="text-lg text-[#6B7280] leading-[1.75]">
-              Her graduation year decides her track. Not sure? The form below
-              tells you the moment you pick her year.
+              The set tryout is Saturday, July 25 — open to all ages. Free
+              morning evaluations run any morning, now through August 7. Either
+              way, it&apos;s completely free.
             </p>
           </ScrollReveal>
         </div>
 
-        {/* ── Youth / Development — the prominent track ─────────────────── */}
+        {/* ── Free morning evaluations — the prominent option ───────────── */}
         <ScrollReveal>
           <div className="card max-w-4xl mx-auto p-8 sm:p-12" id="youth">
             <div className="flex items-center gap-3 mb-8">
               <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-accent-wash text-accent-blue-hover text-[11px] font-semibold uppercase tracking-[0.15em]">
-                Youth &amp; Development
+                Youth &amp; Development · Any Age Welcome
               </span>
               <span className="h-px flex-1 bg-[#E5E8EC]" />
             </div>
@@ -41,10 +43,11 @@ export default function TryoutDates() {
             </h3>
 
             <p className="text-[17px] sm:text-lg text-[#6B7280] leading-[1.8]">
-              Come any morning to the Cincinnati Lacrosse Academy and get
-              evaluated on the spot. You&apos;ll hear the same day whether
-              you&apos;re in or whether we&apos;d like to see you one more time.
-              Open now through August 7th — completely free.
+              Can&apos;t make July 25, need to try out earlier, or just want a
+              player evaluation? Come any morning to the Cincinnati Lacrosse
+              Academy, get evaluated on the spot, and hear that day whether
+              she&apos;s in or we&apos;d like to see her once more. Open now
+              through August 7th — completely free.
             </p>
 
             <p className="mt-5 text-[17px] sm:text-lg text-[#1A1A1A] font-medium leading-[1.8]">
@@ -53,6 +56,11 @@ export default function TryoutDates() {
               standard we hold. We&apos;re the elite development and elite
               lacrosse program in the area, and we will have teams for these age
               groups. Come find out why.
+            </p>
+
+            <p className="mt-4 text-[15px] text-[#6B7280] leading-[1.7]">
+              New teams begin competing next June — optional training starts in
+              September.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] uppercase tracking-[0.12em] text-[#9CA3AF] font-semibold">
@@ -65,7 +73,7 @@ export default function TryoutDates() {
 
             <div className="mt-8 pt-6 border-t border-[#E5E8EC] flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-8">
               <a
-                href="#register"
+                href="#evaluation"
                 className="inline-flex items-center justify-center px-8 py-4 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(75,156,211,0.4)] hover:bg-accent-blue-hover hover:-translate-y-0.5 transition-all duration-300 self-start"
               >
                 Register — Free
@@ -78,7 +86,7 @@ export default function TryoutDates() {
           </div>
         </ScrollReveal>
 
-        {/* ── Elite / Older — July 25 ───────────────────────────────────── */}
+        {/* ── The set date — Saturday, July 25, all ages ────────────────── */}
         <div className="max-w-4xl mx-auto mt-8">
           <ScrollReveal delay={120}>
             <div className="card p-8 sm:p-10">
@@ -108,10 +116,12 @@ export default function TryoutDates() {
                     Who belongs here
                   </p>
                   <p className="text-base text-[#1A1A1A] font-medium leading-[1.6]">
-                    {ELITE_TRYOUT.audience}
+                    {ELITE_TRYOUT.audience} — the marquee tryout, the set date
+                    out-of-town players come in for.
                   </p>
                   <p className="mt-3 text-[14px] text-[#6B7280] leading-[1.7]">
-                    Can&apos;t make July 25? Make-up mornings run August 3–7.
+                    Can&apos;t make it? Free evaluations run any morning through
+                    August 7.
                   </p>
                 </div>
               </div>

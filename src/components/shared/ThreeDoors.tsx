@@ -83,9 +83,9 @@ export default function ThreeDoors({ includeTryoutTile = true }: ThreeDoorsProps
                 chance.
               </p>
               <p className="mt-3 text-[15px] font-semibold text-[#1A1A1A] leading-[1.65] flex-1">
-                Tryouts are completely free. Elite (2027–2030): Saturday, July
-                25. Youth &amp; development: free evaluations any morning
-                through August 7. All at the Cincinnati Lacrosse Academy.
+                Tryouts are completely free. The set date: Saturday, July 25 —
+                all ages. Or come to a free evaluation any morning through
+                August 7. All at the Cincinnati Lacrosse Academy.
               </p>
               <Link href="/tryouts" className={`${BTN_PRIMARY} mt-6 self-start`}>
                 Register for Tryouts

@@ -52,18 +52,19 @@ const TEAMS: Team[] = [
     eyebrow: "Development",
     name: "Development",
     grades: "Classes 2032, 2033 & 2034 · younger who's ready plays up",
-    startLine: "Starts summer 2027 — debuts with three tournaments in June.",
+    startLine:
+      "First tournaments next June. Optional training starts this September at the Cincinnati Lacrosse Academy and builds all the way to summer.",
     slot: "levels-jumpstart.jpg",
     who: "Players building their foundation and falling in love with the game, whether she is brand new or already has a few seasons in. We want as many young players as want to come. This is where the area's lacrosse gets built.",
     included:
-      "Gear, fall + winter training at the Cincinnati Lacrosse Academy, and private small-group sessions with our college coaches and players. Many players have a fall sport, so fall attendance is optional — weekend training blocks are there when she can come. Everything builds toward her competitive debut next June.",
+      "Gear, private small-group sessions with our college coaches and players, and optional training at the Cincinnati Lacrosse Academy from September all the way to summer. Many players have a fall sport, so attendance is optional — the training blocks are there when she can come.",
     note: "This year is all training and development. Development teams debut in competition next June with three tournaments. Our elite teams are the ones competing this year.",
     prices: [
       {
         monthly: "$700",
         suffix: "all-in",
         detail:
-          "$100 reserves her spot · gear, fall + winter training, private small-group college-coach sessions, and three tournaments next June — all included.",
+          "$100 reserves her spot · gear, private small-group college-coach sessions, optional training starting this September, and three tournaments next June — all included.",
       },
     ],
   },
@@ -72,11 +73,11 @@ const TEAMS: Team[] = [
 const ROSTER_STEPS = [
   {
     title: "Tryouts & evaluations.",
-    body: "Elite: Saturday, July 25 at the Cincinnati Lacrosse Academy. Youth & development: free evaluations, any morning now through August 7. It's about placement, finding each player her right team so she can develop and play.",
+    body: "The set tryout: Saturday, July 25 at the Cincinnati Lacrosse Academy — all ages. Or free evaluations, any morning now through August 7. It's about placement, finding each player her right team so she can develop and play.",
   },
   {
     title: "Notification.",
-    body: "Evaluations hear the same day. Elite tryout families hear from us within two to three days.",
+    body: "Evaluations hear the same day. July 25 tryout families hear from us within two to three days.",
   },
   {
     title: "Reserve her spot.",
@@ -84,7 +85,7 @@ const ROSTER_STEPS = [
   },
   {
     title: "The season begins.",
-    body: "Practice opportunities start in mid-August and run through February.",
+    body: "Elite practice opportunities start in mid-August. Development's optional training starts this September and builds all the way to the June tournaments.",
   },
 ];
 

@@ -5,23 +5,25 @@ import { sendTryoutAdminNotification } from "@/lib/tryout-admin-notify";
 import { syncTryoutToSheet } from "@/lib/google-sheets";
 import { clientIp, createRateLimiter } from "@/lib/rate-limit";
 import {
-  MAKEUP_TRYOUT,
+  ELITE_TRYOUT,
+  GRAD_YEAR_MAX,
+  GRAD_YEAR_MIN,
   describeTryout,
+  groupForGradYear,
+  isOfferedGradYear,
   isTryoutPosition,
-  isValidMakeupDate,
-  trackForGradYear,
   type TryoutType,
 } from "@/lib/tryouts";
 
 /**
  * POST /api/tryouts/register
  * Public — no auth, NO CHARGE. Tryouts and evaluations are completely free
- * (2026-07-13); this replaces the old $50 Stripe checkout route. Validates the
+ * (2026-07-13); this replaces the old $50 Stripe checkout route. Two options,
+ * both open to every age: the July 25 set-date tryout, or a free morning
+ * evaluation (any morning through Aug 7, no fixed date). Validates the
  * registration, writes the row with payment_status 'free', then fires the
  * confirmation email, the admin ping, and the Sheet append directly — all
  * fail-soft, so the family is never blocked on email/Sheet infrastructure.
- * The track is re-derived server-side from the graduation year; the client is
- * never trusted for it.
  */
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -60,7 +62,6 @@ export async function POST(request: NextRequest) {
     graduationYear,
     position,
     tryoutType,
-    makeupDate,
   } = (body ?? {}) as Record<string, unknown>;
 
   // ── Validate ──────────────────────────────────────────────────────
@@ -108,43 +109,18 @@ export async function POST(request: NextRequest) {
   if (!isTryoutPosition(pos)) {
     return NextResponse.json({ error: "Please choose a valid position." }, { status: 400 });
   }
-
-  // Server-authoritative: derive the track from grad year. Rejects any year
-  // outside the offered window even if the client sent something else.
-  const track = trackForGradYear(gradYear);
-  if (!track) {
+  if (!isOfferedGradYear(gradYear)) {
     return NextResponse.json(
-      { error: "Please choose a graduation year between 2027 and 2038." },
+      { error: `Please choose a graduation year between ${GRAD_YEAR_MIN} and ${GRAD_YEAR_MAX}.` },
       { status: 400 },
     );
   }
 
-  // Youth (2031+) → open evaluation, no fixed date. Elite (2027–2030) →
-  // scheduled July 25, or a make-up day (re-validated server-side).
-  let tType: TryoutType;
-  let tryoutDateIso: string | null;
-  let group: "youth" | "older";
-  if (track.kind === "youth") {
-    tType = "evaluation";
-    tryoutDateIso = null;
-    group = "youth";
-  } else {
-    group = "older";
-    if (tryoutType === "makeup") {
-      const picked = typeof makeupDate === "string" ? makeupDate.trim() : "";
-      if (!isValidMakeupDate(picked)) {
-        return NextResponse.json(
-          { error: `Please choose a make-up day (${MAKEUP_TRYOUT.rangeLabel}).` },
-          { status: 400 },
-        );
-      }
-      tType = "makeup";
-      tryoutDateIso = picked;
-    } else {
-      tType = "scheduled";
-      tryoutDateIso = track.session.isoDate;
-    }
-  }
+  // Two options, any age: the July 25 set date (default) or a free morning
+  // evaluation. Evaluations have no fixed date.
+  const tType: TryoutType = tryoutType === "evaluation" ? "evaluation" : "scheduled";
+  const tryoutDateIso = tType === "evaluation" ? null : ELITE_TRYOUT.isoDate;
+  const group = groupForGradYear(gradYear);
 
   const display = describeTryout({ type: tType, isoDate: tryoutDateIso, group });
 

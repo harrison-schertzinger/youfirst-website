@@ -3,19 +3,19 @@
 import { useEffect, useMemo, useState } from "react";
 import ScrollReveal from "@/components/home/ScrollReveal";
 import {
+  ELITE_TRYOUT,
   GRAD_YEAR_OPTIONS,
-  MAKEUP_TRYOUT,
-  MAKEUP_DATE_OPTIONS,
   TRYOUT_POSITIONS,
+  YOUTH_EVALUATION,
+  defaultTryoutModeForGradYear,
   describeTryout,
-  isValidMakeupDate,
-  trackForGradYear,
 } from "@/lib/tryouts";
 
+type TryoutMode = "scheduled" | "evaluation";
+
 interface FormState {
-  /** Elite-only choice: the scheduled July 25 tryout or a make-up day. */
-  eliteMode: "scheduled" | "makeup";
-  makeupDate: string;
+  /** The two options, both open to every age: July 25 or a morning evaluation. */
+  mode: TryoutMode;
   playerFullName: string;
   parentName: string;
   email: string;
@@ -25,8 +25,7 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
-  eliteMode: "scheduled",
-  makeupDate: "",
+  mode: "scheduled",
   playerFullName: "",
   parentName: "",
   email: "",
@@ -53,12 +52,14 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  // Deep-link: the make-up section CTA (#makeup) flips the form into make-up
-  // mode (elite players only) and scrolls here.
+  // Deep-link: the evaluations CTA (#evaluation, legacy #makeup) flips the form
+  // into evaluation mode and scrolls here.
   useEffect(() => {
     const applyHash = () => {
-      if (typeof window !== "undefined" && window.location.hash === "#makeup") {
-        setForm((f) => (f.eliteMode === "makeup" ? f : { ...f, eliteMode: "makeup" }));
+      if (typeof window === "undefined") return;
+      const h = window.location.hash;
+      if (h === "#evaluation" || h === "#makeup") {
+        setForm((f) => (f.mode === "evaluation" ? f : { ...f, mode: "evaluation" }));
         document.getElementById("register")?.scrollIntoView({ behavior: "smooth" });
       }
     };
@@ -67,33 +68,17 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
     return () => window.removeEventListener("hashchange", applyHash);
   }, []);
 
-  const track = useMemo(
+  const gradYear = form.graduationYear ? parseInt(form.graduationYear, 10) : null;
+  const isEvaluation = form.mode === "evaluation";
+
+  // The render-ready "Her tryout / evaluation" line for the picked option.
+  const matchedDisplay = useMemo(
     () =>
-      form.graduationYear ? trackForGradYear(parseInt(form.graduationYear, 10)) : null,
-    [form.graduationYear],
+      isEvaluation
+        ? describeTryout({ type: "evaluation", isoDate: null })
+        : describeTryout({ type: "scheduled", isoDate: ELITE_TRYOUT.isoDate }),
+    [isEvaluation],
   );
-
-  const isElite = track?.kind === "elite";
-  const isYouth = track?.kind === "youth";
-  const isMakeup = isElite && form.eliteMode === "makeup";
-
-  // The render-ready "Her tryout / evaluation" line for the picked track.
-  const matchedDisplay = useMemo(() => {
-    if (!track) return null;
-    if (track.kind === "youth") {
-      return describeTryout({ type: "evaluation", isoDate: null, group: "youth" });
-    }
-    if (form.eliteMode === "makeup") {
-      return isValidMakeupDate(form.makeupDate)
-        ? describeTryout({ type: "makeup", isoDate: form.makeupDate })
-        : null;
-    }
-    return describeTryout({
-      type: "scheduled",
-      isoDate: track.session.isoDate,
-      group: track.session.id,
-    });
-  }, [track, form.eliteMode, form.makeupDate]);
 
   const set =
     (key: keyof FormState) =>
@@ -102,12 +87,22 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
       if (error) setError(null);
     };
 
-  const setEliteMode = (eliteMode: "scheduled" | "makeup") => {
-    setForm((f) => ({ ...f, eliteMode }));
+  // Grad year picks the default option — the one special case: 2031 is pointed
+  // to the free morning evaluations. Any age can still switch to either.
+  const setGradYear = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setForm((f) => ({
+      ...f,
+      graduationYear: value,
+      mode: defaultTryoutModeForGradYear(parseInt(value, 10)),
+    }));
     if (error) setError(null);
   };
 
-  const typeOk = isYouth || (isElite && (!isMakeup || isValidMakeupDate(form.makeupDate)));
+  const setMode = (mode: TryoutMode) => {
+    setForm((f) => ({ ...f, mode }));
+    if (error) setError(null);
+  };
 
   const canSubmit =
     !!form.playerFullName.trim() &&
@@ -116,7 +111,6 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
     !!form.phone.trim() &&
     !!form.graduationYear &&
     !!form.position &&
-    typeOk &&
     !submitting;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -136,8 +130,7 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
           phone: form.phone,
           graduationYear: form.graduationYear,
           position: form.position,
-          tryoutType: isMakeup ? "makeup" : "scheduled",
-          makeupDate: form.makeupDate,
+          tryoutType: form.mode,
         }),
       });
       const data = await res.json();
@@ -208,19 +201,17 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
                 registered — no charge, her spot is secured. A confirmation email
                 is on its way.
               </p>
-              {matchedDisplay && (
-                <div className="rounded-xl border border-accent-blue/30 bg-accent-blue/[0.10] px-6 py-5 text-left">
-                  <p className="text-[11px] uppercase tracking-[0.15em] text-accent-blue font-semibold mb-1">
-                    Her {matchedDisplay.typeLabel === "Evaluation" ? "Evaluation" : "Tryout"}
-                  </p>
-                  <p className="text-[1.6rem] font-extrabold text-white leading-tight">
-                    {matchedDisplay.dateLine}
-                  </p>
-                  <p className="text-[14px] text-white/55 mt-1">
-                    {matchedDisplay.time} · {matchedDisplay.location}
-                  </p>
-                </div>
-              )}
+              <div className="rounded-xl border border-accent-blue/30 bg-accent-blue/[0.10] px-6 py-5 text-left">
+                <p className="text-[11px] uppercase tracking-[0.15em] text-accent-blue font-semibold mb-1">
+                  Her {isEvaluation ? "Evaluation" : "Tryout"}
+                </p>
+                <p className="text-[1.6rem] font-extrabold text-white leading-tight">
+                  {matchedDisplay.dateLine}
+                </p>
+                <p className="text-[14px] text-white/55 mt-1">
+                  {matchedDisplay.time} · {matchedDisplay.location}
+                </p>
+              </div>
               <p className="text-[13px] text-white/40 mt-7 leading-relaxed">
                 Questions before then? Email{" "}
                 <a
@@ -244,6 +235,49 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
                 below; finish whenever you&apos;re ready.
               </div>
             )}
+
+            {/* The two options — both open to every age */}
+            <div className="mb-6">
+              <span className={labelCls}>Her Option</span>
+              <div
+                role="tablist"
+                aria-label="Tryout option"
+                className="grid grid-cols-2 gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] p-1.5"
+              >
+                {([
+                  { key: "scheduled", label: "July 25 Tryout" },
+                  { key: "evaluation", label: "Morning Evaluation" },
+                ] as const).map((opt) => {
+                  const active = form.mode === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setMode(opt.key)}
+                      className={`py-3 rounded-lg text-[13px] font-semibold uppercase tracking-[0.08em] transition-all duration-200 ${
+                        active
+                          ? "bg-accent-blue text-white shadow-[0_2px_10px_rgba(74,144,217,0.4)]"
+                          : "text-white/70 hover:text-white hover:bg-white/[0.06]"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2.5 text-[13px] text-white/50 leading-relaxed">
+                {isEvaluation
+                  ? `Any morning, now through August 7 at the ${YOUTH_EVALUATION.location}. Evaluated on the spot — you'll hear the same day.`
+                  : `Saturday, July 25, ${ELITE_TRYOUT.time} at the ${ELITE_TRYOUT.location}. The set date — open to all ages.`}
+                {gradYear === 2031 && !isEvaluation && (
+                  <span className="block mt-1">
+                    Class of 2031 evaluates at the free mornings.
+                  </span>
+                )}
+              </p>
+            </div>
 
             <div className="space-y-5">
               {/* Player full name */}
@@ -321,7 +355,7 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
                   <select
                     id="graduationYear"
                     value={form.graduationYear}
-                    onChange={set("graduationYear")}
+                    onChange={setGradYear}
                     className={`${fieldCls} appearance-none ${
                       form.graduationYear ? "text-white" : "text-white/40"
                     }`}
@@ -336,10 +370,6 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
                       </option>
                     ))}
                   </select>
-                  <p className="mt-2 text-[13px] text-white/45 leading-relaxed">
-                    Her graduation year decides her track — we&apos;ll confirm it
-                    below the moment you pick her year.
-                  </p>
                 </div>
                 <div>
                   <label htmlFor="position" className={labelCls}>
@@ -366,109 +396,37 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
                 </div>
               </div>
 
-              {/* Elite-only: scheduled July 25 vs make-up day */}
-              {isElite && (
+              {/* Smart touch: the picked option, rendered */}
+              <div className="flex items-center gap-3 rounded-xl border border-accent-blue/30 bg-accent-blue/[0.10] px-4 py-3.5 animate-fade-in-up">
+                <span className="flex-shrink-0 w-9 h-9 rounded-full bg-accent-blue/20 flex items-center justify-center">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                    <path
+                      d="M7 3v2m6-2v2M3.5 8h13M5 5h10a1.5 1.5 0 011.5 1.5V15A1.5 1.5 0 0115 16.5H5A1.5 1.5 0 013.5 15V6.5A1.5 1.5 0 015 5z"
+                      stroke="#4B9CD3"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
                 <div>
-                  <span className={labelCls}>Her Tryout</span>
-                  <div
-                    role="tablist"
-                    aria-label="Tryout type"
-                    className="grid grid-cols-2 gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] p-1.5"
-                  >
-                    {([
-                      { key: "scheduled", label: "July 25" },
-                      { key: "makeup", label: "Make-up" },
-                    ] as const).map((opt) => {
-                      const active = form.eliteMode === opt.key;
-                      return (
-                        <button
-                          key={opt.key}
-                          type="button"
-                          role="tab"
-                          aria-selected={active}
-                          onClick={() => setEliteMode(opt.key)}
-                          className={`py-3 rounded-lg text-[13px] font-semibold uppercase tracking-[0.08em] transition-all duration-200 ${
-                            active
-                              ? "bg-accent-blue text-white shadow-[0_2px_10px_rgba(74,144,217,0.4)]"
-                              : "text-white/70 hover:text-white hover:bg-white/[0.06]"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="mt-2.5 text-[13px] text-white/50 leading-relaxed">
-                    {isMakeup
-                      ? `Can't make July 25? Pick a make-up day — ${MAKEUP_TRYOUT.rangeLabel}, ${MAKEUP_TRYOUT.time} at ${MAKEUP_TRYOUT.location}.`
-                      : "Saturday, July 25, 5:00–6:30 PM at the Cincinnati Lacrosse Academy."}
+                  <p className="text-[11px] uppercase tracking-[0.15em] text-accent-blue font-semibold">
+                    {isEvaluation ? "Her Evaluation" : "Her Tryout"}
                   </p>
-                </div>
-              )}
-
-              {/* Make-up day picker (elite make-up mode only) — fixed 5-day block */}
-              {isMakeup && (
-                <div>
-                  <label htmlFor="makeupDate" className={labelCls}>
-                    Pick a Make-up Day
-                  </label>
-                  <select
-                    id="makeupDate"
-                    value={form.makeupDate}
-                    onChange={set("makeupDate")}
-                    className={`${fieldCls} appearance-none ${
-                      form.makeupDate ? "text-white" : "text-white/40"
-                    }`}
-                    style={chevronBg}
-                  >
-                    <option value="" disabled>
-                      Select a day
-                    </option>
-                    {MAKEUP_DATE_OPTIONS.map((d) => (
-                      <option key={d.iso} value={d.iso} className="text-black">
-                        {d.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-2 text-[13px] text-white/45">
-                    {MAKEUP_TRYOUT.time} · {MAKEUP_TRYOUT.location}
+                  <p className="text-[15px] font-semibold text-white leading-snug">
+                    {matchedDisplay.dateLine}
+                    <span className="text-white/55 font-normal">
+                      {" "}· {matchedDisplay.time} · {matchedDisplay.location}
+                    </span>
                   </p>
-                </div>
-              )}
-
-              {/* Smart touch: matched track (elite date OR youth evaluation) */}
-              {matchedDisplay && (
-                <div className="flex items-center gap-3 rounded-xl border border-accent-blue/30 bg-accent-blue/[0.10] px-4 py-3.5 animate-fade-in-up">
-                  <span className="flex-shrink-0 w-9 h-9 rounded-full bg-accent-blue/20 flex items-center justify-center">
-                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                      <path
-                        d="M7 3v2m6-2v2M3.5 8h13M5 5h10a1.5 1.5 0 011.5 1.5V15A1.5 1.5 0 0115 16.5H5A1.5 1.5 0 013.5 15V6.5A1.5 1.5 0 015 5z"
-                        stroke="#4B9CD3"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </span>
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.15em] text-accent-blue font-semibold">
-                      {isYouth ? "Her Evaluation" : "Her Tryout"}
+                  {isEvaluation && (
+                    <p className="text-[13px] text-white/50 mt-1 leading-relaxed">
+                      Come any morning, get evaluated on the spot, and hear the
+                      same day.
                     </p>
-                    <p className="text-[15px] font-semibold text-white leading-snug">
-                      {matchedDisplay.dateLine}
-                      <span className="text-white/55 font-normal">
-                        {" "}· {matchedDisplay.time} · {matchedDisplay.location}
-                      </span>
-                    </p>
-                    {isYouth && (
-                      <p className="text-[13px] text-white/50 mt-1 leading-relaxed">
-                        Come any morning, get evaluated on the spot, and hear the
-                        same day.
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
-              )}
+              </div>
 
               {error && (
                 <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-[14px] text-red-200">
