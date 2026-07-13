@@ -7,7 +7,7 @@ const RESOURCES = [
     name: "YOU. FIRST",
     label: "The club.",
     body: "Where the best come together to compete and grow. Great teammates, great coaching, and a standard worth rising to.",
-    linkText: "Explore the levels",
+    linkText: "Explore the teams",
     href: "/levels",
     external: false,
     slot: "resource-club.jpg",
