@@ -58,7 +58,7 @@ const HEAD_COACHES: HeadCoach[] = [
 ];
 
 interface DevCoach {
-  firstName: string;
+  name: string;
   school: string;
   position: string;
   team: string;
@@ -69,7 +69,7 @@ interface DevCoach {
 
 const DEV_COACHES: DevCoach[] = [
   {
-    firstName: "Ryley",
+    name: "Ryley Heilmann",
     school: "Stetson",
     position: "Attack",
     team: "Team 2031",
@@ -77,7 +77,7 @@ const DEV_COACHES: DevCoach[] = [
     pos: "object-[center_22%]",
   },
   {
-    firstName: "Jane",
+    name: "Jane Muller",
     school: "Mercyhurst",
     position: "Defense",
     team: "Team 2031",
@@ -85,7 +85,7 @@ const DEV_COACHES: DevCoach[] = [
     pos: "object-[center_20%]",
   },
   {
-    firstName: "Ashley",
+    name: "Ashley Filburn",
     school: "Kent State",
     position: "Midfielder",
     team: "Team 2032",
@@ -93,7 +93,7 @@ const DEV_COACHES: DevCoach[] = [
     pos: "object-[center_18%]",
   },
   {
-    firstName: "Marin",
+    name: "Marin Bode",
     school: "High Point",
     position: "Midfield",
     team: "Teams 2033 & 2034",
@@ -214,23 +214,20 @@ export default function CoachesPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
               {DEV_COACHES.map((coach, i) => (
-                <ScrollReveal key={coach.firstName} delay={i * 100} className="h-full">
+                <ScrollReveal key={coach.name} delay={i * 100} className="h-full">
                   <div className="card h-full flex flex-col overflow-hidden">
                     <div className="relative h-64 sm:h-72 keep-color">
                       <CoachPhoto
                         src={coach.img}
-                        alt={`${coach.firstName} — ${coach.school} ${coach.position}, ${coach.team}`}
+                        alt={`${coach.name} — ${coach.school} ${coach.position}, ${coach.team}`}
                         pos={coach.pos}
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                       />
                     </div>
                     <div className="p-6 sm:p-7 flex flex-col flex-1">
                       <h3 className="text-xl font-bold tracking-[-0.01em]">
-                        <span className="gradient-text-accent">{coach.firstName}</span>
+                        <span className="gradient-text-accent">{coach.name}</span>
                       </h3>
-                      <div className="mt-1.5">
-                        <Pending label="Last name" />
-                      </div>
                       <p className="mt-3 text-sm font-medium text-[#1A1A1A]">
                         {coach.school} · {coach.position}
                       </p>
@@ -311,16 +308,15 @@ export default function CoachesPage() {
                 <div className="relative h-64">
                   <PhotoSlot
                     name="coach-brett.jpg"
-                    alt="Brett — strength trainer, photo coming soon"
+                    alt="Brett Finnie — strength trainer, photo coming soon"
                     sizes="(max-width: 640px) 100vw, 448px"
                   />
                 </div>
                 <div className="p-7 sm:p-8">
                   <h3 className="text-xl font-bold tracking-[-0.01em]">
-                    <span className="gradient-text-accent">Brett</span>
+                    <span className="gradient-text-accent">Brett Finnie</span>
                   </h3>
-                  <div className="mt-1.5 flex flex-wrap gap-2">
-                    <Pending label="Last name" />
+                  <div className="mt-1.5">
                     <Pending label="Photo" />
                   </div>
                   <p className="mt-3 text-sm font-medium text-[#1A1A1A]">Strength Trainer</p>
