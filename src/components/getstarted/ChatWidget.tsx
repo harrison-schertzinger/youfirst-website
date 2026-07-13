@@ -130,7 +130,7 @@ export default function ChatWidget() {
         {messages.length === 0 && (
           <p className="text-[15px] text-white/45 leading-[1.7]">
             {configured
-              ? "Try: “What does Jumpstart cost?” · “Can she play other sports?” · “What equipment does she need?”"
+              ? "Try: “What does Development cost?” · “Can she play other sports?” · “What equipment does she need?”"
               : "Our assistant is being connected. In the meantime, the FAQ on the home page answers the most common questions — or email kathleen@youfirstlacrosse.com."}
           </p>
         )}

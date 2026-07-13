@@ -22,24 +22,21 @@ We build players, and the results are on the field:
 - 30+ college commitments to 20+ programs.
 - Every one of our coaches is a current or former college player, and our college athletes take on a mentorship role with the girls.
 
-## The path: Jumpstart, Launch, Elite
+## The teams: Development and Elite
 
-A player's journey through the club has three stages. Each one builds on the last.
+A player's journey through the club has two teams. Development builds toward Elite.
 
-| Stage | Classes | Grade this fall | What it is |
-|---|---|---|---|
-| **Jumpstart** | 2033–2036 | Rising 3rd–6th | Where it starts. We build the fundamentals, maximize touches, play 6v6 on weekends, and keep it local and fun. |
-| **Launch** | 2032 | Rising 7th | Takeoff. Everything the Jumpstart teams do, plus the team's first travel tournament out East. |
-| **Elite** | 2031 and up | Rising 8th+ | The full competitive teams playing the national circuit and building toward college. |
+| Team | Classes | What it is |
+|---|---|---|
+| **Development** | 2032 & 2033 — 2034s who are ready play up with the 2033 team | Where it starts. First tournaments next June; optional training starts this September at the Cincinnati Lacrosse Academy and builds all the way to summer. Built around maximum touches: 6v6, stick skills, fundamentals, learning to love to compete. |
+| **Elite** | 2028–2031 (rising 8th grade and up) | The full competitive teams playing the national circuit and building toward college — competing this year. |
 
 ## Current team fees
 
-All fees are all-in and include the $200 roster confirmation, which secures the spot and covers the team's jerseys. Payment can be made in full or in installments. Dates are set at roster confirmation, so families always know what is due and when.
+A $100 roster confirmation reserves her spot on any team — Development and Elite alike. Payment can be made in full or in installments. Dates are set at roster confirmation, so families always know what is due and when.
 
-- **Jumpstart, youngest teams (classes 2035–2036, rising 3rd–4th): $1,000.** These teams stay in town, focused on training and weekend 6v6.
-- **Jumpstart, older teams (classes 2033–2034, rising 5th–6th): $1,200.** Adds the local and nearby tournament slate.
-- **Launch (class 2032, rising 7th): $1,250,** plus about $300 for the July travel tournament out East (Maryland Cup or Mid-Atlantic).
-- **Elite (classes 2031 and up): set separately** (available on request).
+- **Development (classes 2032 & 2033; 2034s who are ready play up): $700, all-in.** $100 reserves her spot. Gear, private small-group sessions with our college coaches and players, optional training starting this September, and three tournaments next June — all included.
+- **Elite (classes 2028–2031): $100 reserves her spot;** the full team price is set individually and shared before you commit — just ask.
 
 ## The season: training options June through February
 
@@ -50,29 +47,32 @@ We publish practice time blocks and treat them as opportunities, not mandates. N
 ## Practices
 
 - **Where:** all practices are held at the Cincinnati Lacrosse Academy.
-- **How often:** two to three times a week in the summer.
 - **Who coaches:** our college-player coaches, all current or former college athletes.
+- **Development:** two practices a week, plus optional evening small-group sessions with our college coaches and players. The focus is development. For players in fall and winter sports, the weekend practice blocks and training times are optional — purely for development, never required.
 
 ## Tournaments and playing
 
-The whole point at the youth level is reps. Players should be playing as much as possible.
-
-- **6v6 on the weekends** throughout the summer and fall. This is a core part of how the youngest teams develop and play.
-- **Summer:** at least three tournaments, all local or nearby.
-- **Fall:** one to two tournaments, played on weekends, local or nearby.
-- **Launch (2032) only:** one weekend in July, the team travels out East with our older teams to either the Maryland Cup or the Mid-Atlantic. This is their first step toward an elite schedule, and it is an additional cost of about $300.
+- **Development:** first tournaments next June — three of them. Until then the year is pure training and development. Training is built around maximum touches: 6v6, stick skills, fundamentals, learning to love to compete.
+- **Elite:** the full competitive schedule on the national circuit, competing this year.
 
 Specific tournament names and dates are announced closer to the season.
 
+## Tryouts and evaluations — completely free
+
+Two options, both open to every age and both completely free:
+
+1. **The set tryout: Saturday, July 25,** 5:00–6:30 PM at the Cincinnati Lacrosse Academy — the marquee date, open to all ages.
+2. **Free morning evaluations: any morning, now through August 7,** at the Cincinnati Lacrosse Academy. She is evaluated on the spot, and families hear the same day whether she is in or we would like to see her once more.
+
+Already paid the $50 tryout fee? We will refund it or credit it toward team fees — your choice.
+
 ## After tryouts
 
-Tryouts are Saturday, July 11.
-
-1. Families are notified within 2 to 3 days.
+1. Evaluations hear the same day. July 25 tryout families are notified within 2 to 3 days.
 2. Roster confirmation follows.
-3. Practice opportunities begin in mid-August and run through February.
+3. Elite practice opportunities begin in mid-August. Development's optional training starts this September and builds all the way to the June tournaments.
 
-At the youth level we are not looking to cut players. Tryouts are about placing girls on the right team and getting them developing and playing.
+At the youth level we are not looking to cut players. Tryouts and evaluations are about placing girls on the right team and getting them developing and playing.
 
 ---
 
@@ -80,11 +80,11 @@ At the youth level we are not looking to cut players. Tryouts are about placing 
 
 ## What does it cost, and what is included?
 
-Fees are all-in, with the $200 roster confirmation (toward jerseys) already inside the number. The fee covers coaching from our college-player staff, practices at the Cincinnati Lacrosse Academy, weekend 6v6, and the tournament slate for the team's stage. Training options run June through February. You can pay in full or in installments. See Current Team Fees above for the number by stage.
+Development is $700, all-in — $100 reserves her spot, and gear, private small-group sessions with our college coaches and players, optional training starting this September, and three tournaments next June are all included. Elite is $100 to reserve her spot, with the full team price set individually and shared before you commit. You can pay in full or in installments.
 
 ## Are there cuts?
 
-No. At the youth level we are not looking to cut players. Tryouts on July 11 are about placement, getting each girl on the right team and developing and playing.
+No. At the youth level we are not looking to cut players. Tryouts and evaluations are about placement, getting each girl on the right team and developing and playing.
 
 ## Does my daughter have to train at the Cincinnati Lacrosse Academy?
 
@@ -102,13 +102,13 @@ For a field player: a girls' lacrosse stick, ASTM-rated goggles, a mouthguard (c
 
 It is not too late, and she belongs here. The youth stages are built for players growing into the game, beginners and experienced players alike. Our job is to take her from wherever she is today toward wherever she wants to go.
 
-## What happens after July 11?
+## What happens after her tryout or evaluation?
 
-Families are notified within 2 to 3 days, roster confirmation follows, and practice opportunities begin in mid-August and run through February.
+Evaluations hear the same day — whether she is in or we would like to see her once more. July 25 tryout families are notified within 2 to 3 days. Roster confirmation follows.
 
 ## How does my daughter move up?
 
-The path is Jumpstart to Launch to Elite. Jumpstart is where she builds her game with maximum touches and local play. Launch (the 2032 team) adds her first travel tournament out East. Elite, from 8th grade up, is the full competitive circuit and the push toward college lacrosse. Every family knows what the next step looks like before they get there.
+The path is Development to Elite. Development (classes 2032 & 2033, with 2034s who are ready playing up) is where she builds her game with maximum touches — first tournaments next June, optional training from September. Elite, from 8th grade up (classes 2028–2031), is the full competitive circuit and the push toward college lacrosse. Every family knows what the next step looks like before they get there.
 
 ---
 

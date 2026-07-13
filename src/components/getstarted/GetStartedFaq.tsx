@@ -4,7 +4,7 @@ import ScrollReveal from "@/components/home/ScrollReveal";
 const FAQ_ITEMS = [
   {
     q: "What does it cost, and what is included?",
-    a: "Fees are all-in, with the $200 roster confirmation (toward jerseys) already inside the number. The fee covers coaching from our college-player staff, practices at the Cincinnati Lacrosse Academy, weekend 6v6, and the tournament slate for the team's stage. Training options run June through February. You can pay in full or in installments. See the Teams page for the number by stage.",
+    a: "Development is $700, all-in — $100 reserves her spot, and gear, private small-group sessions with our college coaches and players, optional training starting this September, and three tournaments next June are all included. Elite is $100 to reserve her spot, with the full team price set individually and shared before you commit. You can pay in full or in installments. See the Teams page for details.",
   },
   {
     q: "Are there cuts?",

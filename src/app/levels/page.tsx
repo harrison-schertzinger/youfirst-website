@@ -10,7 +10,7 @@ import ThreeResources from "@/components/home/ThreeResources";
 export const metadata: Metadata = {
   title: "Teams | YOU. FIRST Elite Lacrosse",
   description:
-    "Built to develop and compete. Elite (classes 2028–2031) and Development (classes 2032–2034) — every price published.",
+    "Built to develop and compete. Development (classes 2032 & 2033 — 2034s who are ready play up) and Elite (classes 2028–2031) — every price published.",
 };
 
 interface PriceOption {
@@ -29,14 +29,42 @@ interface Team {
   startLine?: string;
   slot: string;
   who: string;
-  included: string;
-  /** Optional short framing line rendered after "What's included". */
-  note?: string;
+  /** Paragraph form (Elite). */
+  included?: string;
+  /** Blunt, scannable list form (Development). */
+  logistics?: { label: string; items: string[]; footnote: string };
   prices: PriceOption[] | null;
   priceNote?: string;
 }
 
 const TEAMS: Team[] = [
+  {
+    eyebrow: "Development",
+    name: "Development",
+    grades: "Classes 2032 & 2033 · 2034s who are ready play up.",
+    startLine:
+      "First tournaments next June. Optional training starts this September at the Cincinnati Lacrosse Academy and builds all the way to summer.",
+    slot: "levels-jumpstart.jpg",
+    who: "Players building their foundation and falling in love with the game, whether she is brand new or already has a few seasons in. We want as many young players as want to come. This is where the area's lacrosse gets built.",
+    logistics: {
+      label: "Logistics to Start",
+      items: [
+        "Three tournaments in June",
+        "Two practices a week",
+        "Optional evening small-group sessions with our college coaches and players",
+      ],
+      footnote:
+        "The focus is development. For players in fall and winter sports, the weekend practice blocks and training times are optional — purely for development, never required.",
+    },
+    prices: [
+      {
+        monthly: "$700",
+        suffix: "all-in",
+        detail:
+          "$100 reserves her spot · gear, private small-group college-coach sessions, optional training starting this September, and three tournaments next June — all included.",
+      },
+    ],
+  },
   {
     eyebrow: "Elite",
     name: "Elite",
@@ -46,27 +74,8 @@ const TEAMS: Team[] = [
     included:
       "The complete competitive team on the national circuit, development aimed squarely at the college path, our college-player coaches every step of the way.",
     prices: null,
-    priceNote: "Set individually and shared before you commit. Just ask.",
-  },
-  {
-    eyebrow: "Development",
-    name: "Development",
-    grades: "Classes 2032, 2033 & 2034 · younger who's ready plays up",
-    startLine:
-      "First tournaments next June. Optional training starts this September at the Cincinnati Lacrosse Academy and builds all the way to summer.",
-    slot: "levels-jumpstart.jpg",
-    who: "Players building their foundation and falling in love with the game, whether she is brand new or already has a few seasons in. We want as many young players as want to come. This is where the area's lacrosse gets built.",
-    included:
-      "Gear, private small-group sessions with our college coaches and players, and optional training at the Cincinnati Lacrosse Academy from September all the way to summer. Many players have a fall sport, so attendance is optional — the training blocks are there when she can come.",
-    note: "This year is all training and development. Development teams debut in competition next June with three tournaments. Our elite teams are the ones competing this year.",
-    prices: [
-      {
-        monthly: "$700",
-        suffix: "all-in",
-        detail:
-          "$100 reserves her spot · gear, private small-group college-coach sessions, optional training starting this September, and three tournaments next June — all included.",
-      },
-    ],
+    priceNote:
+      "$100 reserves her spot · the full team price is set individually and shared before you commit. Just ask.",
   },
 ];
 
@@ -81,7 +90,7 @@ const ROSTER_STEPS = [
   },
   {
     title: "Reserve her spot.",
-    body: "Reserving her spot secures her place — $100 for Development teams. The rest is all-in and can be paid monthly or in full, with dates set at confirmation so you always know what is due.",
+    body: "A $100 roster confirmation reserves her spot — Development and Elite alike. The rest can be paid monthly or in full, with dates set at confirmation so you always know what is due.",
   },
   {
     title: "The season begins.",
@@ -152,18 +161,39 @@ export default function LevelsPage() {
                           </p>
                           <p className="text-[15px] text-[#6B7280] leading-[1.75]">{team.who}</p>
                         </div>
-                        <div>
-                          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#9CA3AF] mb-1.5">
-                            What&apos;s included
-                          </p>
-                          <p className="text-[15px] text-[#6B7280] leading-[1.75]">
-                            {team.included}
-                          </p>
-                        </div>
-                        {team.note && (
-                          <p className="text-[15px] font-medium text-[#1A1A1A] leading-[1.75]">
-                            {team.note}
-                          </p>
+                        {team.included && (
+                          <div>
+                            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#9CA3AF] mb-1.5">
+                              What&apos;s included
+                            </p>
+                            <p className="text-[15px] text-[#6B7280] leading-[1.75]">
+                              {team.included}
+                            </p>
+                          </div>
+                        )}
+                        {team.logistics && (
+                          <div>
+                            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#9CA3AF] mb-1.5">
+                              {team.logistics.label}
+                            </p>
+                            <ul className="space-y-2">
+                              {team.logistics.items.map((item) => (
+                                <li
+                                  key={item}
+                                  className="flex items-start gap-2.5 text-[15px] font-medium text-[#1A1A1A] leading-[1.6]"
+                                >
+                                  <span
+                                    className="flex-shrink-0 w-2 h-2 rounded-full bg-accent-blue mt-[7px]"
+                                    aria-hidden="true"
+                                  />
+                                  {item}
+                                </li>
+                              ))}
+                            </ul>
+                            <p className="mt-3 text-[15px] text-[#6B7280] leading-[1.75]">
+                              {team.logistics.footnote}
+                            </p>
+                          </div>
                         )}
                       </div>
 

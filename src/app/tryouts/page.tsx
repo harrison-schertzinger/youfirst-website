@@ -5,6 +5,7 @@ import Footer from "@/components/layout/Footer";
 import ScrollProgressBar from "@/components/layout/ScrollProgressBar";
 import TryoutsHero from "@/components/tryouts/TryoutsHero";
 import TryoutDates from "@/components/tryouts/TryoutDates";
+import TryoutTeams from "@/components/tryouts/TryoutTeams";
 import TryoutMakeup from "@/components/tryouts/TryoutMakeup";
 import TryoutBand from "@/components/tryouts/TryoutBand";
 import TryoutForm from "@/components/tryouts/TryoutForm";
@@ -38,6 +39,7 @@ export default async function TryoutsPage({
       <main className="bw-site">
         <TryoutsHero />
         <TryoutDates />
+        <TryoutTeams />
 
 
         {/* More ways in — shared tiles (edit once in components/shared/ThreeDoors) */}

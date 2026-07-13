@@ -67,7 +67,7 @@ async function askClaude(question: string): Promise<AskResult> {
       { type: "text", text: SYSTEM_INSTRUCTIONS },
       {
         type: "text",
-        text: `PROGRAM GUIDE (single source of truth):\n\n${MASTER_QA}\n\nSITE FACTS (from the published Levels page — also authoritative):\n- Jumpstart, rising 3rd–4th (2035–2036): $135/mo · $200 to reserve her spot · $1,000 for the year, all-in.\n- Jumpstart, rising 5th–6th (2033–2034): $167/mo · $200 to reserve her spot · $1,200 for the year, all-in.\n- Launch, rising 7th (2032): $175/mo · $200 to reserve her spot · $1,250 for the year, all-in · plus about $300 for the July travel weekend out East.\n- Elite (rising 8th and up): fees set individually and shared before you commit — just ask.\n- All fees can be paid monthly or in full, with dates set at roster confirmation.`,
+        text: `PROGRAM GUIDE (single source of truth):\n\n${MASTER_QA}\n\nSITE FACTS (from the published Teams page — also authoritative):\n- Development (classes 2032 & 2033; 2034s who are ready play up): $700 for the year, all-in · $100 reserves her spot · gear, private small-group college-coach sessions, optional training starting this September, and three tournaments next June all included.\n- Elite (rising 8th and up, classes 2028–2031): $100 reserves her spot · the full team price is set individually and shared before you commit — just ask.\n- All fees can be paid monthly or in full, with dates set at roster confirmation.\n- Tryouts are completely free: the set tryout is Saturday, July 25, 5:00–6:30 PM at the Cincinnati Lacrosse Academy (all ages), or free morning evaluations any morning through August 7 — evaluated on the spot, hear the same day.`,
         cache_control: { type: "ephemeral" },
       },
     ],
