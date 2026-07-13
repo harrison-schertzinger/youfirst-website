@@ -247,7 +247,7 @@ export default function CoachesPage() {
               <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
                 <p className="section-label mb-5">Development Coaches</p>
                 <h2 className="text-[2rem] sm:text-[2.75rem] font-bold tracking-tight leading-[1.08] text-[#1A1A1A]">
-                  Our College <span className="gradient-text-accent">Players.</span>
+                  Our College <span className="gradient-text-accent">Coaches.</span>
                 </h2>
                 <p className="mt-5 text-lg text-[#6B7280] leading-[1.75]">
                   All High School All-Americans — the All-Americans we&apos;ve
