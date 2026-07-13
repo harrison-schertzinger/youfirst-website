@@ -36,7 +36,7 @@ A player's journey through the club has two teams. Development builds toward Eli
 Roster confirmation is free. Payment can be made in full or in installments. Dates are set at roster confirmation, so families always know what is due and when.
 
 - **Development (classes 2032 & 2033; 2034s who are ready can play up): $700, all-in.** Includes gear, private small-group sessions with our college coaches and players, training that starts this September, and three tournaments next June.
-- **Elite (classes 2028–2031):** team price is set individually and shared before you commit — just ask.
+- **Elite (classes 2028–2031):** pricing depends on her team's tournament and travel schedule. We will walk you through the full cost before you commit — no surprises.
 
 ## The season: training options June through February
 
@@ -80,7 +80,7 @@ At the youth level we are not looking to cut players. Tryouts and evaluations ar
 
 ## What does it cost, and what is included?
 
-Development is $700, all-in — gear, private small-group sessions with our college coaches and players, training that starts this September, and three tournaments next June are all included. Elite's team price is set individually and shared before you commit. Roster confirmation is free, and you can pay in full or in installments.
+Development is $700, all-in — gear, private small-group sessions with our college coaches and players, training that starts this September, and three tournaments next June are all included. Elite pricing depends on her team's tournament and travel schedule — we will walk you through the full cost before you commit, no surprises. Roster confirmation is free, and you can pay in full or in installments.
 
 ## Are there cuts?
 

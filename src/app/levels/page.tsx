@@ -72,7 +72,7 @@ const TEAMS: Team[] = [
       "The complete competitive team on the national circuit, development aimed squarely at the college path, our college-player coaches every step of the way.",
     prices: null,
     priceNote:
-      "Team price is set individually and shared before you commit. Just ask.",
+      "Elite pricing depends on her team's tournament and travel schedule. We'll walk you through the full cost before you commit — no surprises.",
   },
 ];
 
