@@ -32,6 +32,7 @@ function Pending({ label }: { label: string }) {
 interface HeadCoach {
   name: string;
   role: string;
+  bio: string;
   img: string;
   pos: string;
 }
@@ -40,18 +41,21 @@ const HEAD_COACHES: HeadCoach[] = [
   {
     name: "Ruben Toble",
     role: "Head Coach · 2028 (oldest team)",
+    bio: "Everybody's favorite coach.",
     img: "/images/coaches/ruben.jpg",
     pos: "object-[55%_40%]",
   },
   {
     name: "Harrison Schertzinger",
     role: "Head Coach · 2029",
+    bio: "Played at North Carolina. Director of You. First Elite.",
     img: "/images/coaches/Harrison.JPG",
     pos: "object-[center_28%]",
   },
   {
     name: "Henry Schertzinger",
     role: "Head Coach · 2030",
+    bio: "Played at North Carolina. Head of the Cincinnati Lacrosse Academy.",
     img: "/images/coaches/henry.jpg",
     pos: "object-[center_30%]",
   },
@@ -100,6 +104,45 @@ const DEV_COACHES: DevCoach[] = [
     teamNote: "Youngest team, with 2034 play-ups",
     img: "/images/coaches/Marin.JPEG",
     pos: "object-[center_22%]",
+  },
+];
+
+interface SkillCoach {
+  name: string;
+  school: string;
+  position: string;
+  img: string;
+  pos: string;
+}
+
+const SKILL_COACHES: SkillCoach[] = [
+  {
+    name: "Reilyn Brennan",
+    school: "Stetson",
+    position: "Midfielder",
+    img: "/images/coaches/reilyn.jpg",
+    pos: "object-[center_22%]",
+  },
+  {
+    name: "Lily Kaplan",
+    school: "Elon (commit)",
+    position: "Attack",
+    img: "/images/coaches/lily.jpg",
+    pos: "object-[center_28%]",
+  },
+  {
+    name: "Sophie Haugh",
+    school: "Stetson",
+    position: "Defense",
+    img: "/images/coaches/sophie.jpg",
+    pos: "object-[center_24%]",
+  },
+  {
+    name: "Piper Farrell",
+    school: "Jacksonville",
+    position: "Midfielder",
+    img: "/images/coaches/piper.jpg",
+    pos: "object-[60%_22%]",
   },
 ];
 
@@ -182,6 +225,7 @@ export default function CoachesPage() {
                         <span className="gradient-text-accent">{coach.name}</span>
                       </h3>
                       <p className="mt-2 text-sm font-medium text-[#6B7280]">{coach.role}</p>
+                      <p className="mt-3 text-[15px] text-[#6B7280] leading-[1.7]">{coach.bio}</p>
                     </div>
                   </div>
                 </ScrollReveal>
@@ -258,30 +302,30 @@ export default function CoachesPage() {
                   For Players Who Want <span className="gradient-text-accent">More.</span>
                 </h2>
                 <p className="mt-5 text-lg text-[#6B7280] leading-[1.75]">
-                  Our younger college players and girls, running extra
-                  small-group and skill work.
+                  Small-group skill sessions run two evenings a week on
+                  off-practice days — tons of extra opportunity to work.
                 </p>
-                <div className="mt-4 flex justify-center">
-                  <Pending label="Names & photos · wave two" />
-                </div>
               </div>
             </ScrollReveal>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto">
-              {[1, 2, 3].map((n, i) => (
-                <ScrollReveal key={n} delay={i * 120} className="h-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+              {SKILL_COACHES.map((coach, i) => (
+                <ScrollReveal key={coach.name} delay={i * 100} className="h-full">
                   <div className="card h-full flex flex-col overflow-hidden">
-                    <div className="relative h-56 sm:h-64">
-                      <PhotoSlot
-                        name={`coach-skill-${n}.jpg`}
-                        alt="Skill and small-group trainer — photo coming soon"
-                        sizes="(max-width: 768px) 100vw, 33vw"
+                    <div className="relative h-64 sm:h-72 keep-color">
+                      <CoachPhoto
+                        src={coach.img}
+                        alt={`${coach.name} — ${coach.school} ${coach.position}`}
+                        pos={coach.pos}
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                       />
                     </div>
                     <div className="p-6 sm:p-7">
-                      <Pending label="Trainer" />
-                      <p className="mt-3 text-sm font-medium text-[#6B7280]">
-                        Skill &amp; Small-Group Trainer
+                      <h3 className="text-xl font-bold tracking-[-0.01em]">
+                        <span className="gradient-text-accent">{coach.name}</span>
+                      </h3>
+                      <p className="mt-3 text-sm font-medium text-[#1A1A1A]">
+                        {coach.school} · {coach.position}
                       </p>
                     </div>
                   </div>

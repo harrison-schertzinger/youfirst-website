@@ -20,11 +20,8 @@ const SLOT_NAMES = [
   "getstarted-tryouts.jpg",
   "getstarted-film.jpg",
   "getstarted-fees.jpg",
-  // /coaches wave two — skill trainers + Brett (strength). Drop the photos
-  // into the inbox under these names and run this script.
-  "coach-skill-1.jpg",
-  "coach-skill-2.jpg",
-  "coach-skill-3.jpg",
+  // /coaches — Brett (strength). Skill-trainer slots retired 2026-07-13
+  // (real photos live in public/images/coaches/).
   "coach-brett.jpg",
 ];
 
