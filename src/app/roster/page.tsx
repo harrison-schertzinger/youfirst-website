@@ -39,7 +39,7 @@ export default function RosterPage() {
             className="absolute inset-0"
             style={{
               background:
-                "linear-gradient(to bottom, rgba(10,10,11,0.62) 0%, rgba(10,10,11,0.56) 18%, rgba(10,10,11,0.78) 48%, rgba(10,10,11,0.94) 74%, #0A0A0B 100%)",
+                "linear-gradient(to bottom, rgba(10,10,11,0.62) 0%, rgba(10,10,11,0.58) 14%, rgba(10,10,11,0.84) 36%, rgba(10,10,11,0.97) 56%, #0A0A0B 74%)",
             }}
           />
         </div>
