@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { sendTryoutConfirmationEmail } from "@/lib/tryout-email";
 import { sendTryoutAdminNotification } from "@/lib/tryout-admin-notify";
-import { syncTryoutToSheet } from "@/lib/google-sheets";
+import { pingCommandSheet } from "@/lib/command-sheet/engine";
 import { describeTryout, type TryoutType } from "@/lib/tryouts";
 
 // I5 fix: lazy init so missing env on a preview deploy surfaces a
@@ -373,20 +373,9 @@ async function handleTryoutPaid(
     console.error("Tryout admin notification failed (non-fatal):", notifyErr);
   }
 
-  // ── Google Sheet sync (fail-soft) — runs once per paid reg; the
-  // already-paid early-return above prevents duplicate rows on retry.
-  await syncTryoutToSheet({
-    timestampIso: new Date().toISOString(),
-    tryoutTypeLabel: display.typeLabel,
-    tryoutDateIso: reg.tryout_date,
-    playerFullName: reg.player_full_name,
-    parentName: reg.parent_name,
-    email: reg.email,
-    phone: reg.phone,
-    graduationYear: reg.graduation_year,
-    position: reg.position,
-    paymentStatus: "paid",
-  });
+  // ── Roster Command Sheet mirror (fail-soft) — runs once per paid reg;
+  // the compare-and-swap above prevents duplicate work on retry.
+  await pingCommandSheet("webhook");
 
   return NextResponse.json({ received: true });
 }

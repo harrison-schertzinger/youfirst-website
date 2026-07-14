@@ -26,6 +26,10 @@ interface FormState {
   parent2Phone: string;
   jerseySize: string;
   shortsSize: string;
+  sweatshirtSize: string;
+  shootingShirtSize: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
   notes: string;
 }
 
@@ -43,6 +47,10 @@ const EMPTY: FormState = {
   parent2Phone: "",
   jerseySize: "",
   shortsSize: "",
+  sweatshirtSize: "",
+  shootingShirtSize: "",
+  emergencyContactName: "",
+  emergencyContactPhone: "",
   notes: "",
 };
 
@@ -157,6 +165,17 @@ export default function RosterConfirmForm() {
     }
     if (!form.jerseySize) errs.jerseySize = "Choose a jersey size.";
     if (!form.shortsSize) errs.shortsSize = "Choose a shorts size.";
+    if (!form.sweatshirtSize) errs.sweatshirtSize = "Choose a sweatshirt size.";
+    if (!form.shootingShirtSize) errs.shootingShirtSize = "Choose a shooting shirt size.";
+    if (!form.emergencyContactName.trim()) {
+      errs.emergencyContactName = "An emergency contact is required.";
+    }
+    if (
+      !form.emergencyContactPhone.trim() ||
+      !normalizeUsPhone(form.emergencyContactPhone)
+    ) {
+      errs.emergencyContactPhone = "A valid US phone number is required.";
+    }
     return errs;
   }
 
@@ -193,6 +212,10 @@ export default function RosterConfirmForm() {
           parent2Phone: showParent2 ? form.parent2Phone : "",
           jerseySize: form.jerseySize,
           shortsSize: form.shortsSize,
+          sweatshirtSize: form.sweatshirtSize,
+          shootingShirtSize: form.shootingShirtSize,
+          emergencyContactName: form.emergencyContactName,
+          emergencyContactPhone: form.emergencyContactPhone,
           notes: form.notes,
         }),
       });
@@ -595,63 +618,86 @@ export default function RosterConfirmForm() {
         </div>
       </div>
 
-      {/* ── Uniform ────────────────────────────────────────────────── */}
+      {/* ── Uniform — all four pieces, 2×2 ─────────────────────────── */}
       <div className="mt-9 pt-8 border-t border-white/10">
         <SectionHeading label="Uniform" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <label htmlFor="jerseySize" className={labelCls}>
-              Jersey Size
-            </label>
-            <select
-              id="jerseySize"
-              value={form.jerseySize}
-              onChange={set("jerseySize")}
-              className={`${fieldCls} appearance-none ${
-                form.jerseySize ? "text-white" : "text-white/40"
-              } ${errors.jerseySize ? fieldErrCls : ""}`}
-              style={chevronBg}
-            >
-              <option value="" disabled>
-                Select size
-              </option>
-              {UNIFORM_SIZES.map((s) => (
-                <option key={s.value} value={s.value} className="text-black">
-                  {s.label}
+          {(
+            [
+              ["jerseySize", "Jersey Size"],
+              ["shortsSize", "Shorts Size"],
+              ["sweatshirtSize", "Sweatshirt Size"],
+              ["shootingShirtSize", "Shooting Shirt Size"],
+            ] as const
+          ).map(([key, label]) => (
+            <div key={key}>
+              <label htmlFor={key} className={labelCls}>
+                {label}
+              </label>
+              <select
+                id={key}
+                value={form[key]}
+                onChange={set(key)}
+                className={`${fieldCls} appearance-none ${
+                  form[key] ? "text-white" : "text-white/40"
+                } ${errors[key] ? fieldErrCls : ""}`}
+                style={chevronBg}
+              >
+                <option value="" disabled>
+                  Select size
                 </option>
-              ))}
-            </select>
-            <FieldError msg={errors.jerseySize} />
-          </div>
-          <div>
-            <label htmlFor="shortsSize" className={labelCls}>
-              Shorts Size
-            </label>
-            <select
-              id="shortsSize"
-              value={form.shortsSize}
-              onChange={set("shortsSize")}
-              className={`${fieldCls} appearance-none ${
-                form.shortsSize ? "text-white" : "text-white/40"
-              } ${errors.shortsSize ? fieldErrCls : ""}`}
-              style={chevronBg}
-            >
-              <option value="" disabled>
-                Select size
-              </option>
-              {UNIFORM_SIZES.map((s) => (
-                <option key={s.value} value={s.value} className="text-black">
-                  {s.label}
-                </option>
-              ))}
-            </select>
-            <FieldError msg={errors.shortsSize} />
-          </div>
+                {UNIFORM_SIZES.map((s) => (
+                  <option key={s.value} value={s.value} className="text-black">
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+              <FieldError msg={errors[key]} />
+            </div>
+          ))}
         </div>
         <p className="mt-3 text-[13px] text-white/45 leading-relaxed">
           Not sure? Youth sizes run YS–YL, adult XS–XXL — when in doubt, size
           up. She&apos;ll grow into it.
         </p>
+      </div>
+
+      {/* ── Emergency Contact ──────────────────────────────────────── */}
+      <div className="mt-9 pt-8 border-t border-white/10">
+        <SectionHeading label="Emergency Contact" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label htmlFor="emergencyContactName" className={labelCls}>
+              Name
+            </label>
+            <input
+              id="emergencyContactName"
+              type="text"
+              autoComplete="off"
+              value={form.emergencyContactName}
+              onChange={set("emergencyContactName")}
+              className={`${fieldCls} ${errors.emergencyContactName ? fieldErrCls : ""}`}
+              placeholder="Who we call if we can't reach you"
+            />
+            <FieldError msg={errors.emergencyContactName} />
+          </div>
+          <div>
+            <label htmlFor="emergencyContactPhone" className={labelCls}>
+              Phone
+            </label>
+            <input
+              id="emergencyContactPhone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="off"
+              value={form.emergencyContactPhone}
+              onChange={set("emergencyContactPhone")}
+              className={`${fieldCls} ${errors.emergencyContactPhone ? fieldErrCls : ""}`}
+              placeholder="(555) 123-4567"
+            />
+            <FieldError msg={errors.emergencyContactPhone} />
+          </div>
+        </div>
       </div>
 
       {/* ── Notes ──────────────────────────────────────────────────── */}

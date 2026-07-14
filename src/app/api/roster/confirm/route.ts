@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { clientIp, createRateLimiter } from "@/lib/rate-limit";
+import { pingCommandSheet } from "@/lib/command-sheet/engine";
 import {
   isRosterGradYear,
   isRosterTeam,
@@ -70,6 +71,10 @@ export async function POST(request: NextRequest) {
     parent2Phone,
     jerseySize,
     shortsSize,
+    sweatshirtSize,
+    shootingShirtSize,
+    emergencyContactName,
+    emergencyContactPhone,
     notes,
   } = (body ?? {}) as Record<string, unknown>;
 
@@ -155,9 +160,25 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // ── Uniform ─────────────────────────────────────────────────────────
+  // ── Uniform — all four pieces; the $200 confirmation IS jerseys ─────
   if (!isUniformSize(jerseySize)) return bad("Please choose a jersey size.");
   if (!isUniformSize(shortsSize)) return bad("Please choose a shorts size.");
+  if (!isUniformSize(sweatshirtSize)) return bad("Please choose a sweatshirt size.");
+  if (!isUniformSize(shootingShirtSize)) return bad("Please choose a shooting shirt size.");
+
+  // ── Emergency contact (required) ────────────────────────────────────
+  const emergencyName = str(emergencyContactName);
+  if (!emergencyName || emergencyName.length > MAX_NAME) {
+    return bad("An emergency contact name is required.");
+  }
+  const emergencyPhoneRaw = str(emergencyContactPhone);
+  if (!emergencyPhoneRaw || emergencyPhoneRaw.length > MAX_PHONE) {
+    return bad("An emergency contact phone is required.");
+  }
+  const emergencyPhone = normalizeUsPhone(emergencyPhoneRaw);
+  if (!emergencyPhone) {
+    return bad("Emergency contact phone doesn't look like a valid US number.");
+  }
 
   const notesText = str(notes);
   if (notesText.length > MAX_NOTES) return bad("Notes are too long.");
@@ -180,6 +201,10 @@ export async function POST(request: NextRequest) {
     parent2_phone: p2Phone,
     jersey_size: jerseySize,
     shorts_size: shortsSize,
+    sweatshirt_size: sweatshirtSize,
+    shooting_shirt_size: shootingShirtSize,
+    emergency_contact_name: emergencyName,
+    emergency_contact_phone: emergencyPhone,
     notes: notesText || null,
   };
 
@@ -209,6 +234,7 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
+    await pingCommandSheet("confirmation");
     return NextResponse.json({ ok: true, duplicate: true });
   }
 
@@ -222,6 +248,9 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+
+  // Mirror the confirmation onto the Roster Command Sheet (fail-soft).
+  await pingCommandSheet("confirmation");
 
   return NextResponse.json({ ok: true });
 }

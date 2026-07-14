@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendTryoutConfirmationEmail } from "@/lib/tryout-email";
 import { sendTryoutAdminNotification } from "@/lib/tryout-admin-notify";
-import { syncTryoutToSheet } from "@/lib/google-sheets";
+import { pingCommandSheet } from "@/lib/command-sheet/engine";
 import { clientIp, createRateLimiter } from "@/lib/rate-limit";
 import {
   ELITE_TRYOUT,
@@ -210,19 +210,9 @@ export async function POST(request: NextRequest) {
     console.error("Tryout admin notification failed (non-fatal):", notifyErr);
   }
 
-  // ── Google Sheet sync (fail-soft) ──────────────────────────────────
-  await syncTryoutToSheet({
-    timestampIso: new Date().toISOString(),
-    tryoutTypeLabel: display.typeLabel,
-    tryoutDateIso: tryoutDateIso ?? "",
-    playerFullName: player,
-    parentName: parent,
-    email: mail,
-    phone: tel,
-    graduationYear: gradYear,
-    position: pos,
-    paymentStatus: "free",
-  });
+  // ── Roster Command Sheet mirror (fail-soft) — the family should be on
+  // Harrison's board before they leave the parking lot.
+  await pingCommandSheet("registration");
 
   return NextResponse.json({ ok: true });
 }

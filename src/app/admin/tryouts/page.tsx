@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { ClipboardCheck } from "lucide-react";
 import TryoutCsvButton, { type TryoutCsvRow } from "@/components/admin/TryoutCsvButton";
+import SheetSyncButton from "@/components/admin/SheetSyncButton";
 
 export const dynamic = "force-dynamic";
 
@@ -126,7 +127,10 @@ export default async function TryoutSignupsPage() {
             Tryout Signups
           </h1>
         </div>
-        <TryoutCsvButton rows={csvRows} />
+        <div className="flex items-start gap-3">
+          <TryoutCsvButton rows={csvRows} />
+          <SheetSyncButton />
+        </div>
       </div>
 
       {/* Count cards */}
