@@ -23,7 +23,9 @@ export const metadata: Metadata = {
     "Southern Ohio lacrosse",
     "girls club lacrosse",
   ],
-  metadataBase: new URL("https://youfirstlacrosse.com"),
+  // www is the serving host (apex 307-redirects to it) — keeps og:image URLs
+  // resolving with a direct 200 for link scrapers.
+  metadataBase: new URL("https://www.youfirstlacrosse.com"),
   alternates: {
     canonical: "/",
   },
