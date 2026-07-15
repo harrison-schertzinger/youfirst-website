@@ -61,10 +61,48 @@ saving (Deployments → ⋯ → Redeploy).
 ### 5. First sync + eyes-on check
 - Open `/admin/tryouts` and press **Sync Sheet Now**.
 - The button reports the result in plain English. Expect: tabs appear, PIPELINE
-  fills with every registration, team tabs fill from the roster, DASHBOARD and
-  _SYNC stamp themselves.
+  fills with every registration (add-a-girl zone on top, data below), team tabs
+  fill from the roster, DASHBOARD and _SYNC stamp themselves.
 - Confirm the look: gray columns filled, white columns (Status, Place On Team,
   Jersey #) white with a Carolina-blue left edge, header row near-black.
+
+---
+
+## The first-sync test plan — run this before trusting the Sheet
+
+Honesty note: everything below the Google boundary is proven against the real
+database (create-once, duplicate guards, promotion, unlink). The leg that READS
+typing out of a live Google Sheet is **unproven and untestable until the
+credential exists**. The first sync is not a victory lap — it is the real test.
+Run every line against the live Sheet, syncing between steps:
+
+**Add-a-girl (the intake zone at the top of PIPELINE):**
+- [ ] Type a name in intake row 3, leave rows 1–2 blank → sync → she's created
+      once, on the correct row, id written into column A, intake zone blank again.
+- [ ] Paste five names at once → sync → five recruits, five _SYNC lines.
+- [ ] A name with a trailing space → created clean, no ghost duplicate of the
+      trimmed name on a later sync.
+- [ ] A name and nothing else → created (name alone is enough).
+- [ ] Type a name and trigger a real-time sync WHILE the cell is still in edit
+      mode (submit a test registration from the website in another window) →
+      the typed name still lands as the right girl on the next full sync.
+      **This is the one that matters** — the intake zone must not shift under
+      an in-progress edit.
+- [ ] Type the name of a girl already rostered (e.g. a current 2029) → NOT
+      created; _SYNC says "check before re-adding."
+
+**Gray/white law under a human:**
+- [ ] Type into a gray cell (e.g. change a grad year on a data row) → next sync
+      overwrites it, nothing is written back to the database, no crash.
+- [ ] Change a Status and a Place On Team in the white columns → both absorb;
+      the placement appears on the team tab exactly once.
+
+**Concurrency:**
+- [ ] Two browser windows, both editing → sync → last write wins, no corrupted
+      rows, no duplicated girls, _SYNC log is coherent.
+
+Then: screenshots of every tab, and the cold-terminal fortify on the Sheet
+egress + intake write-back path. No new features before that.
 
 ---
 

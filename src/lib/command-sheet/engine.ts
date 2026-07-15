@@ -41,8 +41,10 @@ import {
   buildSyncGrid,
   buildTeamGrid,
   buildTeamRow,
+  DATA_DIVIDER_TEXT,
   INTAKE_DIVIDER_ID,
   INTAKE_DIVIDER_TEXT,
+  INTAKE_ROWS,
   playersForTeam,
   TAB_DASHBOARD,
   TAB_PIPELINE,
@@ -300,6 +302,8 @@ export async function runFullSync(trigger: SyncTrigger): Promise<SyncResult> {
         continue;
       }
 
+      if (name === DATA_DIVIDER_TEXT) continue;
+
       const gradRaw = (row[4] ?? "").trim();
       const gradYear = /^20[2-4][0-9]$/.test(gradRaw) ? parseInt(gradRaw, 10) : null;
       const posRaw = (row[5] ?? "").trim();
@@ -451,29 +455,44 @@ export async function runRenderSync(trigger: SyncTrigger): Promise<SyncResult> {
     let rowsWritten = 0;
 
     // PIPELINE: gray D..R for known rows. NEW rows are INSERTED at the top
-    // (never appended) — the bottom of this tab is the add-a-girl intake
-    // zone, and an append would stomp whatever Harrison has typed there.
+    // of the DATA section — below the fixed intake zone, so the rows
+    // Harrison may be typing into never shift underneath him, and above the
+    // existing data so newest-first holds.
     {
       const sheetIds = (idCols[`${TAB_PIPELINE}!A2:A`] ?? []).map((r) => r[0] ?? "");
       const rowOf = new Map<string, number>(); // sheet row number (1-based)
-      sheetIds.forEach((id, i) => id && rowOf.set(id, i + 2));
+      sheetIds.forEach((id, i) => {
+        if (id && id !== INTAKE_DIVIDER_ID) rowOf.set(id, i + 2);
+      });
       const fresh = snapshot.registrations.filter((r) => !rowOf.has(r.id));
       if (fresh.length > 0) {
         const pipelineSheetId = (await sheets.getTabs()).find((t) => t.title === TAB_PIPELINE)?.sheetId;
         if (pipelineSheetId != null) {
+          // First data row: right after header + add-bar + intake + divider.
+          const defaultDataStart = INTAKE_ROWS + 4;
+          const dataStart =
+            rowOf.size > 0 ? Math.min(...rowOf.values()) : defaultDataStart;
           await sheets.batchUpdateSpreadsheet([
             {
               insertDimension: {
-                range: { sheetId: pipelineSheetId, dimension: "ROWS", startIndex: 1, endIndex: 1 + fresh.length },
+                range: {
+                  sheetId: pipelineSheetId,
+                  dimension: "ROWS",
+                  startIndex: dataStart - 1,
+                  endIndex: dataStart - 1 + fresh.length,
+                },
                 inheritFromBefore: false,
               },
             },
           ]);
-          // Everything below the insert shifted down.
-          for (const [id, at] of rowOf) rowOf.set(id, at + fresh.length);
+          // Rows at/below the insert point shifted down; the intake zone
+          // above it did not move.
+          for (const [id, at] of rowOf) {
+            if (at >= dataStart) rowOf.set(id, at + fresh.length);
+          }
           fresh.forEach((reg, i) => {
             writes.push({
-              range: `${TAB_PIPELINE}!A${2 + i}:R${2 + i}`,
+              range: `${TAB_PIPELINE}!A${dataStart + i}:R${dataStart + i}`,
               values: [buildPipelineRow(reg, snapshot, now)],
             });
             log.push(

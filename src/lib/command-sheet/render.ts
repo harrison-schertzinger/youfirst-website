@@ -70,11 +70,17 @@ export const TEAM_HEADERS = [
   "Balance Due",
 ] as const; // A..Q — white column: C (Jersey #)
 
-// ── Add-a-girl intake zone (PIPELINE bottom) ──────────────────────────────
-export const INTAKE_ROWS = 20;
+// ── Add-a-girl intake zone (TOP of PIPELINE) ──────────────────────────────
+// The zone sits ABOVE the data so real-time inserts (which land at the top
+// of the data section) can never shift a row Harrison is mid-typing in —
+// Google's behavior when an API row-shift crosses a human's in-progress
+// edit is unproven, so the layout makes the question moot.
+export const INTAKE_ROWS = 10;
 export const INTAKE_DIVIDER_TEXT =
   "➕  ADD A GIRL — type her name below (grad year, school, parent optional); the next sync makes her real";
-/** Column-A marker so the divider can never read as a typed intake row. */
+export const DATA_DIVIDER_TEXT =
+  "▼  THE PIPELINE — newest first · gray cells regenerate every sync";
+/** Column-A marker so the bars can never read as typed intake rows. */
 export const INTAKE_DIVIDER_ID = "—";
 
 export const SYNC_HEADERS = [
@@ -218,18 +224,22 @@ export function buildPipelineRow(
 
 export function buildPipelineGrid(snapshot: Snapshot, now: Date): (string | number)[][] {
   const cols = PIPELINE_HEADERS.length;
-  const divider: (string | number)[] = Array.from({ length: cols }, () => "");
-  divider[0] = INTAKE_DIVIDER_ID;
-  divider[3] = INTAKE_DIVIDER_TEXT;
+  const bar = (text: string): (string | number)[] => {
+    const row = Array.from({ length: cols }, () => "") as (string | number)[];
+    row[0] = INTAKE_DIVIDER_ID;
+    row[3] = text;
+    return row;
+  };
   return [
     [...PIPELINE_HEADERS],
-    ...snapshot.registrations.map((r) => buildPipelineRow(r, snapshot, now)),
-    divider,
+    bar(INTAKE_DIVIDER_TEXT),
     // The intake zone — always INTAKE_ROWS blank rows, replenished every
     // sync. Writing them blank also clears absorbed typed rows.
     ...Array.from({ length: INTAKE_ROWS }, () =>
       Array.from({ length: cols }, () => "") as (string | number)[],
     ),
+    bar(DATA_DIVIDER_TEXT),
+    ...snapshot.registrations.map((r) => buildPipelineRow(r, snapshot, now)),
   ];
 }
 

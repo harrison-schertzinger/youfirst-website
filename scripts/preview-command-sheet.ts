@@ -154,7 +154,7 @@ async function main() {
         <span><i style="background:${C.recruitWash}">&nbsp;&nbsp;&nbsp;</i> Recruiting row</span>
         <span><i style="background:${C.warnBg}">&nbsp;&nbsp;&nbsp;</i> Pending payment ($50 era)</span>
         <span><i style="color:${C.quiet}">Aa</i> Placed — gone quiet</span>
-        <span><i class="white-chip">&nbsp;</i> White = Harrison types here (incl. the add-a-girl rows at the bottom)</span>
+        <span><i class="white-chip">&nbsp;</i> White = Harrison types here (incl. the add-a-girl zone up top)</span>
       </div>`,
   });
 
