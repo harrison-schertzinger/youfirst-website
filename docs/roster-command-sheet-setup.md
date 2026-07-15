@@ -1,9 +1,11 @@
 # The Roster Command Sheet — credential setup (for Cowork)
 
 One Google Sheet that shows the entire club: every family in the pipeline
-(**PIPELINE**), seven fully-rendered team rosters (**2028–2034**), a ten-second
-**DASHBOARD**, and a **_SYNC** log in plain English. Supabase is the database;
-the Sheet is the windshield.
+(**PIPELINE** — tryout registrations *and* recruiting targets), eight
+fully-rendered team rosters (**2027–2034**, position-grouped the way a coach
+reads them), a ten-second **DASHBOARD** with the Contacts Needed debt counter,
+and a **_SYNC** log in plain English. Supabase is the database; the Sheet is
+the windshield.
 
 This supersedes the append-only sync described in
 `tryouts-google-sheet-setup.md` — the service-account steps there are the same,

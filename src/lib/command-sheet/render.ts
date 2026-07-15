@@ -36,6 +36,8 @@ export const PIPELINE_HEADERS = [
   "Player",
   "Grad Year",
   "Position",
+  "Source",
+  "School / Notes",
   "Tryout Date",
   "Type",
   "Parent",
@@ -46,7 +48,7 @@ export const PIPELINE_HEADERS = [
   "Registered On",
   "Days Since",
   "Follow-Up",
-] as const; // A..P — white columns: B (Status), C (Place On Team)
+] as const; // A..R — white columns: B (Status), C (Place On Team)
 
 export const TEAM_HEADERS = [
   "id — do not edit",
@@ -155,6 +157,7 @@ function cap(s: string | null): string {
 }
 
 export function fmtTryoutDate(reg: RegistrationRow): string {
+  if (reg.source === "recruiting") return "—";
   if (reg.tryout_type === "evaluation" || !reg.tryout_date) return "Evaluation — flexible";
   return fmtIsoDay(reg.tryout_date);
 }
@@ -180,20 +183,24 @@ export function buildPipelineRow(
     (reg.pipeline_status === "evaluated" || reg.pipeline_status === "offered") && days > 5
       ? FOLLOW_UP_FLAG
       : "";
+  const recruiting = reg.source === "recruiting";
+  const schoolNotes = [reg.school, reg.notes].filter(Boolean).join(" — ");
   return [
     reg.id,
     statusToSheet(reg.pipeline_status),
     reg.placed_team ?? "",
     reg.player_full_name,
-    reg.graduation_year,
+    reg.graduation_year ?? "",
     reg.position ?? "",
+    recruiting ? "Recruiting" : "Tryout",
+    schoolNotes,
     fmtTryoutDate(reg),
-    typeLabel(reg.tryout_type),
-    conf?.parent1_name ?? reg.parent_name,
-    conf?.parent1_email ?? reg.email,
+    recruiting ? "—" : typeLabel(reg.tryout_type),
+    conf?.parent1_name ?? reg.parent_name ?? "",
+    conf?.parent1_email ?? reg.email ?? "",
     fmtPhone(conf?.parent1_phone ?? reg.phone),
     fmtPhone(conf?.player_phone ?? null),
-    cap(reg.payment_status),
+    recruiting ? "—" : cap(reg.payment_status),
     fmtDateET(reg.created_at),
     days,
     flag,
@@ -209,16 +216,28 @@ export function buildPipelineGrid(snapshot: Snapshot, now: Date): (string | numb
 
 // ── Team tab grids ────────────────────────────────────────────────────────
 
+export type ContactStatus = "ok" | "stale" | "flagged" | "missing";
+
 interface PlayerRenderContext {
   conf: ConfirmationRow | null;
   parentName: string;
   parentEmail: string;
   parentPhone: string;
+  /** What's still owed to the contact file: the DASHBOARD debt counter. */
+  needsEmail: boolean;
+  needsPhone: boolean;
+  contactStatus: ContactStatus;
   balanceCents: number;
   hasMoney: boolean;
 }
 
-function contextForPlayer(player: PlayerRow, snapshot: Snapshot): PlayerRenderContext {
+/**
+ * Contact resolution order (per girl): 1. guardians — the table the parent
+ * portal reads; TRUTH. 2. roster_confirmations — family-typed, fresher.
+ * 3. the legacy Sheet's single email / parked unverified phone — fallback
+ * only, carrying its quality marker. 4. Nothing → missing.
+ */
+export function contextForPlayer(player: PlayerRow, snapshot: Snapshot): PlayerRenderContext {
   // Confirmation: pinned through her pipeline row wins; name+year match second.
   const viaReg = snapshot.registrations.find(
     (r) => r.player_id === player.id && r.roster_confirmation_id,
@@ -227,11 +246,33 @@ function contextForPlayer(player: PlayerRow, snapshot: Snapshot): PlayerRenderCo
     ? (snapshot.confirmations.find((c) => c.id === viaReg.roster_confirmation_id) ?? null)
     : findConfirmationForPlayer(player, snapshot.confirmations);
 
-  // Primary guardian from the roster machinery.
+  // Guardians — truth first. Prefer the primary; for phone, any guardian
+  // with a number beats none.
   const links = snapshot.playerGuardians.filter((pg) => pg.player_id === player.id);
-  const primary =
-    links.find((l) => l.is_primary) ?? (links.length > 0 ? links[0] : null);
+  const primary = links.find((l) => l.is_primary) ?? (links.length > 0 ? links[0] : null);
   const guardian = primary ? (snapshot.guardians.get(primary.guardian_id) ?? null) : null;
+  const anyGuardianPhone =
+    guardian?.phone ??
+    links.map((l) => snapshot.guardians.get(l.guardian_id)?.phone).find(Boolean) ??
+    null;
+
+  let parentEmail = guardian?.email ?? conf?.parent1_email ?? "";
+  let contactStatus: ContactStatus = "ok";
+  if (!parentEmail && player.fallback_email) {
+    const status = (player.fallback_email_status ?? "ok") as ContactStatus;
+    parentEmail =
+      status === "ok" ? player.fallback_email : `${player.fallback_email} (${status})`;
+    if (status !== "ok") contactStatus = status;
+  }
+
+  let parentPhone = fmtPhone(anyGuardianPhone ?? conf?.parent1_phone ?? null);
+  if (!parentPhone && player.unverified_phone) {
+    parentPhone = `${player.unverified_phone} (unverified)`;
+  }
+
+  const needsEmail = !parentEmail;
+  const needsPhone = !anyGuardianPhone && !conf?.parent1_phone;
+  if (needsEmail && needsPhone) contactStatus = "missing";
 
   const plans = snapshot.plans.filter((p) => p.player_id === player.id);
   const openCharges = snapshot.charges.filter(
@@ -243,20 +284,34 @@ function contextForPlayer(player: PlayerRow, snapshot: Snapshot): PlayerRenderCo
 
   return {
     conf,
-    // Confirmation is fresher and typed by the family on purpose.
-    parentName: conf?.parent1_name ?? (guardian ? `${guardian.first_name} ${guardian.last_name}`.trim() : ""),
-    parentEmail: conf?.parent1_email ?? guardian?.email ?? "",
-    parentPhone: fmtPhone(conf?.parent1_phone ?? guardian?.phone ?? null),
+    parentName:
+      (guardian ? `${guardian.first_name} ${guardian.last_name}`.trim() : "") ||
+      conf?.parent1_name ||
+      "",
+    parentEmail,
+    parentPhone,
+    needsEmail,
+    needsPhone,
+    contactStatus,
     balanceCents,
     hasMoney: plans.length > 0 || openCharges.length > 0,
   };
 }
 
-export function buildTeamRow(player: PlayerRow, snapshot: Snapshot): (string | number)[] {
+export function buildTeamRow(
+  player: PlayerRow,
+  snapshot: Snapshot,
+  team: string,
+): (string | number)[] {
   const ctx = contextForPlayer(player, snapshot);
+  // A 2031 playing up on the 2030 team is exactly the girl Harrison must
+  // never lose track of — the playing-up is visible, never flattened.
+  const playsUp =
+    player.graduation_year != null && String(player.graduation_year) !== team;
+  const name = `${player.first_name} ${player.last_name}`.trim();
   return [
     player.id,
-    `${player.first_name} ${player.last_name}`.trim(),
+    playsUp ? `${name} · ${player.graduation_year}` : name,
     player.jersey_number ?? "",
     ctx.conf ? CONFIRMED_CHECK : "",
     player.position ?? "",
@@ -275,8 +330,24 @@ export function buildTeamRow(player: PlayerRow, snapshot: Snapshot): (string | n
 
 export function playersForTeam(team: string, snapshot: Snapshot): PlayerRow[] {
   return snapshot.players
-    .filter((p) => p.roster_team === team)
+    .filter((p) => p.placed_team === team)
     .sort((a, b) => a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name));
+}
+
+/** How a lacrosse coach reads a roster. Goalie is always last. */
+export const POSITION_SECTIONS: Array<{ header: string; match: (pos: string | null) => boolean }> = [
+  { header: "ATTACK", match: (p) => p === "Attack" },
+  { header: "MIDDIE", match: (p) => p === "Midfield" },
+  { header: "DEFENSE", match: (p) => p === "Defense" },
+  { header: "POSITION TBD", match: (p) => p == null || p === "" || p === "Undecided" },
+  { header: "GOALIE", match: (p) => p === "Goalie" },
+];
+
+export const SECTION_HEADER_LABELS = POSITION_SECTIONS.map((s) => s.header);
+
+function jerseySortKey(jersey: string | null): number {
+  const n = parseInt(jersey ?? "", 10);
+  return Number.isNaN(n) ? 9999 : n;
 }
 
 export function buildTeamGrid(team: string, snapshot: Snapshot): (string | number)[][] {
@@ -284,7 +355,22 @@ export function buildTeamGrid(team: string, snapshot: Snapshot): (string | numbe
   if (players.length === 0) {
     return [[...TEAM_HEADERS], ["", "No players placed yet", "", "", "", "", "", "", "", "", "", "", "", "", ""]];
   }
-  return [[...TEAM_HEADERS], ...players.map((p) => buildTeamRow(p, snapshot))];
+  const grid: (string | number)[][] = [[...TEAM_HEADERS]];
+  const claimed = new Set<string>();
+  for (const section of POSITION_SECTIONS) {
+    const girls = players
+      .filter((p) => !claimed.has(p.id) && section.match(p.position))
+      .sort(
+        (a, b) =>
+          jerseySortKey(a.jersey_number) - jerseySortKey(b.jersey_number) ||
+          a.last_name.localeCompare(b.last_name),
+      );
+    if (girls.length === 0) continue;
+    girls.forEach((g) => claimed.add(g.id));
+    grid.push(["", section.header, "", "", "", "", "", "", "", "", "", "", "", "", ""]);
+    for (const g of girls) grid.push(buildTeamRow(g, snapshot, team));
+  }
+  return grid;
 }
 
 // ── DASHBOARD grid ────────────────────────────────────────────────────────
@@ -317,16 +403,25 @@ export function buildDashboardGrid(snapshot: Snapshot, now: Date): (string | num
   }
   blank();
 
-  // Registrations by grad year
+  // Registrations by grad year (recruits without a year get their own line)
   rows.push(["REGISTRATIONS BY GRAD YEAR"]);
-  const byYear = new Map<number, number>();
+  const byYear = new Map<string, number>();
   for (const r of snapshot.registrations) {
-    byYear.set(r.graduation_year, (byYear.get(r.graduation_year) ?? 0) + 1);
+    const key = r.graduation_year != null ? String(r.graduation_year) : "Unknown (recruits)";
+    byYear.set(key, (byYear.get(key) ?? 0) + 1);
   }
   for (const year of [...byYear.keys()].sort()) {
-    rows.push([String(year), byYear.get(year) ?? 0]);
+    rows.push([year, byYear.get(year) ?? 0]);
   }
   blank();
+
+  // Recruiting pipeline — the chase list, surfaced where it can be worked.
+  const recruits = snapshot.registrations.filter((r) => r.source === "recruiting");
+  if (recruits.length > 0) {
+    const open = recruits.filter((r) => r.pipeline_status !== "placed" && r.pipeline_status !== "passed");
+    rows.push(["RECRUITING", `${open.length} open of ${recruits.length}`]);
+    blank();
+  }
 
   // Teams: placed / confirmed / outstanding balance
   rows.push(["TEAMS", "Rostered", "Confirmed", "Balance Due"]);
@@ -372,6 +467,32 @@ export function buildDashboardGrid(snapshot: Snapshot, now: Date): (string | num
   for (const key of [...byDate.keys()].sort()) {
     const e = byDate.get(key)!;
     rows.push([e.past ? `${e.label} (past)` : e.label, e.count]);
+  }
+  blank();
+
+  // Contacts Needed — the club's actual operational debt. Watch it fall to
+  // zero: every girl here should be sent the confirmation link, and the
+  // system fills its own gaps from what the family types.
+  const contactDebt: string[] = [];
+  for (const team of TEAM_TABS) {
+    for (const p of playersForTeam(team, snapshot)) {
+      const ctx = contextForPlayer(p, snapshot);
+      const needs: string[] = [];
+      if (ctx.needsPhone) needs.push("phone");
+      if (ctx.needsEmail) needs.push("email");
+      if (ctx.contactStatus === "stale") needs.push("email is stale");
+      if (ctx.contactStatus === "flagged") needs.push("email flagged");
+      if (needs.length > 0) {
+        contactDebt.push(`${p.first_name} ${p.last_name} (${team}) — needs ${needs.join(" + ")}`);
+      }
+    }
+  }
+  rows.push(["CONTACTS NEEDED", contactDebt.length]);
+  if (contactDebt.length === 0) {
+    rows.push(["Zero. Every rostered girl has a working email and phone."]);
+  } else {
+    rows.push(["Fix: send each family the confirmation link — https://www.youfirstlacrosse.com/roster"]);
+    for (const line of contactDebt) rows.push([line]);
   }
   blank();
 
@@ -439,6 +560,7 @@ const CORAL_BG = { red: 0.992, green: 0.914, blue: 0.894 };
 const GREEN_TEXT = { red: 0.09, green: 0.447, blue: 0.271 };
 const GREEN_BG = { red: 0.91, green: 0.961, blue: 0.933 };
 const WARN_BG = { red: 0.988, green: 0.945, blue: 0.925 };
+const RECRUIT_WASH = { red: 0.937, green: 0.965, blue: 0.984 };
 
 const FONT = "Inter";
 const MAX_ROWS = 1000;
@@ -615,18 +737,18 @@ export function buildFormattingRequests(tabs: SheetTabInfo[], tabIds: TabIds): o
     requests.push(freezeRequest(pipelineId, 4)); // id · Status · Place · Player
     requests.push(tabColorRequest(pipelineId, CAROLINA, 0));
     requests.push(
-      ...widthRequests(pipelineId, [64, 118, 118, 170, 74, 92, 150, 96, 150, 210, 128, 128, 88, 100, 74, 84]),
+      ...widthRequests(pipelineId, [64, 118, 118, 170, 74, 92, 92, 170, 150, 96, 150, 210, 128, 128, 88, 100, 74, 84]),
     );
     requests.push(dropdownRequest(pipelineId, 1, ["New", "Contacted", "Evaluated", "Offered", "Placed", "Passed"]));
     requests.push(dropdownRequest(pipelineId, 2, [...TEAM_TABS]));
 
     const fullRow = { sheetId: pipelineId, startRowIndex: 1, endRowIndex: MAX_ROWS, startColumnIndex: 0, endColumnIndex: cols };
-    // Follow-Up flag — the whole reason PIPELINE exists.
+    // Follow-Up flag (col R) — the whole reason PIPELINE exists.
     requests.push(
       conditionalRule(
         pipelineId,
         { sheetId: pipelineId, startRowIndex: 1, endRowIndex: MAX_ROWS, startColumnIndex: cols - 1, endColumnIndex: cols },
-        `=$P2="${FOLLOW_UP_FLAG}"`,
+        `=$R2="${FOLLOW_UP_FLAG}"`,
         { backgroundColor: CORAL_BG, textFormat: { foregroundColor: CORAL_TEXT, bold: true } },
       ),
     );
@@ -636,9 +758,15 @@ export function buildFormattingRequests(tabs: SheetTabInfo[], tabIds: TabIds): o
         textFormat: { foregroundColor: QUIET_TEXT },
       }),
     );
-    // Unpaid ($50-era stragglers) get a soft warning tint.
+    // Unpaid ($50-era stragglers) get a soft warning tint (Payment = col O).
     requests.push(
-      conditionalRule(pipelineId, fullRow, '=$M2="Pending"', { backgroundColor: WARN_BG }),
+      conditionalRule(pipelineId, fullRow, '=$O2="Pending"', { backgroundColor: WARN_BG }),
+    );
+    // Recruiting rows read differently — subtle Carolina wash, not loud.
+    requests.push(
+      conditionalRule(pipelineId, fullRow, '=$G2="Recruiting"', {
+        backgroundColor: RECRUIT_WASH,
+      }),
     );
   }
 
@@ -661,6 +789,20 @@ export function buildFormattingRequests(tabs: SheetTabInfo[], tabIds: TabIds): o
         { sheetId, startRowIndex: 1, endRowIndex: MAX_ROWS, startColumnIndex: 3, endColumnIndex: 4 },
         `=$D2="${CONFIRMED_CHECK}"`,
         { backgroundColor: GREEN_BG, textFormat: { foregroundColor: GREEN_TEXT, bold: true } },
+      ),
+    );
+    // Position section headers — how a coach reads a roster. The rule keys on
+    // the header labels so it survives every re-render and roster change.
+    const headerList = SECTION_HEADER_LABELS.map((l) => `$B2="${l}"`).join(",");
+    requests.push(
+      conditionalRule(
+        sheetId,
+        { sheetId, startRowIndex: 1, endRowIndex: MAX_ROWS, startColumnIndex: 0, endColumnIndex: cols },
+        `=AND($A2="",OR(${headerList}))`,
+        {
+          backgroundColor: CAROLINA,
+          textFormat: { foregroundColor: WHITE, bold: true },
+        },
       ),
     );
   });

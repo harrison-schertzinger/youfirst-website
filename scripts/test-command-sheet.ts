@@ -76,7 +76,7 @@ async function main() {
       payment_status: "free",
     })
     .select(
-      "id, player_full_name, parent_name, email, phone, graduation_year, position, tryout_type, tryout_date, payment_status, created_at, pipeline_status, placed_team, jersey_number, player_id, roster_confirmation_id",
+      "id, player_full_name, parent_name, email, phone, graduation_year, position, tryout_type, tryout_date, payment_status, created_at, pipeline_status, placed_team, jersey_number, player_id, roster_confirmation_id, source, school, notes",
     )
     .single();
   if (insErr || !reg) fail("promotion", `test insert failed: ${insErr?.message}`);
@@ -107,7 +107,7 @@ async function main() {
   const { data: linked } = await db
     .from("tryout_registrations")
     .select(
-      "id, player_full_name, parent_name, email, phone, graduation_year, position, tryout_type, tryout_date, payment_status, created_at, pipeline_status, placed_team, jersey_number, player_id, roster_confirmation_id",
+      "id, player_full_name, parent_name, email, phone, graduation_year, position, tryout_type, tryout_date, payment_status, created_at, pipeline_status, placed_team, jersey_number, player_id, roster_confirmation_id, source, school, notes",
     )
     .eq("id", testReg.id)
     .single();

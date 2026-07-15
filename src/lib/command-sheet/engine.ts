@@ -252,7 +252,7 @@ export async function runFullSync(trigger: SyncTrigger): Promise<SyncResult> {
             .update({ placed_team: placeValue })
             .eq("id", reg.id);
           if (reg.player_id) {
-            await db.from("players").update({ roster_team: placeValue }).eq("id", reg.player_id);
+            await db.from("players").update({ placed_team: placeValue }).eq("id", reg.player_id);
           }
           log.push(`Moved ${reg.player_full_name} (${reg.graduation_year}) from ${reg.placed_team} to ${placeValue}.`);
           changes++;
@@ -404,10 +404,12 @@ export async function runRenderSync(trigger: SyncTrigger): Promise<SyncResult> {
         const full = buildPipelineRow(reg, snapshot, now);
         const at = rowOf.get(reg.id);
         if (at) {
-          writes.push({ range: `${TAB_PIPELINE}!D${at}:P${at}`, values: [full.slice(3)] });
+          writes.push({ range: `${TAB_PIPELINE}!D${at}:R${at}`, values: [full.slice(3)] });
         } else {
-          writes.push({ range: `${TAB_PIPELINE}!A${nextRow}:P${nextRow}`, values: [full] });
-          log.push(`New registration on the board: ${reg.player_full_name} (${reg.graduation_year}).`);
+          writes.push({ range: `${TAB_PIPELINE}!A${nextRow}:R${nextRow}`, values: [full] });
+          log.push(
+            `New ${reg.source === "recruiting" ? "recruit" : "registration"} on the board: ${reg.player_full_name}${reg.graduation_year != null ? ` (${reg.graduation_year})` : ""}.`,
+          );
           nextRow++;
         }
         rowsWritten++;
@@ -421,7 +423,7 @@ export async function runRenderSync(trigger: SyncTrigger): Promise<SyncResult> {
       sheetIds.forEach((id, i) => id && rowOf.set(id, i + 2));
       let nextRow = sheetIds.length + 2;
       for (const player of playersForTeam(team, snapshot)) {
-        const full = buildTeamRow(player, snapshot);
+        const full = buildTeamRow(player, snapshot, team);
         const at = rowOf.get(player.id);
         if (at) {
           writes.push({ range: `${team}!B${at}:B${at}`, values: [[full[1]]] });

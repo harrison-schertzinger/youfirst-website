@@ -20,10 +20,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 export interface RegistrationRow {
   id: string;
   player_full_name: string;
-  parent_name: string;
-  email: string;
-  phone: string;
-  graduation_year: number;
+  /** Null on recruiting rows — a chased name with no family contact yet. */
+  parent_name: string | null;
+  email: string | null;
+  phone: string | null;
+  graduation_year: number | null;
   position: string | null;
   tryout_type: string | null;
   tryout_date: string | null;
@@ -34,6 +35,10 @@ export interface RegistrationRow {
   jersey_number: string | null;
   player_id: string | null;
   roster_confirmation_id: string | null;
+  /** 'tryout' (family registered) or 'recruiting' (Harrison wrote her down). */
+  source: string;
+  school: string | null;
+  notes: string | null;
 }
 
 export interface PlayerRow {
@@ -41,7 +46,8 @@ export interface PlayerRow {
   first_name: string;
   last_name: string;
   graduation_year: number | null;
-  roster_team: string | null;
+  /** The tab key — which grad-year-named team she plays on (girls play up). */
+  placed_team: string | null;
   position: string | null;
   jersey_number: string | null;
   shirt_size: string | null;
@@ -49,6 +55,10 @@ export interface PlayerRow {
   sweatshirt_size: string | null;
   shooting_shirt_size: string | null;
   status: string;
+  /** Degraded-contact fallbacks from the legacy Rosters Sheet; guardians is truth. */
+  fallback_email: string | null;
+  fallback_email_status: string | null;
+  unverified_phone: string | null;
 }
 
 export interface GuardianRow {
@@ -137,7 +147,9 @@ export const PIPELINE_STATUSES = [
   "passed",
 ] as const;
 
-export const TEAM_TABS = ["2028", "2029", "2030", "2031", "2032", "2033", "2034"] as const;
+// Eight teams — 2027s are rising seniors, the most college-bound girls in the
+// club; they don't get dropped because an earlier spec forgot them.
+export const TEAM_TABS = ["2027", "2028", "2029", "2030", "2031", "2032", "2033", "2034"] as const;
 
 /** DB 'evaluated' ↔ Sheet 'Evaluated' */
 export function statusToSheet(db: string): string {
@@ -176,13 +188,13 @@ export async function fetchSnapshot(db: SupabaseClient): Promise<Snapshot> {
       db
         .from("tryout_registrations")
         .select(
-          "id, player_full_name, parent_name, email, phone, graduation_year, position, tryout_type, tryout_date, payment_status, created_at, pipeline_status, placed_team, jersey_number, player_id, roster_confirmation_id",
+          "id, player_full_name, parent_name, email, phone, graduation_year, position, tryout_type, tryout_date, payment_status, created_at, pipeline_status, placed_team, jersey_number, player_id, roster_confirmation_id, source, school, notes",
         )
         .order("created_at", { ascending: false }),
       db
         .from("players")
         .select(
-          "id, first_name, last_name, graduation_year, roster_team, position, jersey_number, shirt_size, short_size, sweatshirt_size, shooting_shirt_size, status",
+          "id, first_name, last_name, graduation_year, placed_team, position, jersey_number, shirt_size, short_size, sweatshirt_size, shooting_shirt_size, status, fallback_email, fallback_email_status, unverified_phone",
         )
         .eq("status", "active")
         .order("last_name", { ascending: true }),
@@ -247,9 +259,11 @@ export function findConfirmationForRegistration(
   reg: RegistrationRow,
   confirmations: ConfirmationRow[],
 ): ConfirmationRow | null {
+  if (!reg.email || reg.graduation_year == null) return null;
+  const regEmail = reg.email.toLowerCase();
   const matches = confirmations.filter(
     (c) =>
-      c.parent1_email.toLowerCase() === reg.email.toLowerCase() &&
+      c.parent1_email.toLowerCase() === regEmail &&
       normName(`${c.player_first_name} ${c.player_last_name}`) ===
         normName(reg.player_full_name) &&
       c.player_grad_year === reg.graduation_year,
@@ -347,7 +361,15 @@ export async function promoteRegistration(
   placedTeam: string,
   snapshot: Snapshot,
 ): Promise<PromotionResult> {
-  const who = `${reg.player_full_name} (${reg.graduation_year})`;
+  const who = `${reg.player_full_name} (${reg.graduation_year ?? "grad year unknown"})`;
+
+  // Recruits arrive with almost nothing — a players row needs her real class.
+  if (reg.graduation_year == null) {
+    return {
+      ok: false,
+      line: `NEEDS A HUMAN: ${reg.player_full_name} has no graduation year on file — add it before placing her (recruiting rows start with just a name).`,
+    };
+  }
 
   // 1. Pin the confirmation if one cleanly matches (fresher data, typed by the family).
   let conf: ConfirmationRow | null = null;
@@ -372,11 +394,12 @@ export async function promoteRegistration(
   const nameKey = normName(`${name.first} ${name.last}`);
   const { data: cohort, error: cohortErr } = await db
     .from("players")
-    .select("id, first_name, last_name, graduation_year, roster_team, position, jersey_number, shirt_size, short_size, sweatshirt_size, shooting_shirt_size, status")
+    .select("id, first_name, last_name, graduation_year, placed_team, position, jersey_number, shirt_size, short_size, sweatshirt_size, shooting_shirt_size, status, school")
     .eq("graduation_year", reg.graduation_year);
   if (cohortErr) return { ok: false, line: `Promotion of ${who} failed reading players: ${cohortErr.message}` };
 
-  const candidates = ((cohort ?? []) as PlayerRow[]).filter(
+  type CohortRow = PlayerRow & { school: string | null };
+  const candidates = ((cohort ?? []) as unknown as CohortRow[]).filter(
     (p) => normName(`${p.first_name} ${p.last_name}`) === nameKey,
   );
 
@@ -395,8 +418,9 @@ export async function promoteRegistration(
     // Move her team label + fill blanks from the confirmation; never overwrite.
     const p = candidates[0];
     const fills: Record<string, string> = {};
-    if (p.roster_team !== placedTeam) fills.roster_team = placedTeam;
+    if (p.placed_team !== placedTeam) fills.placed_team = placedTeam;
     if (!p.position && reg.position && reg.position !== "Undecided") fills.position = reg.position;
+    if (!p.school && reg.school) fills.school = reg.school;
     if (conf) {
       if (!p.shirt_size) fills.shirt_size = conf.jersey_size;
       if (!p.short_size) fills.short_size = conf.shorts_size;
@@ -414,9 +438,10 @@ export async function promoteRegistration(
         first_name: name.first,
         last_name: name.last,
         graduation_year: reg.graduation_year,
-        roster_team: placedTeam,
+        placed_team: placedTeam,
         team_name: "You. First Elite",
         position: reg.position && reg.position !== "Undecided" ? reg.position : null,
+        school: reg.school,
         shirt_size: conf?.jersey_size ?? null,
         short_size: conf?.shorts_size ?? null,
         sweatshirt_size: conf?.sweatshirt_size ?? null,
@@ -454,16 +479,36 @@ export async function promoteRegistration(
   }
 
   // 4. Guardians — so the portal and dues work the moment she's placed.
+  // Same-parent-different-email trap: if a guardian with this NAME is already
+  // linked to her (e.g. dad's personal email in guardians, work email on the
+  // registration), reuse that person instead of minting a second record.
   let guardianCount = 0;
-  const g1 = await upsertGuardian(
-    db,
-    conf?.parent1_email ?? reg.email,
-    conf?.parent1_name ?? reg.parent_name,
-    conf?.parent1_phone ?? reg.phone ?? null,
-  );
-  if (g1) {
-    await linkGuardian(db, playerId, g1, true);
-    guardianCount++;
+  const p1Email = conf?.parent1_email ?? reg.email;
+  const p1Name = conf?.parent1_name ?? reg.parent_name ?? "";
+  const p1Phone = conf?.parent1_phone ?? reg.phone ?? null;
+  if (p1Email) {
+    const { data: linkedRows } = await db
+      .from("player_guardians")
+      .select("guardian_id, guardians(id, first_name, last_name, phone)")
+      .eq("player_id", playerId);
+    const linkedByName = (linkedRows ?? [])
+      .map((r) => r.guardians as unknown as { id: string; first_name: string; last_name: string; phone: string | null } | null)
+      .filter(Boolean)
+      .find((g) => p1Name && normName(`${g!.first_name} ${g!.last_name}`) === normName(p1Name));
+
+    let g1: string | null;
+    if (linkedByName) {
+      g1 = linkedByName.id;
+      if (!linkedByName.phone && p1Phone) {
+        await db.from("guardians").update({ phone: p1Phone }).eq("id", g1);
+      }
+    } else {
+      g1 = await upsertGuardian(db, p1Email, p1Name, p1Phone);
+    }
+    if (g1) {
+      await linkGuardian(db, playerId, g1, true);
+      guardianCount++;
+    }
   }
   if (conf?.parent2_email) {
     const g2 = await upsertGuardian(db, conf.parent2_email, conf.parent2_name ?? "", conf.parent2_phone);
@@ -493,5 +538,5 @@ export async function unlinkRegistration(
     .from("tryout_registrations")
     .update({ placed_team: null, player_id: null, pipeline_status: "offered" })
     .eq("id", reg.id);
-  return `UNPLACED ${reg.player_full_name} (${reg.graduation_year}) — placement cleared in the Sheet. Her player row was kept (never auto-deleted); remove or re-place her deliberately.`;
+  return `UNPLACED ${reg.player_full_name}${reg.graduation_year != null ? ` (${reg.graduation_year})` : ""} — placement cleared in the Sheet. Her player row was kept (never auto-deleted); remove or re-place her deliberately.`;
 }
