@@ -282,12 +282,16 @@ export function contextForPlayer(player: PlayerRow, snapshot: Snapshot): PlayerR
     plans.reduce((s, p) => s + Math.max(0, p.total_amount_cents - p.amount_paid_cents), 0) +
     openCharges.reduce((s, c) => s + c.amount_cents, 0);
 
+  // 34 legacy guardians are literally named "Parent" — a blank cell reads
+  // better than the word, and the /roster flow fills the real name.
+  const rawGuardianName = guardian
+    ? `${guardian.first_name} ${guardian.last_name}`.trim()
+    : "";
+  const guardianName = /^(parent|guardian)$/i.test(rawGuardianName) ? "" : rawGuardianName;
+
   return {
     conf,
-    parentName:
-      (guardian ? `${guardian.first_name} ${guardian.last_name}`.trim() : "") ||
-      conf?.parent1_name ||
-      "",
+    parentName: guardianName || conf?.parent1_name || "",
     parentEmail,
     parentPhone,
     needsEmail,
