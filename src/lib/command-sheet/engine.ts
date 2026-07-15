@@ -20,7 +20,9 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  addTypedRecruit,
   fetchSnapshot,
+  normName,
   promoteRegistration,
   serviceClient,
   statusToDb,
@@ -39,6 +41,8 @@ import {
   buildSyncGrid,
   buildTeamGrid,
   buildTeamRow,
+  INTAKE_DIVIDER_ID,
+  INTAKE_DIVIDER_TEXT,
   playersForTeam,
   TAB_DASHBOARD,
   TAB_PIPELINE,
@@ -205,9 +209,9 @@ export async function runFullSync(trigger: SyncTrigger): Promise<SyncResult> {
 
     const { tabs, tabIds } = await ensureTabs(sheets);
 
-    // ── 1. Read the white columns, keyed by column-A id ───────────────
+    // ── 1. Read the white columns + the intake zone, keyed by column A ─
     const whiteRanges = [
-      `${TAB_PIPELINE}!A2:C`,
+      `${TAB_PIPELINE}!A2:R`,
       ...TEAM_TABS.map((t) => `${t}!A2:C`),
     ];
     const white = await sheets.batchGetValues(whiteRanges);
@@ -220,9 +224,10 @@ export async function runFullSync(trigger: SyncTrigger): Promise<SyncResult> {
     let rowsRead = 0;
 
     // ── 2a. PIPELINE Status + Place On Team → Supabase ────────────────
-    for (const row of white[`${TAB_PIPELINE}!A2:C`] ?? []) {
+    const pipelineRows = white[`${TAB_PIPELINE}!A2:R`] ?? [];
+    for (const row of pipelineRows) {
       const [id, statusCell, placeCell] = [row[0] ?? "", row[1] ?? "", row[2] ?? ""];
-      if (!id) continue;
+      if (!id || id === INTAKE_DIVIDER_ID) continue;
       rowsRead++;
       const reg = regById.get(id);
       if (!reg) {
@@ -279,6 +284,55 @@ export async function runFullSync(trigger: SyncTrigger): Promise<SyncResult> {
       }
     }
 
+    // ── 2a½. Add-a-girl: rows typed into the intake zone ───────────────
+    // A blank column A + a Player name = a girl Harrison typed by hand.
+    // Name alone is enough; anything else typed carries. Blank name with
+    // stray data in other cells is ignored silently — no ghosts. The
+    // seen-set catches the same name typed twice in one batch.
+    const typedThisRun = new Set<string>();
+    for (const row of pipelineRows) {
+      const id = (row[0] ?? "").trim();
+      const name = (row[3] ?? "").trim();
+      if (id || !name || name === INTAKE_DIVIDER_TEXT) continue;
+      const nameKey = normName(name);
+      if (typedThisRun.has(nameKey)) {
+        log.push(`Typed "${name}" twice in the intake zone — created once.`);
+        continue;
+      }
+
+      const gradRaw = (row[4] ?? "").trim();
+      const gradYear = /^20[2-4][0-9]$/.test(gradRaw) ? parseInt(gradRaw, 10) : null;
+      const posRaw = (row[5] ?? "").trim();
+      const position =
+        ["Attack", "Midfield", "Defense", "Goalie"].find(
+          (p) => p.toLowerCase() === posRaw.toLowerCase() || (p === "Midfield" && posRaw.toLowerCase() === "middie"),
+        ) ?? null;
+      const emailRaw = (row[11] ?? "").trim().toLowerCase();
+      const strays = [
+        gradRaw && gradYear == null ? `grad: ${gradRaw}` : null,
+        posRaw && !position ? `position: ${posRaw}` : null,
+        emailRaw && !emailRaw.includes("@") ? `email: ${emailRaw}` : null,
+      ].filter(Boolean);
+
+      const result = await addTypedRecruit(db, {
+        rowNumber: pipelineRows.indexOf(row) + 2,
+        name,
+        gradYear,
+        position,
+        school: (row[7] ?? "").trim() || null,
+        notes: strays.length > 0 ? `As typed — ${strays.join("; ")}` : null,
+        parentName: (row[10] ?? "").trim() || null,
+        email: emailRaw.includes("@") ? emailRaw : null,
+        phone: (row[12] ?? "").trim() || null,
+        placeAttempted: (row[2] ?? "").trim() || null,
+      }, snapshot);
+      if (result.line) log.push(result.line);
+      if (result.created) {
+        changes++;
+        typedThisRun.add(nameKey);
+      }
+    }
+
     // ── 2b. Team-tab Jersey # → players ───────────────────────────────
     const playerById = new Map(snapshot.players.map((p) => [p.id, p]));
     for (const team of TEAM_TABS) {
@@ -315,7 +369,9 @@ export async function runFullSync(trigger: SyncTrigger): Promise<SyncResult> {
       { tab: TAB_PIPELINE, grid: buildPipelineGrid(fresh, now) },
       ...TEAM_TABS.map((team) => ({ tab: team, grid: buildTeamGrid(team, fresh) })),
     ];
-    const rowsWritten = grids.reduce((s, g) => s + g.grid.length - 1, 0);
+    const rowsWritten =
+      fresh.registrations.length +
+      TEAM_TABS.reduce((s, t) => s + playersForTeam(t, fresh).length, 0);
 
     const runRow = currentRunRow("full", trigger, startedMs, rowsRead, rowsWritten, changes, log);
     grids.push({ tab: TAB_DASHBOARD, grid: buildDashboardGrid(fresh, now) });
@@ -394,29 +450,49 @@ export async function runRenderSync(trigger: SyncTrigger): Promise<SyncResult> {
     const writes: Array<{ range: string; values: (string | number)[][] }> = [];
     let rowsWritten = 0;
 
-    // PIPELINE: gray D..P for known rows, full append for new ones.
+    // PIPELINE: gray D..R for known rows. NEW rows are INSERTED at the top
+    // (never appended) — the bottom of this tab is the add-a-girl intake
+    // zone, and an append would stomp whatever Harrison has typed there.
     {
       const sheetIds = (idCols[`${TAB_PIPELINE}!A2:A`] ?? []).map((r) => r[0] ?? "");
       const rowOf = new Map<string, number>(); // sheet row number (1-based)
       sheetIds.forEach((id, i) => id && rowOf.set(id, i + 2));
-      let nextRow = sheetIds.length + 2;
-      for (const reg of snapshot.registrations) {
-        const full = buildPipelineRow(reg, snapshot, now);
-        const at = rowOf.get(reg.id);
-        if (at) {
-          writes.push({ range: `${TAB_PIPELINE}!D${at}:R${at}`, values: [full.slice(3)] });
-        } else {
-          writes.push({ range: `${TAB_PIPELINE}!A${nextRow}:R${nextRow}`, values: [full] });
-          log.push(
-            `New ${reg.source === "recruiting" ? "recruit" : "registration"} on the board: ${reg.player_full_name}${reg.graduation_year != null ? ` (${reg.graduation_year})` : ""}.`,
-          );
-          nextRow++;
+      const fresh = snapshot.registrations.filter((r) => !rowOf.has(r.id));
+      if (fresh.length > 0) {
+        const pipelineSheetId = (await sheets.getTabs()).find((t) => t.title === TAB_PIPELINE)?.sheetId;
+        if (pipelineSheetId != null) {
+          await sheets.batchUpdateSpreadsheet([
+            {
+              insertDimension: {
+                range: { sheetId: pipelineSheetId, dimension: "ROWS", startIndex: 1, endIndex: 1 + fresh.length },
+                inheritFromBefore: false,
+              },
+            },
+          ]);
+          // Everything below the insert shifted down.
+          for (const [id, at] of rowOf) rowOf.set(id, at + fresh.length);
+          fresh.forEach((reg, i) => {
+            writes.push({
+              range: `${TAB_PIPELINE}!A${2 + i}:R${2 + i}`,
+              values: [buildPipelineRow(reg, snapshot, now)],
+            });
+            log.push(
+              `New ${reg.source === "recruiting" ? "recruit" : "registration"} on the board: ${reg.player_full_name}${reg.graduation_year != null ? ` (${reg.graduation_year})` : ""}.`,
+            );
+            rowsWritten++;
+          });
         }
+      }
+      for (const reg of snapshot.registrations) {
+        const at = rowOf.get(reg.id);
+        if (!at) continue;
+        const full = buildPipelineRow(reg, snapshot, now);
+        writes.push({ range: `${TAB_PIPELINE}!D${at}:R${at}`, values: [full.slice(3)] });
         rowsWritten++;
       }
     }
 
-    // Team tabs: B + D..O for known rows (C = Jersey stays Harrison's).
+    // Team tabs: B + D..Q for known rows (C = Jersey stays Harrison's).
     for (const team of TEAM_TABS) {
       const sheetIds = (idCols[`${team}!A2:A`] ?? []).map((r) => r[0] ?? "");
       const rowOf = new Map<string, number>();
@@ -427,9 +503,9 @@ export async function runRenderSync(trigger: SyncTrigger): Promise<SyncResult> {
         const at = rowOf.get(player.id);
         if (at) {
           writes.push({ range: `${team}!B${at}:B${at}`, values: [[full[1]]] });
-          writes.push({ range: `${team}!D${at}:O${at}`, values: [full.slice(3)] });
+          writes.push({ range: `${team}!D${at}:Q${at}`, values: [full.slice(3)] });
         } else {
-          writes.push({ range: `${team}!A${nextRow}:O${nextRow}`, values: [full] });
+          writes.push({ range: `${team}!A${nextRow}:Q${nextRow}`, values: [full] });
           nextRow++;
         }
         rowsWritten++;

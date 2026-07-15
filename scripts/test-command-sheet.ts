@@ -16,6 +16,7 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import {
+  addTypedRecruit,
   fetchSnapshot,
   promoteRegistration,
   serviceClient,
@@ -124,8 +125,58 @@ async function main() {
   if (!survivor || survivor.length !== 1) fail("unlink", "players row was deleted — unacceptable");
   pass("registration back to Offered; players row survived");
 
+  // ── 4. Add-a-girl idempotency ─────────────────────────────────────
+  console.log("4. Add-a-girl (typed intake rows)…");
+  const TYPED = "Zz Typedharness";
+  const intake = {
+    rowNumber: 99,
+    name: TYPED,
+    gradYear: 2032,
+    position: "Attack",
+    school: "Harness High",
+    notes: null,
+    parentName: null,
+    email: null,
+    phone: null,
+    placeAttempted: null,
+  };
+  const snapBefore = await fetchSnapshot(db);
+
+  const empty = await addTypedRecruit(db, { ...intake, name: "" }, snapBefore);
+  if (empty.created || empty.line !== "") fail("intake", "blank name created a ghost");
+  pass("blank name with data creates nothing, silently");
+
+  const c1 = await addTypedRecruit(db, intake, snapBefore);
+  if (!c1.created || !c1.line.includes("Added recruit")) fail("intake", `first add failed: ${c1.line}`);
+  pass(`first sync: ${c1.line}`);
+
+  // Second sync: the typed row is still on the sheet (run 1 crashed before
+  // clearing it) — a fresh snapshot must flag, never duplicate.
+  const snapAfter = await fetchSnapshot(db);
+  const c2 = await addTypedRecruit(db, intake, snapAfter);
+  if (c2.created) fail("intake", "second sync duplicated the typed girl");
+  pass(`second sync stood down: ${c2.line}`);
+
+  const vsPlayer = await addTypedRecruit(db, { ...intake, name: "Caylee Singleton" }, snapAfter);
+  if (vsPlayer.created) fail("intake", "typed name duplicated a rostered player");
+  pass(`rostered-player guard: ${vsPlayer.line}`);
+
+  const vsRecruit = await addTypedRecruit(db, { ...intake, name: "Bella Crumb" }, snapAfter);
+  if (vsRecruit.created) fail("intake", "typed name duplicated an existing recruit");
+  pass(`existing-recruit guard: ${vsRecruit.line}`);
+
+  const { data: typedRows } = await db
+    .from("tryout_registrations")
+    .select("id")
+    .eq("player_full_name", TYPED);
+  if (!typedRows || typedRows.length !== 1) {
+    fail("intake", `expected exactly 1 typed recruit, found ${typedRows?.length ?? 0}`);
+  }
+  await db.from("tryout_registrations").delete().eq("player_full_name", TYPED);
+  pass("exactly one recruiting row existed; cleaned up");
+
   // ── Cleanup — remove every trace of the harness ───────────────────
-  console.log("4. Cleaning up test rows…");
+  console.log("5. Cleaning up test rows…");
   await db.from("tryout_registrations").delete().eq("id", testReg.id);
   await db.from("player_guardians").delete().eq("player_id", playerId);
   await db.from("players").delete().eq("id", playerId);

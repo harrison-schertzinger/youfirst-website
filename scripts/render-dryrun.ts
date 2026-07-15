@@ -25,7 +25,9 @@ async function main() {
   const pipeline = buildPipelineGrid(snapshot, now);
   const bySource = { tryout: 0, recruiting: 0 };
   for (const r of snapshot.registrations) bySource[r.source as "tryout" | "recruiting"]++;
-  console.log(`PIPELINE: ${pipeline.length - 1} rows × ${pipeline[0].length} cols (${bySource.tryout} tryout · ${bySource.recruiting} recruiting)`);
+  const dataRows = pipeline.slice(1).filter((r) => r[0] !== "" && r[0] !== "—").length;
+  const intakeRows = pipeline.slice(1).filter((r) => r[0] === "").length;
+  console.log(`PIPELINE: ${dataRows} rows × ${pipeline[0].length} cols (${bySource.tryout} tryout · ${bySource.recruiting} recruiting) + divider + ${intakeRows} intake rows`);
   console.log(`  header: ${pipeline[0].join(" | ")}`);
   if (pipeline[1]) {
     const preview = [...pipeline[1]];

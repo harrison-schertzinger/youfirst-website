@@ -525,6 +525,93 @@ export async function promoteRegistration(
   return { ok: true, line: `Promoted ${who} → ${placedTeam} roster. ${how}.${confNote}` };
 }
 
+// ── Add-a-girl: rows typed straight into PIPELINE's intake zone ───────────
+
+export interface IntakeRow {
+  /** 1-based sheet row, for logging only. */
+  rowNumber: number;
+  name: string;
+  gradYear: number | null;
+  position: string | null;
+  school: string | null;
+  notes: string | null;
+  parentName: string | null;
+  email: string | null;
+  phone: string | null;
+  /** He also set Place On Team on the typed row — ignored, logged. */
+  placeAttempted: string | null;
+}
+
+/**
+ * Create a recruiting row from a name Harrison typed into the Sheet.
+ * A NAME ALONE IS ENOUGH — never validate him into a corner. The one hard
+ * guard is duplicates: if the name matches an existing player or pipeline
+ * row, nothing is created and _SYNC says so; Harrison decides.
+ */
+export async function addTypedRecruit(
+  db: SupabaseClient,
+  intake: IntakeRow,
+  snapshot: Snapshot,
+): Promise<{ created: boolean; line: string }> {
+  const key = normName(intake.name);
+  if (!key) return { created: false, line: "" };
+
+  const playerMatch = snapshot.players.find(
+    (p) => normName(`${p.first_name} ${p.last_name}`) === key,
+  );
+  if (playerMatch) {
+    return {
+      created: false,
+      line: `Typed "${intake.name}" — looks like ${playerMatch.first_name} ${playerMatch.last_name}, already rostered on ${playerMatch.placed_team ?? "a team"}. Not created — check before re-adding.`,
+    };
+  }
+  const pipelineMatch = snapshot.registrations.find(
+    (r) => normName(r.player_full_name) === key,
+  );
+  if (pipelineMatch) {
+    return {
+      created: false,
+      line: `Typed "${intake.name}" — possible match to the existing ${pipelineMatch.source === "recruiting" ? "recruit" : "registration"} for ${pipelineMatch.player_full_name}${pipelineMatch.graduation_year != null ? ` (${pipelineMatch.graduation_year})` : ""}. Not created — check before re-adding.`,
+    };
+  }
+
+  const { error } = await db.from("tryout_registrations").insert({
+    player_full_name: intake.name,
+    source: "recruiting",
+    pipeline_status: "new",
+    graduation_year: intake.gradYear,
+    position: intake.position,
+    school: intake.school,
+    notes: intake.notes,
+    parent_name: intake.parentName,
+    email: intake.email,
+    phone: intake.phone,
+    tryout_group: null,
+    tryout_type: null,
+    tryout_date: null,
+    amount_cents: 0,
+    currency: "usd",
+    payment_status: "free",
+  });
+  if (error) {
+    return { created: false, line: `Couldn't add "${intake.name}" (row ${intake.rowNumber}): ${error.message}` };
+  }
+
+  const detail = [
+    intake.gradYear != null ? String(intake.gradYear) : null,
+    intake.school,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const placeNote = intake.placeAttempted
+    ? ` Ignored Place On Team "${intake.placeAttempted}" on the typed row — place her on the next sync, now that she's real.`
+    : "";
+  return {
+    created: true,
+    line: `Added recruit: ${intake.name}${detail ? ` (${detail})` : ""} — typed into PIPELINE.${placeNote}`,
+  };
+}
+
 /**
  * Harrison cleared Place On Team: back to Offered, UNLINK the player row but
  * NEVER delete it — an accidentally cleared dropdown must not erase a child's

@@ -57,8 +57,10 @@ export const TEAM_HEADERS = [
   "Confirmed",
   "Position",
   "Parent",
-  "Email",
   "Phone",
+  "Parent 2",
+  "Phone 2",
+  "Email",
   "Emergency Contact",
   "Emergency Phone",
   "Shirt",
@@ -66,7 +68,14 @@ export const TEAM_HEADERS = [
   "Sweatshirt",
   "Shooter",
   "Balance Due",
-] as const; // A..O — white column: C (Jersey #)
+] as const; // A..Q — white column: C (Jersey #)
+
+// ── Add-a-girl intake zone (PIPELINE bottom) ──────────────────────────────
+export const INTAKE_ROWS = 20;
+export const INTAKE_DIVIDER_TEXT =
+  "➕  ADD A GIRL — type her name below (grad year, school, parent optional); the next sync makes her real";
+/** Column-A marker so the divider can never read as a typed intake row. */
+export const INTAKE_DIVIDER_ID = "—";
 
 export const SYNC_HEADERS = [
   "When (ET)",
@@ -208,9 +217,19 @@ export function buildPipelineRow(
 }
 
 export function buildPipelineGrid(snapshot: Snapshot, now: Date): (string | number)[][] {
+  const cols = PIPELINE_HEADERS.length;
+  const divider: (string | number)[] = Array.from({ length: cols }, () => "");
+  divider[0] = INTAKE_DIVIDER_ID;
+  divider[3] = INTAKE_DIVIDER_TEXT;
   return [
     [...PIPELINE_HEADERS],
     ...snapshot.registrations.map((r) => buildPipelineRow(r, snapshot, now)),
+    divider,
+    // The intake zone — always INTAKE_ROWS blank rows, replenished every
+    // sync. Writing them blank also clears absorbed typed rows.
+    ...Array.from({ length: INTAKE_ROWS }, () =>
+      Array.from({ length: cols }, () => "") as (string | number)[],
+    ),
   ];
 }
 
@@ -218,12 +237,19 @@ export function buildPipelineGrid(snapshot: Snapshot, now: Date): (string | numb
 
 export type ContactStatus = "ok" | "stale" | "flagged" | "missing";
 
+interface ParentSlot {
+  name: string;
+  phone: string;
+}
+
 interface PlayerRenderContext {
   conf: ConfirmationRow | null;
-  parentName: string;
+  /** One person per cell: Parent · Phone · Parent 2 · Phone 2. */
+  parent1: ParentSlot;
+  parent2: ParentSlot;
   parentEmail: string;
-  parentPhone: string;
   /** What's still owed to the contact file: the DASHBOARD debt counter. */
+  needsName: boolean;
   needsEmail: boolean;
   needsPhone: boolean;
   contactStatus: ContactStatus;
@@ -231,11 +257,33 @@ interface PlayerRenderContext {
   hasMoney: boolean;
 }
 
+/** Names like "Parent"/"Guardian" are placeholders, never shown as fact. */
+function realName(first: string, last: string): string {
+  const name = `${first} ${last}`.trim();
+  return /^(parent|guardian)$/i.test(name) ? "" : name;
+}
+
+/** "Ginny Zakem 513-833-5600; Adam Zakem 513-600-2844" → named pairs. */
+function parseParkedPairs(parked: string | null): ParentSlot[] {
+  if (!parked) return [];
+  return parked
+    .split(";")
+    .map((part) => part.trim())
+    .map((part) => {
+      const m = part.match(/^(.*?)\s+([\d\-() .+]{7,})$/);
+      if (!m) return null;
+      const phone = fmtPhone(m[2]);
+      return { name: m[1].trim(), phone: phone ? `${phone} (unverified)` : "" };
+    })
+    .filter((p): p is ParentSlot => !!p && (!!p.name || !!p.phone));
+}
+
 /**
  * Contact resolution order (per girl): 1. guardians — the table the parent
  * portal reads; TRUTH. 2. roster_confirmations — family-typed, fresher.
- * 3. the legacy Sheet's single email / parked unverified phone — fallback
- * only, carrying its quality marker. 4. Nothing → missing.
+ * 3. the legacy Sheet's fallback email / parked unverified numbers — last
+ * resort, always carrying their marker. Nothing is ever guessed: a blank
+ * cell counts toward Contacts Needed instead of a name parsed from an email.
  */
 export function contextForPlayer(player: PlayerRow, snapshot: Snapshot): PlayerRenderContext {
   // Confirmation: pinned through her pipeline row wins; name+year match second.
@@ -246,17 +294,44 @@ export function contextForPlayer(player: PlayerRow, snapshot: Snapshot): PlayerR
     ? (snapshot.confirmations.find((c) => c.id === viaReg.roster_confirmation_id) ?? null)
     : findConfirmationForPlayer(player, snapshot.confirmations);
 
-  // Guardians — truth first. Prefer the primary; for phone, any guardian
-  // with a number beats none.
   const links = snapshot.playerGuardians.filter((pg) => pg.player_id === player.id);
-  const primary = links.find((l) => l.is_primary) ?? (links.length > 0 ? links[0] : null);
-  const guardian = primary ? (snapshot.guardians.get(primary.guardian_id) ?? null) : null;
-  const anyGuardianPhone =
-    guardian?.phone ??
-    links.map((l) => snapshot.guardians.get(l.guardian_id)?.phone).find(Boolean) ??
-    null;
+  const ordered = [
+    ...links.filter((l) => l.is_primary),
+    ...links.filter((l) => !l.is_primary),
+  ]
+    .map((l) => snapshot.guardians.get(l.guardian_id))
+    .filter(Boolean);
+  const primaryGuardian = ordered[0] ?? null;
 
-  let parentEmail = guardian?.email ?? conf?.parent1_email ?? "";
+  // One person per slot, deduped by name; verified sources first.
+  const slots: ParentSlot[] = [];
+  const seen = new Set<string>();
+  const push = (name: string, phone: string | null, unverified = false) => {
+    const cleanName = name.trim();
+    if (!cleanName || seen.has(normName(cleanName))) return;
+    seen.add(normName(cleanName));
+    const pretty = fmtPhone(phone);
+    slots.push({
+      name: cleanName,
+      phone: pretty ? `${pretty}${unverified ? " (unverified)" : ""}` : "",
+    });
+  };
+  for (const g of ordered) {
+    const name = realName(g!.first_name, g!.last_name);
+    if (name) push(name, g!.phone);
+  }
+  if (conf) {
+    push(conf.parent1_name, conf.parent1_phone);
+    if (conf.parent2_name) push(conf.parent2_name, conf.parent2_phone);
+  }
+  for (const pair of parseParkedPairs(player.unverified_phone)) {
+    const cleanName = pair.name.trim();
+    if (!cleanName || seen.has(normName(cleanName))) continue;
+    seen.add(normName(cleanName));
+    slots.push(pair);
+  }
+
+  let parentEmail = primaryGuardian?.email ?? conf?.parent1_email ?? "";
   let contactStatus: ContactStatus = "ok";
   if (!parentEmail && player.fallback_email) {
     const status = (player.fallback_email_status ?? "ok") as ContactStatus;
@@ -265,13 +340,13 @@ export function contextForPlayer(player: PlayerRow, snapshot: Snapshot): PlayerR
     if (status !== "ok") contactStatus = status;
   }
 
-  let parentPhone = fmtPhone(anyGuardianPhone ?? conf?.parent1_phone ?? null);
-  if (!parentPhone && player.unverified_phone) {
-    parentPhone = `${player.unverified_phone} (unverified)`;
-  }
-
+  // Debt: unverified parked numbers don't clear the phone gap — only a
+  // guardian or confirmation phone does.
+  const verifiedPhone =
+    ordered.some((g) => g!.phone) || !!conf?.parent1_phone || !!conf?.parent2_phone;
+  const needsName = slots.length === 0;
   const needsEmail = !parentEmail;
-  const needsPhone = !anyGuardianPhone && !conf?.parent1_phone;
+  const needsPhone = !verifiedPhone;
   if (needsEmail && needsPhone) contactStatus = "missing";
 
   const plans = snapshot.plans.filter((p) => p.player_id === player.id);
@@ -282,18 +357,12 @@ export function contextForPlayer(player: PlayerRow, snapshot: Snapshot): PlayerR
     plans.reduce((s, p) => s + Math.max(0, p.total_amount_cents - p.amount_paid_cents), 0) +
     openCharges.reduce((s, c) => s + c.amount_cents, 0);
 
-  // 34 legacy guardians are literally named "Parent" — a blank cell reads
-  // better than the word, and the /roster flow fills the real name.
-  const rawGuardianName = guardian
-    ? `${guardian.first_name} ${guardian.last_name}`.trim()
-    : "";
-  const guardianName = /^(parent|guardian)$/i.test(rawGuardianName) ? "" : rawGuardianName;
-
   return {
     conf,
-    parentName: guardianName || conf?.parent1_name || "",
+    parent1: slots[0] ?? { name: "", phone: "" },
+    parent2: slots[1] ?? { name: "", phone: "" },
     parentEmail,
-    parentPhone,
+    needsName,
     needsEmail,
     needsPhone,
     contactStatus,
@@ -319,9 +388,11 @@ export function buildTeamRow(
     player.jersey_number ?? "",
     ctx.conf ? CONFIRMED_CHECK : "",
     player.position ?? "",
-    ctx.parentName,
+    ctx.parent1.name,
+    ctx.parent1.phone,
+    ctx.parent2.name,
+    ctx.parent2.phone,
     ctx.parentEmail,
-    ctx.parentPhone,
     ctx.conf?.emergency_contact_name ?? "",
     fmtPhone(ctx.conf?.emergency_contact_phone ?? null),
     player.shirt_size ?? ctx.conf?.jersey_size ?? "",
@@ -355,11 +426,23 @@ function jerseySortKey(jersey: string | null): number {
 }
 
 export function buildTeamGrid(team: string, snapshot: Snapshot): (string | number)[][] {
+  const cols = TEAM_HEADERS.length;
+  const blank = () => Array.from({ length: cols }, () => "") as (string | number)[];
   const players = playersForTeam(team, snapshot);
   if (players.length === 0) {
-    return [[...TEAM_HEADERS], ["", "No players placed yet", "", "", "", "", "", "", "", "", "", "", "", "", ""]];
+    const note = blank();
+    note[1] = "No players placed yet";
+    return [[...TEAM_HEADERS], note];
   }
-  const grid: (string | number)[][] = [[...TEAM_HEADERS]];
+
+  const confirmedOf = (girls: PlayerRow[]) =>
+    girls.filter((g) => !!contextForPlayer(g, snapshot).conf).length;
+
+  // "Confirmed 1/19" lives in the column header — the half-second read.
+  const header: (string | number)[] = [...TEAM_HEADERS];
+  header[3] = `Confirmed ${confirmedOf(players)}/${players.length}`;
+
+  const grid: (string | number)[][] = [header];
   const claimed = new Set<string>();
   for (const section of POSITION_SECTIONS) {
     const girls = players
@@ -371,7 +454,9 @@ export function buildTeamGrid(team: string, snapshot: Snapshot): (string | numbe
       );
     if (girls.length === 0) continue;
     girls.forEach((g) => claimed.add(g.id));
-    grid.push(["", section.header, "", "", "", "", "", "", "", "", "", "", "", "", ""]);
+    const bar = blank();
+    bar[1] = `${section.header} — ${confirmedOf(girls)}/${girls.length} confirmed`;
+    grid.push(bar);
     for (const g of girls) grid.push(buildTeamRow(g, snapshot, team));
   }
   return grid;
@@ -482,6 +567,7 @@ export function buildDashboardGrid(snapshot: Snapshot, now: Date): (string | num
     for (const p of playersForTeam(team, snapshot)) {
       const ctx = contextForPlayer(p, snapshot);
       const needs: string[] = [];
+      if (ctx.needsName) needs.push("parent name");
       if (ctx.needsPhone) needs.push("phone");
       if (ctx.needsEmail) needs.push("email");
       if (ctx.contactStatus === "stale") needs.push("email is stale");
@@ -571,6 +657,23 @@ const MAX_ROWS = 1000;
 
 interface TabIds {
   [title: string]: number;
+}
+
+/** The row key must EXIST but never COMPETE: 40px, tiny, barely-there gray. */
+function idColumnRequests(sheetId: number): object[] {
+  return [
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: MAX_ROWS, startColumnIndex: 0, endColumnIndex: 1 },
+        cell: {
+          userEnteredFormat: {
+            textFormat: { fontSize: 7, foregroundColor: { red: 0.78, green: 0.8, blue: 0.82 } },
+          },
+        },
+        fields: "userEnteredFormat.textFormat(fontSize,foregroundColor)",
+      },
+    },
+  ];
 }
 
 function headerRequests(sheetId: number, columnCount: number): object[] {
@@ -682,11 +785,16 @@ function dropdownRequest(sheetId: number, col: number, values: string[]): object
   };
 }
 
-function conditionalRule(sheetId: number, range: object, formula: string, format: object): object {
+function conditionalRule(
+  sheetId: number,
+  range: object | object[],
+  formula: string,
+  format: object,
+): object {
   return {
     addConditionalFormatRule: {
       rule: {
-        ranges: [range],
+        ranges: Array.isArray(range) ? range : [range],
         booleanRule: {
           condition: { type: "CUSTOM_FORMULA", values: [{ userEnteredValue: formula }] },
           format,
@@ -695,6 +803,23 @@ function conditionalRule(sheetId: number, range: object, formula: string, format
       index: 0,
     },
   };
+}
+
+/** A full data row EXCEPT the white columns — background tints must never
+ * wash over the cells Harrison types into. */
+function rowMinusWhite(sheetId: number, cols: number, whiteCols: number[]): object[] {
+  const ranges: object[] = [];
+  let start = 0;
+  for (const w of [...whiteCols].sort((a, b) => a - b)) {
+    if (w > start) {
+      ranges.push({ sheetId, startRowIndex: 1, endRowIndex: MAX_ROWS, startColumnIndex: start, endColumnIndex: w });
+    }
+    start = w + 1;
+  }
+  if (start < cols) {
+    ranges.push({ sheetId, startRowIndex: 1, endRowIndex: MAX_ROWS, startColumnIndex: start, endColumnIndex: cols });
+  }
+  return ranges;
 }
 
 /**
@@ -738,10 +863,11 @@ export function buildFormattingRequests(tabs: SheetTabInfo[], tabIds: TabIds): o
     requests.push(...headerRequests(pipelineId, cols));
     requests.push(bodyFontRequest(pipelineId, cols));
     requests.push(...columnShadingRequests(pipelineId, cols, [1, 2])); // B, C white
+    requests.push(...idColumnRequests(pipelineId));
     requests.push(freezeRequest(pipelineId, 4)); // id · Status · Place · Player
     requests.push(tabColorRequest(pipelineId, CAROLINA, 0));
     requests.push(
-      ...widthRequests(pipelineId, [64, 118, 118, 170, 74, 92, 92, 170, 150, 96, 150, 210, 128, 128, 88, 100, 74, 84]),
+      ...widthRequests(pipelineId, [40, 118, 118, 170, 74, 92, 92, 170, 150, 96, 150, 210, 128, 128, 88, 100, 74, 84]),
     );
     requests.push(dropdownRequest(pipelineId, 1, ["New", "Contacted", "Evaluated", "Offered", "Placed", "Passed"]));
     requests.push(dropdownRequest(pipelineId, 2, [...TEAM_TABS]));
@@ -762,14 +888,28 @@ export function buildFormattingRequests(tabs: SheetTabInfo[], tabIds: TabIds): o
         textFormat: { foregroundColor: QUIET_TEXT },
       }),
     );
+    // Background tints skip the white columns — those cells stay Harrison's.
+    const pipelineTintRanges = rowMinusWhite(pipelineId, cols, [1, 2]);
     // Unpaid ($50-era stragglers) get a soft warning tint (Payment = col O).
     requests.push(
-      conditionalRule(pipelineId, fullRow, '=$O2="Pending"', { backgroundColor: WARN_BG }),
+      conditionalRule(pipelineId, pipelineTintRanges, '=$O2="Pending"', { backgroundColor: WARN_BG }),
     );
     // Recruiting rows read differently — subtle Carolina wash, not loud.
     requests.push(
-      conditionalRule(pipelineId, fullRow, '=$G2="Recruiting"', {
+      conditionalRule(pipelineId, pipelineTintRanges, '=$G2="Recruiting"', {
         backgroundColor: RECRUIT_WASH,
+      }),
+    );
+    // Add-a-girl: the intake zone (blank id) is white — his to type into —
+    // and the divider row reads as a dark instruction bar. Added last so
+    // they outrank the row tints above.
+    requests.push(
+      conditionalRule(pipelineId, fullRow, '=$A2=""', { backgroundColor: WHITE }),
+    );
+    requests.push(
+      conditionalRule(pipelineId, fullRow, `=$A2="${INTAKE_DIVIDER_ID}"`, {
+        backgroundColor: NEAR_BLACK,
+        textFormat: { foregroundColor: WHITE, bold: true },
       }),
     );
   }
@@ -782,10 +922,27 @@ export function buildFormattingRequests(tabs: SheetTabInfo[], tabIds: TabIds): o
     requests.push(...headerRequests(sheetId, cols));
     requests.push(bodyFontRequest(sheetId, cols));
     requests.push(...columnShadingRequests(sheetId, cols, [2])); // C = Jersey #
+    requests.push(...idColumnRequests(sheetId));
     requests.push(freezeRequest(sheetId, 2)); // id · Player
     requests.push(tabColorRequest(sheetId, NEAR_BLACK, i + 1));
     requests.push(
-      ...widthRequests(sheetId, [64, 180, 84, 90, 92, 160, 220, 128, 160, 128, 64, 64, 88, 76, 96]),
+      ...widthRequests(sheetId, [40, 190, 76, 110, 90, 150, 138, 150, 138, 220, 160, 128, 56, 62, 88, 72, 96]),
+    );
+
+    // Rules are inserted at index 0, so LAST added = highest priority.
+    // Unconfirmed families are the truth of the tab — quiet warm tint, not
+    // neutral whitespace. Confirmed rows go clean white and calm. The tints
+    // skip column C so the white Jersey column keeps its signal.
+    const teamTintRanges = rowMinusWhite(sheetId, cols, [2]);
+    requests.push(
+      conditionalRule(sheetId, teamTintRanges, `=AND($A2<>"",$D2<>"${CONFIRMED_CHECK}")`, {
+        backgroundColor: WARN_BG,
+      }),
+    );
+    requests.push(
+      conditionalRule(sheetId, teamTintRanges, `=AND($A2<>"",$D2="${CONFIRMED_CHECK}")`, {
+        backgroundColor: WHITE,
+      }),
     );
     requests.push(
       conditionalRule(
@@ -795,9 +952,11 @@ export function buildFormattingRequests(tabs: SheetTabInfo[], tabIds: TabIds): o
         { backgroundColor: GREEN_BG, textFormat: { foregroundColor: GREEN_TEXT, bold: true } },
       ),
     );
-    // Position section headers — how a coach reads a roster. The rule keys on
-    // the header labels so it survives every re-render and roster change.
-    const headerList = SECTION_HEADER_LABELS.map((l) => `$B2="${l}"`).join(",");
+    // Position section headers — prefix match, because the bar now carries
+    // its own confirmed count ("ATTACK — 0/7 confirmed").
+    const headerList = SECTION_HEADER_LABELS.map(
+      (l) => `LEFT($B2,${l.length})="${l}"`,
+    ).join(",");
     requests.push(
       conditionalRule(
         sheetId,

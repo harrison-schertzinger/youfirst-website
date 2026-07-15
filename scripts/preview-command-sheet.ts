@@ -26,6 +26,7 @@ import {
   buildTeamGrid,
   CONFIRMED_CHECK,
   FOLLOW_UP_FLAG,
+  INTAKE_DIVIDER_ID,
   SECTION_HEADER_LABELS,
   TAB_DASHBOARD,
   TAB_PIPELINE,
@@ -137,12 +138,15 @@ async function main() {
       tableFor(pipelineGrid, {
         whiteCols: [1, 2],
         stickyCols: 1,
-        rowClass: (r) =>
-          [
+        rowClass: (r) => {
+          if (r[0] === INTAKE_DIVIDER_ID) return "divider";
+          if (r[0] === "" ) return "intake";
+          return [
             r[STATUS] === "Placed" ? "placed" : "",
             r[PAY] === "Pending" ? "pending" : "",
             r[SRC] === "Recruiting" ? "recruiting" : "",
-          ].join(" "),
+          ].join(" ");
+        },
         cellClass: (r, i) => (i === FLAG && r[FLAG] === FOLLOW_UP_FLAG ? "flag" : ""),
       }) +
       `<div class="legend">
@@ -150,7 +154,7 @@ async function main() {
         <span><i style="background:${C.recruitWash}">&nbsp;&nbsp;&nbsp;</i> Recruiting row</span>
         <span><i style="background:${C.warnBg}">&nbsp;&nbsp;&nbsp;</i> Pending payment ($50 era)</span>
         <span><i style="color:${C.quiet}">Aa</i> Placed — gone quiet</span>
-        <span><i class="white-chip">&nbsp;</i> White = Harrison types here</span>
+        <span><i class="white-chip">&nbsp;</i> White = Harrison types here (incl. the add-a-girl rows at the bottom)</span>
       </div>`,
   });
 
@@ -163,12 +167,12 @@ async function main() {
       html: tableFor(grid, {
         whiteCols: [2],
         stickyCols: 2,
-        rowClass: (r) =>
-          r[0] === "" && SECTION_HEADER_LABELS.includes(String(r[1]))
-            ? "section"
-            : r[1] === "No players placed yet"
-              ? "empty-note"
-              : "",
+        rowClass: (r) => {
+          if (r[0] === "" && SECTION_HEADER_LABELS.some((l) => String(r[1]).startsWith(l))) return "section";
+          if (r[1] === "No players placed yet") return "empty-note";
+          if (r[0] !== "") return r[3] === CONFIRMED_CHECK ? "conf" : "unconf";
+          return "";
+        },
         cellClass: (r, i) => (i === 3 && r[3] === CONFIRMED_CHECK ? "check" : ""),
       }),
     });
@@ -231,9 +235,9 @@ async function main() {
            overflow: hidden; text-overflow: ellipsis; }
   thead th { position: sticky; top: 0; z-index: 3; background: ${C.nearBlack}; color: #fff;
              font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 8px 9px; }
-  td:first-child { color: ${C.quiet}; font-size: 10px; max-width: 84px; }
+  td:first-child { color: #C6CBD1; font-size: 7px; max-width: 40px; min-width: 40px; padding: 5px 3px; }
   .sticky { position: sticky; z-index: 2; }
-  .s0 { left: 0; } .s1 { left: 84px; }
+  .s0 { left: 0; } .s1 { left: 46px; }
   thead .sticky { z-index: 4; }
   .white-col { background: #fff !important; border-left: 2px solid ${C.carolina}; }
   thead .white-col { background: ${C.nearBlack} !important; border-left: 2px solid ${C.carolina}; }
@@ -244,6 +248,12 @@ async function main() {
   tr.recruiting td { background: ${C.recruitWash}; }
   tr.recruiting td.white-col { background: #fff !important; }
   tr.empty-note td { color: ${C.quiet}; font-style: italic; background: #fff; }
+  tr.divider td { background: ${C.nearBlack} !important; color: #fff; font-weight: 700; font-size: 11px;
+                  border-left: none; overflow: visible; white-space: nowrap; }
+  tr.intake td { background: #fff; border-bottom: 1px dashed ${C.grayEdge}; }
+  tr.unconf td { background: ${C.warnBg}; }
+  tr.unconf td.white-col, tr.conf td.white-col { background: #fff !important; }
+  tr.conf td { background: #fff; }
   td.flag { background: ${C.coralBg} !important; color: ${C.coral}; font-weight: 700; }
   td.check { background: ${C.greenBg} !important; color: ${C.green}; font-weight: 700; text-align: center; }
   .legend { display: flex; flex-wrap: wrap; gap: 18px; padding: 10px 4px; font-size: 11px; color: #444;
