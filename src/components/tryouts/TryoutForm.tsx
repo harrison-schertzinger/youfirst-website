@@ -184,7 +184,7 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
           </ScrollReveal>
           <ScrollReveal delay={100}>
             <h2 className="text-[2.25rem] md:text-[3rem] font-bold leading-[1.05] tracking-tight text-white mb-4">
-              Claim Her <span className="gradient-text-blue">Spot.</span>
+              Register <span className="gradient-text-blue">Here.</span>
             </h2>
           </ScrollReveal>
           <ScrollReveal delay={200}>
