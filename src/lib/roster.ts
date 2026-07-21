@@ -11,9 +11,13 @@
  * gear charge flow populates them later.
  */
 
-/** Grad years with a team to confirm onto — 2028 (oldest) through 2034. */
+/**
+ * Grad years with a team to confirm onto — 2028 (oldest) through 2035
+ * (widened 2026-07-21; DB CHECK widened in migration
+ * roster_confirmations_grad_year_widen_2035).
+ */
 export const ROSTER_GRAD_YEAR_MIN = 2028;
-export const ROSTER_GRAD_YEAR_MAX = 2034;
+export const ROSTER_GRAD_YEAR_MAX = 2035;
 export const ROSTER_GRAD_YEAR_OPTIONS: number[] = Array.from(
   { length: ROSTER_GRAD_YEAR_MAX - ROSTER_GRAD_YEAR_MIN + 1 },
   (_, i) => ROSTER_GRAD_YEAR_MIN + i,
