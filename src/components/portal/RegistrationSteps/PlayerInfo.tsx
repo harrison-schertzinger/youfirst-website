@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { REGISTRATION_GRAD_YEARS } from "@/lib/constants";
 import type { RegistrationData } from "../RegistrationModal";
 
 interface Props {
@@ -123,8 +124,8 @@ export default function PlayerInfo({ data, onChange, errors }: Props) {
               errors.graduationYear ? "border-red-400" : "border-[#E5E7EB]"
             }`}
           >
-            <option value="">Select year</option>
-            {[2027, 2028, 2029, 2030, 2031, 2032, 2033].map((y) => (
+            <option value="">Select graduation year</option>
+            {REGISTRATION_GRAD_YEARS.map((y) => (
               <option key={y} value={y}>{y}</option>
             ))}
           </select>

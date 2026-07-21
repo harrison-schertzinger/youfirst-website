@@ -8,6 +8,16 @@ export const SITE_CONFIG = {
   parent: "Cincinnati Lacrosse Academy",
 } as const;
 
+/**
+ * Graduation years offered on the /fees Register wizard — the ONLY values
+ * players.graduation_year accepts from that form (client dropdown + server
+ * validation share this list). 2027 oldest → 2035 youngest; no default, the
+ * parent must actively pick (Harrison, 2026-07-21: real grad years only).
+ */
+export const REGISTRATION_GRAD_YEARS = [
+  2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035,
+] as const;
+
 export const NAV_LINKS = [
   { label: "Teams", href: "/levels" },
   { label: "Coaches", href: "/coaches" },

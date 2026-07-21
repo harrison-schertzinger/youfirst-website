@@ -33,6 +33,10 @@ export interface TryoutNotifyRecord {
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const WEEKDAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const WEEKDAYS_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+/** "new" = fresh registration · "updated" = the family changed her option/day. */
+export type TryoutNotifyKind = "new" | "updated";
 
 function abbrevPosition(pos: string): string {
   const p = (pos ?? "").trim().toLowerCase();
@@ -52,11 +56,13 @@ function titleCase(s: string): string {
 function parseIsoDateUTC(iso: string): Date {
   return new Date(`${iso}T12:00:00Z`);
 }
-// Evaluation rows have no fixed date — render the open-morning window instead.
+// The subject's day-at-a-glance: weekday + date so the chosen day is
+// unmistakable ("Tue Aug 4"). Legacy evaluation rows (no date) render the
+// open-morning window instead.
 function monthDay(iso: string | null): string {
   if (!iso) return "Any morning";
   const d = parseIsoDateUTC(iso);
-  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
+  return `${WEEKDAYS_SHORT[d.getUTCDay()]} ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
 function longDate(iso: string | null): string {
   if (!iso) return "Any morning, now through August 7";
@@ -82,21 +88,28 @@ function escapeHtml(s: string): string {
 }
 
 /** The one-line subject that carries the whole record. */
-export function buildTryoutAdminSubject(reg: TryoutNotifyRecord, count: number): string {
+export function buildTryoutAdminSubject(
+  reg: TryoutNotifyRecord,
+  count: number,
+  kind: TryoutNotifyKind = "new",
+): string {
   const status = (reg.payment_status ?? "").toUpperCase();
-  return `🥍 New tryout #${count} — ${reg.player_full_name} (${reg.graduation_year}, ${abbrevPosition(reg.position)})`
+  return `🥍 ${kind === "updated" ? "Updated" : "New"} tryout #${count} — ${reg.player_full_name} (${reg.graduation_year}, ${abbrevPosition(reg.position)})`
     + ` · ${titleCase(reg.tryout_group)} · ${monthDay(reg.tryout_date)} · ${status}`;
 }
 
 export function buildTryoutAdminNotification(
   reg: TryoutNotifyRecord,
   count: number,
+  kind: TryoutNotifyKind = "new",
 ): { subject: string; text: string; html: string } {
-  const subject = buildTryoutAdminSubject(reg, count);
+  const subject = buildTryoutAdminSubject(reg, count, kind);
   const status = (reg.payment_status ?? "").toUpperCase();
 
   const text = [
-    `New tryout registration — #${count} in the system.`,
+    kind === "updated"
+      ? `Updated tryout registration — the family changed her option or day.`
+      : `New tryout registration — #${count} in the system.`,
     ``,
     `PLAYER`,
     `  ${reg.player_full_name}  ·  Class of ${reg.graduation_year}  ·  ${reg.position}`,
@@ -125,7 +138,7 @@ export function buildTryoutAdminNotification(
 
   const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111;max-width:560px;margin:0 auto;padding:8px">
   <div style="border-top:4px solid #4B9CD3;padding-top:18px">
-    <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#4B9CD3;font-weight:700">New Tryout · #${count}</div>
+    <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#4B9CD3;font-weight:700">${kind === "updated" ? "Updated Tryout" : "New Tryout"} · #${count}</div>
     <h2 style="margin:6px 0 4px;font-size:20px;color:#111">${escapeHtml(reg.player_full_name)}
       <span style="font-weight:500;color:#6b7280;font-size:15px"> (${reg.graduation_year}, ${abbrevPosition(reg.position)})</span></h2>
     <div style="display:inline-block;margin:2px 0 16px;padding:2px 10px;border-radius:999px;background:${statusColor}1a;color:${statusColor};font-size:12px;font-weight:700;letter-spacing:0.04em">${status}${reg.amount_cents === 0 ? "" : ` · ${formatMoney(reg.amount_cents)}`}</div>
@@ -148,6 +161,7 @@ export function buildTryoutAdminNotification(
 export async function sendTryoutAdminNotification(
   reg: TryoutNotifyRecord,
   count: number,
+  kind: TryoutNotifyKind = "new",
 ): Promise<{ sent: boolean; reason?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -158,7 +172,7 @@ export async function sendTryoutAdminNotification(
   const to = (process.env.TRYOUT_ADMIN_EMAILS || "harrison@theyoufirstproject.com")
     .split(",").map((s) => s.trim()).filter(Boolean);
 
-  const { subject, text, html } = buildTryoutAdminNotification(reg, count);
+  const { subject, text, html } = buildTryoutAdminNotification(reg, count, kind);
 
   try {
     const res = await fetch("https://api.resend.com/emails", {

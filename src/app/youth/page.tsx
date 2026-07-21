@@ -6,7 +6,7 @@ import LevelsPage from "../levels/page";
 export const metadata: Metadata = {
   title: "Youth Lacrosse | YOU. FIRST Elite Lacrosse",
   description:
-    "YOU. FIRST development teams, classes 2032 & 2033 — 2034s who are ready can play up. The most development-focused club in the area. Free evaluations any morning through August 7 at the Cincinnati Lacrosse Academy.",
+    "YOU. FIRST development teams, classes 2032 & 2033 — 2034s who are ready can play up. The most development-focused club in the area. Free evaluations any weekday morning through August 7 at the Cincinnati Lacrosse Academy.",
 };
 
 export default LevelsPage;

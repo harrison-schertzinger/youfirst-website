@@ -9,6 +9,8 @@ import {
   YOUTH_EVALUATION,
   describeTryout,
   teamForGradYear,
+  upcomingEvaluationDates,
+  type EvaluationDateOption,
 } from "@/lib/tryouts";
 
 type TryoutMode = "scheduled" | "evaluation";
@@ -16,6 +18,8 @@ type TryoutMode = "scheduled" | "evaluation";
 interface FormState {
   /** The two options, both open to every age: July 25 or a morning evaluation. */
   mode: TryoutMode;
+  /** REQUIRED in evaluation mode — the exact morning she'll attend (ISO). */
+  evaluationDate: string;
   playerFullName: string;
   parentName: string;
   email: string;
@@ -27,6 +31,7 @@ interface FormState {
 // Morning evaluations are the primary path — the form defaults there.
 const EMPTY: FormState = {
   mode: "evaluation",
+  evaluationDate: "",
   playerFullName: "",
   parentName: "",
   email: "",
@@ -52,6 +57,14 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+
+  // The selectable mornings, filtered to today-and-later in club time. Filled
+  // on mount (not at render) so the statically-generated page never hydrates
+  // against a stale build-time list.
+  const [evalDays, setEvalDays] = useState<EvaluationDateOption[]>([]);
+  useEffect(() => {
+    setEvalDays(upcomingEvaluationDates());
+  }, []);
 
   // Deep-links: register CTAs carry their context into the form so a family
   // never re-picks the option they just clicked. #evaluation (legacy #makeup)
@@ -84,9 +97,12 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
   const matchedDisplay = useMemo(
     () =>
       isEvaluation
-        ? describeTryout({ type: "evaluation", isoDate: null })
+        ? describeTryout({
+            type: "evaluation",
+            isoDate: form.evaluationDate || null,
+          })
         : describeTryout({ type: "scheduled", isoDate: ELITE_TRYOUT.isoDate }),
-    [isEvaluation],
+    [isEvaluation, form.evaluationDate],
   );
 
   const set =
@@ -108,6 +124,7 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
     !!form.phone.trim() &&
     !!form.graduationYear &&
     !!form.position &&
+    (!isEvaluation || !!form.evaluationDate) &&
     !submitting;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -128,6 +145,7 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
           graduationYear: form.graduationYear,
           position: form.position,
           tryoutType: form.mode,
+          evaluationDate: form.evaluationDate,
         }),
       });
       const data = await res.json();
@@ -266,9 +284,42 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
               </div>
               <p className="mt-2.5 text-[13px] text-white/50 leading-relaxed">
                 {isEvaluation
-                  ? `Any morning, ${YOUTH_EVALUATION.time}, now through August 7 at the ${YOUTH_EVALUATION.location}. Evaluated on the spot — you'll hear the same day.`
+                  ? `Weekday mornings, ${YOUTH_EVALUATION.time}, now through August 7 at the ${YOUTH_EVALUATION.location}. Pick her exact morning below — evaluated on the spot, you'll hear the same day.`
                   : `Saturday, July 25, ${ELITE_TRYOUT.time} at the ${ELITE_TRYOUT.location}. Our one set tryout date.`}
               </p>
+
+              {/* Evaluation mode: the exact morning is a REQUIRED choice */}
+              {isEvaluation && (
+                <div className="mt-5">
+                  <label htmlFor="evaluationDate" className={labelCls}>
+                    Her Morning
+                  </label>
+                  <select
+                    id="evaluationDate"
+                    value={form.evaluationDate}
+                    onChange={set("evaluationDate")}
+                    className={`${fieldCls} appearance-none ${
+                      form.evaluationDate ? "text-white" : "text-white/40"
+                    }`}
+                    style={chevronBg}
+                  >
+                    <option value="" disabled>
+                      Select the morning she&apos;ll attend
+                    </option>
+                    {evalDays.map((d) => (
+                      <option key={d.iso} value={d.iso} className="text-black">
+                        {d.label}
+                      </option>
+                    ))}
+                  </select>
+                  {!form.evaluationDate && (
+                    <p className="mt-2 text-[13px] text-red-200/90 leading-relaxed">
+                      Required — pick the exact morning she&apos;s coming so we
+                      know to expect her.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-5">
@@ -418,8 +469,9 @@ export default function TryoutForm({ canceled = false }: { canceled?: boolean })
                   )}
                   {isEvaluation && (
                     <p className="text-[13px] text-white/50 mt-1 leading-relaxed">
-                      Come any morning, get evaluated on the spot, and hear the
-                      same day.
+                      {form.evaluationDate
+                        ? "Evaluated on the spot — you'll hear the same day."
+                        : "Pick the exact morning she'll attend — required to register."}
                     </p>
                   )}
                 </div>

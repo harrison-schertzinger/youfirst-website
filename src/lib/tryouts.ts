@@ -7,9 +7,10 @@
  *
  * 2026-07-13: Tryouts are COMPLETELY FREE — the $50 Stripe fee was removed.
  * Two OPTIONS for every grad year (2028–2038), anyone can pick either:
- *   • Free morning evaluations — the PRIMARY path. Every morning through
- *     August 7: evaluated on the spot, hear that day. No fixed date. The form
- *     defaults here.
+ *   • Free morning evaluations — the PRIMARY path. Weekday (Mon–Fri) mornings
+ *     through August 7: evaluated on the spot, hear that day. Since 2026-07-21
+ *     the family must pick her EXACT morning (EVALUATION_DATE_OPTIONS) — the
+ *     API rejects an evaluation without one. The form defaults here.
  *   • Saturday, July 25 — our one set tryout date (5:00–6:30 PM, Academy),
  *     for players who prefer a scheduled tryout or are traveling in.
  * Teams by grad year: 2028–2031 Elite · 2032–2034 Development (2034 plays up)
@@ -117,18 +118,71 @@ export const TRYOUT_DATES: Record<"youth" | "older", TryoutDate> = {
 export const ELITE_TRYOUT = TRYOUT_DATES.older;
 
 /**
- * Youth & development track — free open evaluations. Come any morning to the
- * Academy, get evaluated on the spot, hear the same day. No fixed date, no
- * charge. `endIso` is the last day of the window.
+ * Youth & development track — free open evaluations. Weekday (Mon–Fri)
+ * mornings at the Academy: evaluated on the spot, hear the same day. The
+ * family picks her EXACT morning at registration — see
+ * EVALUATION_DATE_OPTIONS. `endIso` is the last day of the window.
  */
 export const YOUTH_EVALUATION = {
-  headline: "Free Evaluations — Any Morning",
-  dateLine: "Any morning, now through August 7",
+  headline: "Free Evaluations — Weekday Mornings",
+  dateLine: "Weekday mornings, now through August 7",
   rangeLabel: "Now through August 7",
   time: "10:00 AM–12:00 PM",
   location: TRYOUT_LOCATION,
   endIso: "2026-08-07",
 } as const;
+
+/**
+ * The allowed evaluation mornings — every weekday (Mon–Fri) through Friday,
+ * August 7, 10:00 AM–12:00 PM at the Academy (Harrison, 2026-07-21). The form
+ * REQUIRES one of these and the register API rejects anything else. Days
+ * already past drop out via upcomingEvaluationDates(); keep this list as the
+ * full canonical window.
+ */
+export const EVALUATION_DATE_OPTIONS = [
+  { iso: "2026-07-21", label: "Tuesday, July 21" },
+  { iso: "2026-07-22", label: "Wednesday, July 22" },
+  { iso: "2026-07-23", label: "Thursday, July 23" },
+  { iso: "2026-07-24", label: "Friday, July 24" },
+  { iso: "2026-07-27", label: "Monday, July 27" },
+  { iso: "2026-07-28", label: "Tuesday, July 28" },
+  { iso: "2026-07-29", label: "Wednesday, July 29" },
+  { iso: "2026-07-30", label: "Thursday, July 30" },
+  { iso: "2026-07-31", label: "Friday, July 31" },
+  { iso: "2026-08-03", label: "Monday, August 3" },
+  { iso: "2026-08-04", label: "Tuesday, August 4" },
+  { iso: "2026-08-05", label: "Wednesday, August 5" },
+  { iso: "2026-08-06", label: "Thursday, August 6" },
+  { iso: "2026-08-07", label: "Friday, August 7" },
+] as const;
+
+export type EvaluationDateOption = (typeof EVALUATION_DATE_OPTIONS)[number];
+
+const EVALUATION_DATE_SET: ReadonlySet<string> = new Set(
+  EVALUATION_DATE_OPTIONS.map((o) => o.iso),
+);
+
+/**
+ * Today's date key in club time (America/New_York), as YYYY-MM-DD. All
+ * day-window checks compare ISO strings against this — never `new Date(iso)`
+ * on user input, which drifts across timezones.
+ */
+export function todayIsoET(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+  }).format(new Date());
+}
+
+/** The evaluation mornings still selectable — today and later, club time. */
+export function upcomingEvaluationDates(): EvaluationDateOption[] {
+  const today = todayIsoET();
+  return EVALUATION_DATE_OPTIONS.filter((o) => o.iso >= today);
+}
+
+/** Is `iso` an allowed evaluation morning that hasn't already passed? */
+export function isValidEvaluationDate(iso: string | null | undefined): boolean {
+  return !!iso && EVALUATION_DATE_SET.has(iso) && iso >= todayIsoET();
+}
 
 /**
  * Make-up tryouts — for elite players (grad years 2027–2030) who can't make
@@ -254,13 +308,18 @@ export function describeTryout(input: {
   group?: string | null;
 }): TryoutDisplay {
   if (input.type === "evaluation") {
+    // Since 2026-07-21 every new evaluation carries the family's picked
+    // morning; legacy rows have no date and render the open window instead.
+    const dateLine = input.isoDate
+      ? formatTryoutDate(input.isoDate)
+      : YOUTH_EVALUATION.dateLine;
     return {
       type: "evaluation",
       typeLabel: "Evaluation",
-      dateLine: YOUTH_EVALUATION.dateLine,
+      dateLine,
       time: YOUTH_EVALUATION.time,
       location: YOUTH_EVALUATION.location,
-      fullLine: `${YOUTH_EVALUATION.dateLine} · ${YOUTH_EVALUATION.time} · ${YOUTH_EVALUATION.location}`,
+      fullLine: `${dateLine} · ${YOUTH_EVALUATION.time} · ${YOUTH_EVALUATION.location}`,
     };
   }
   if (input.type === "makeup" && input.isoDate) {

@@ -12,6 +12,7 @@ import {
   groupForGradYear,
   isOfferedGradYear,
   isTryoutPosition,
+  isValidEvaluationDate,
   type TryoutType,
 } from "@/lib/tryouts";
 
@@ -20,7 +21,9 @@ import {
  * Public — no auth, NO CHARGE. Tryouts and evaluations are completely free
  * (2026-07-13); this replaces the old $50 Stripe checkout route. Two options,
  * both open to every age: the July 25 set-date tryout, or a free morning
- * evaluation (any morning through Aug 7, no fixed date). Validates the
+ * evaluation (weekday mornings through Aug 7 — since 2026-07-21 the family
+ * MUST pick her exact morning; enforced here, never trusted from the client,
+ * against the explicit allowed-day set). Validates the
  * registration, writes the row with payment_status 'free', then fires the
  * confirmation email, the admin ping, and the Sheet append directly — all
  * fail-soft, so the family is never blocked on email/Sheet infrastructure.
@@ -62,6 +65,7 @@ export async function POST(request: NextRequest) {
     graduationYear,
     position,
     tryoutType,
+    evaluationDate,
   } = (body ?? {}) as Record<string, unknown>;
 
   // ── Validate ──────────────────────────────────────────────────────
@@ -117,9 +121,21 @@ export async function POST(request: NextRequest) {
   }
 
   // Two options for every grad year: a free morning evaluation (the primary
-  // path) or the July 25 set date. Evaluations have no fixed date.
+  // path) or the July 25 set date. An evaluation REQUIRES the exact morning,
+  // validated against the explicit allowed weekday set — no raw Date parsing,
+  // no trusting the client.
   const tType: TryoutType = tryoutType === "evaluation" ? "evaluation" : "scheduled";
-  const tryoutDateIso = tType === "evaluation" ? null : ELITE_TRYOUT.isoDate;
+  const evalDate = typeof evaluationDate === "string" ? evaluationDate.trim() : "";
+  if (tType === "evaluation" && !isValidEvaluationDate(evalDate)) {
+    return NextResponse.json(
+      {
+        error:
+          "Please pick the exact morning she'll attend — weekday mornings, now through August 7.",
+      },
+      { status: 400 },
+    );
+  }
+  const tryoutDateIso = tType === "evaluation" ? evalDate : ELITE_TRYOUT.isoDate;
   const group = groupForGradYear(gradYear);
 
   const display = describeTryout({ type: tType, isoDate: tryoutDateIso, group });
@@ -128,10 +144,12 @@ export async function POST(request: NextRequest) {
 
   // ── Duplicate guard — free registrations have no checkout friction, so a
   // double-submit would otherwise write two rows and email twice. Same player
-  // + email + grad year already registered free → idempotent success.
+  // + email + grad year with the SAME choice → idempotent success. A different
+  // option or morning means the family is changing her day: update the row in
+  // place and re-notify so the inbox always matches who's actually coming.
   const { data: dupe } = await supabase
     .from("tryout_registrations")
-    .select("id")
+    .select("id, tryout_type, tryout_date")
     .eq("email", mail)
     .eq("player_full_name", player)
     .eq("graduation_year", gradYear)
@@ -139,36 +157,65 @@ export async function POST(request: NextRequest) {
     .limit(1)
     .maybeSingle();
 
+  let regId: string;
+  let kind: "new" | "updated" = "new";
+
   if (dupe) {
-    return NextResponse.json({ ok: true, duplicate: true });
-  }
+    const sameChoice =
+      dupe.tryout_type === tType &&
+      (dupe.tryout_date ?? null) === tryoutDateIso;
+    if (sameChoice) {
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
+    const { error: updateError } = await supabase
+      .from("tryout_registrations")
+      .update({
+        tryout_type: tType,
+        tryout_group: group,
+        tryout_date: tryoutDateIso,
+        position: pos,
+        parent_name: parent,
+        phone: tel,
+      })
+      .eq("id", dupe.id);
+    if (updateError) {
+      console.error("Tryout registration update failed:", updateError);
+      return NextResponse.json(
+        { error: "We couldn't save your registration. Please try again." },
+        { status: 500 },
+      );
+    }
+    regId = dupe.id;
+    kind = "updated";
+  } else {
+    // ── Insert the registration — free, confirmed immediately ─────────
+    const { data: reg, error: insertError } = await supabase
+      .from("tryout_registrations")
+      .insert({
+        player_full_name: player,
+        parent_name: parent,
+        email: mail,
+        phone: tel,
+        graduation_year: gradYear,
+        position: pos,
+        tryout_type: tType,
+        tryout_group: group,
+        tryout_date: tryoutDateIso,
+        amount_cents: 0,
+        currency: "usd",
+        payment_status: "free",
+      })
+      .select("id")
+      .single();
 
-  // ── Insert the registration — free, confirmed immediately ─────────
-  const { data: reg, error: insertError } = await supabase
-    .from("tryout_registrations")
-    .insert({
-      player_full_name: player,
-      parent_name: parent,
-      email: mail,
-      phone: tel,
-      graduation_year: gradYear,
-      position: pos,
-      tryout_type: tType,
-      tryout_group: group,
-      tryout_date: tryoutDateIso,
-      amount_cents: 0,
-      currency: "usd",
-      payment_status: "free",
-    })
-    .select("id")
-    .single();
-
-  if (insertError || !reg) {
-    console.error("Tryout registration insert failed:", insertError);
-    return NextResponse.json(
-      { error: "We couldn't save your registration. Please try again." },
-      { status: 500 },
-    );
+    if (insertError || !reg) {
+      console.error("Tryout registration insert failed:", insertError);
+      return NextResponse.json(
+        { error: "We couldn't save your registration. Please try again." },
+        { status: 500 },
+      );
+    }
+    regId = reg.id;
   }
 
   // ── Confirmation email (fail-soft) ─────────────────────────────────
@@ -182,7 +229,7 @@ export async function POST(request: NextRequest) {
     await supabase
       .from("tryout_registrations")
       .update({ confirmation_email_sent: true })
-      .eq("id", reg.id);
+      .eq("id", regId);
   }
 
   // ── Admin notification (fail-soft) ─────────────────────────────────
@@ -205,6 +252,7 @@ export async function POST(request: NextRequest) {
         amount_cents: 0,
       },
       regCount ?? 0,
+      kind,
     );
   } catch (notifyErr) {
     console.error("Tryout admin notification failed (non-fatal):", notifyErr);
@@ -214,5 +262,7 @@ export async function POST(request: NextRequest) {
   // Harrison's board before they leave the parking lot.
   await pingCommandSheet("registration");
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(
+    kind === "updated" ? { ok: true, updated: true } : { ok: true },
+  );
 }

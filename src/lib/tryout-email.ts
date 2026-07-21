@@ -83,7 +83,7 @@ function buildText({
     `LOCATION: ${display.location}`,
     ``,
     isEval
-      ? `What to expect: come any morning — she will be evaluated on the spot, and you will hear the same day whether she is in or whether we would like to see her one more time. Bring her stick, cleats, goggles, mouthguard, water, and a light and a dark shirt.`
+      ? `What to expect: come the morning you picked — she will be evaluated on the spot, and you will hear the same day whether she is in or whether we would like to see her one more time. Bring her stick, cleats, goggles, mouthguard, water, and a light and a dark shirt.`
       : `What to expect: check-in opens 15 minutes early. She will warm up, play, and compete with our college-player coaching staff. Bring her stick, cleats, goggles, mouthguard, water, and a light and a dark shirt.`,
     ``,
     isEval
@@ -144,7 +144,7 @@ function buildHtml({
                 <p style="margin:0 0 24px;font-size:15px;line-height:1.7;color:#374151;">
                   ${
                     isEval
-                      ? `Come any morning — she will be evaluated on the spot, and you will hear the
+                      ? `Come the morning you picked — she will be evaluated on the spot, and you will hear the
                   same day whether she is in or whether we would like to see her one more time.
                   Bring her stick, cleats, goggles, mouthguard, water, and a light and a dark shirt.`
                       : `Check-in opens 15 minutes early. She will warm up, play, and compete with our

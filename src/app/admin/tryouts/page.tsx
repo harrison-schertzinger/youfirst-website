@@ -31,7 +31,7 @@ function getServiceClient() {
 }
 
 function groupLabel(r: RegRow): string {
-  if (r.tryout_type === "evaluation") return "Free Evaluations · Any Morning through Aug 7";
+  if (r.tryout_type === "evaluation") return "Free Evaluations · Weekday Mornings through Aug 7";
   if (r.tryout_type === "makeup") return "Make-up Tryouts · August 3–7";
   if (r.tryout_date === "2026-07-11") return "Saturday, July 11 · Youth";
   if (r.tryout_date === "2026-07-25") return "Saturday, July 25 · Set Date";
@@ -39,7 +39,7 @@ function groupLabel(r: RegRow): string {
 }
 
 const GROUP_ORDER = [
-  "Free Evaluations · Any Morning through Aug 7",
+  "Free Evaluations · Weekday Mornings through Aug 7",
   "Saturday, July 25 · Set Date",
   "Make-up Tryouts · August 3–7",
   "Saturday, July 11 · Youth",

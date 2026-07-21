@@ -44,11 +44,11 @@ export default function TryoutDates() {
             </h3>
 
             <p className="text-[17px] sm:text-lg text-[#6B7280] leading-[1.8]">
-              Come any morning, 10:00 AM&ndash;12:00 PM, to the Cincinnati
-              Lacrosse Academy and get evaluated on the spot — come when it
-              works, and hear that day whether she&apos;s in or we&apos;d like
-              to see her once more. Every morning through August 7th —
-              completely free.
+              Come any weekday morning, 10:00 AM&ndash;12:00 PM, to the
+              Cincinnati Lacrosse Academy and get evaluated on the spot — pick
+              her morning when you register, and hear that day whether
+              she&apos;s in or we&apos;d like to see her once more. Weekday
+              mornings through August 7th — completely free.
             </p>
 
             <p className="mt-5 text-[17px] sm:text-lg text-[#1A1A1A] font-medium leading-[1.8]">

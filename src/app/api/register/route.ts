@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { REGISTRATION_GRAD_YEARS } from "@/lib/constants";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,6 +22,11 @@ export async function POST(request: NextRequest) {
     // ─── Validate required fields ─────────────────────
     if (!d.firstName?.trim() || !d.lastName?.trim() || !d.graduationYear) {
       return NextResponse.json({ error: "Player name and graduation year are required." }, { status: 400 });
+    }
+    // Grad year must be one of the offered options — never trust the client.
+    const gradYear = parseInt(String(d.graduationYear), 10);
+    if (!(REGISTRATION_GRAD_YEARS as readonly number[]).includes(gradYear)) {
+      return NextResponse.json({ error: "Please choose a valid graduation year." }, { status: 400 });
     }
     if (!d.guardian1FirstName?.trim() || !d.guardian1Email?.trim() || !d.guardian1Phone?.trim()) {
       return NextResponse.json({ error: "Primary guardian info is required." }, { status: 400 });
@@ -54,7 +60,7 @@ export async function POST(request: NextRequest) {
       .insert({
         first_name: d.firstName.trim(),
         last_name: d.lastName.trim(),
-        graduation_year: parseInt(d.graduationYear),
+        graduation_year: gradYear,
         position: d.position || null,
         jersey_number: d.jerseyNumber || null,
         photo_url: photoUrl,
