@@ -136,6 +136,7 @@ async function sendEmail(args: {
   html: string;
   text: string;
   replyTo?: string;
+  from?: string;
 }): Promise<{ ok: boolean; id?: string; error?: string }> {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -144,7 +145,7 @@ async function sendEmail(args: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: FROM,
+      from: args.from ?? FROM,
       to: Array.isArray(args.to) ? args.to : [args.to],
       subject: args.subject,
       html: args.html,
@@ -295,6 +296,17 @@ const PORTAL_PASSWORD = Deno.env.get("HERMES_PORTAL_PASSWORD") ?? "YOUFIRST";
 const COLLECTIONS_DEADLINE =
   Deno.env.get("HERMES_COLLECTIONS_DEADLINE") ?? "August 1";
 
+// The collections email asks families to reply to it. Sending from a noreply
+// address and inviting 20 families to flag a wrong balance would drop every
+// response — so the reply path is explicit here. The FROM address stays the
+// domain-verified noreply@ (Resend is verified for that sender); only the
+// display name and the reply-to change.
+const COLLECTIONS_FROM =
+  Deno.env.get("HERMES_COLLECTIONS_FROM") ??
+  "Harrison Schertzinger <noreply@youfirstlacrosse.com>";
+const COLLECTIONS_REPLY_TO =
+  Deno.env.get("HERMES_COLLECTIONS_REPLY_TO") ?? "harrison@theyoufirstproject.com";
+
 interface CollectionsTarget {
   player_id: string;
   plan_id: string;
@@ -312,31 +324,62 @@ interface CollectionsTarget {
   // Resolved in SQL: a real first name, or a neutral fallback when the stored
   // value is an import placeholder ('Parent'). Never guessed from the email.
   guardian_greeting: string;
+  // A complete greeting line assembled in SQL: "Hi Michelle" or a bare "Hi".
+  // Never "Hey", never "there", never a child's name.
+  greeting_line: string;
   greeting_is_fallback: boolean;
+  collections_hold: boolean;
 }
 
 async function runCollections(
   dryRun: boolean,
-  opts: { gradYears?: number[]; wave?: string; redirectTo?: string },
+  opts: {
+    gradYears?: number[];
+    wave?: string;
+    redirectTo?: string;
+    onlyPlayerId?: string;
+  },
 ) {
+  const onlyPlayerId = opts.onlyPlayerId?.trim() || null;
+
   const gradYears = Array.isArray(opts.gradYears) && opts.gradYears.length
     ? opts.gradYears.map(Number).filter((n) => Number.isInteger(n))
     : null;
 
-  if (!gradYears) {
+  // Wave membership stays an explicit parameter. The one exception is a
+  // single-family test (only_player_id), which renders exactly that family and
+  // therefore needs no wave.
+  if (!gradYears && !onlyPlayerId) {
     return {
       error:
-        "grad_years is required — pass the wave explicitly, e.g. grad_years:[2027,2028,2030].",
+        "grad_years is required — pass the wave explicitly, e.g. grad_years:[2027,2028,2030]. (Or only_player_id for a single-family test.)",
     };
   }
 
-  const wave = String(opts.wave ?? "unlabelled");
-  const cycleKey = `closeout-w${wave}`;
+  // A single-family test must never consume the real wave's dedup key.
+  const wave = onlyPlayerId ? "test" : String(opts.wave ?? "unlabelled");
+  const cycleKey = onlyPlayerId
+    ? `closeout-test-${onlyPlayerId}`
+    : `closeout-w${wave}`;
   const redirectTo = opts.redirectTo?.trim() || null;
+
+  // Refuse to aim a single-family test at a real family: that is the one shape
+  // where a "test" would be indistinguishable from a live send.
+  if (onlyPlayerId && !dryRun && !redirectTo) {
+    return {
+      error:
+        "only_player_id requires redirect_to — a single-family test must be aimed at an internal address, never at the family.",
+    };
+  }
 
   const { data: rows, error } = await supabase.rpc(
     "hermes_collections_targets",
-    { p_grad_years: gradYears },
+    {
+      p_grad_years: gradYears,
+      // A named test renders that family even if her plan is on hold.
+      p_include_held: onlyPlayerId ? true : false,
+      p_only_player_id: onlyPlayerId,
+    },
   );
   if (error) return { error: error.message };
 
@@ -428,6 +471,8 @@ async function runCollections(
     for (const g of guardians) {
       const ctx = {
         player_name: first.player_name,
+        // Complete greeting line from SQL — "Hi Michelle" or a bare "Hi".
+        greeting_line: g.greeting_line,
         parent_first_name: g.guardian_greeting,
         balance: formatCents(balance),
         payment_link: PAYMENT_LINK,
@@ -483,6 +528,9 @@ async function runCollections(
         subject: finalSubject,
         html: wrapHtml(finalBody),
         text: finalBody,
+        // The email invites a reply. Make sure one reaches a human.
+        from: COLLECTIONS_FROM,
+        replyTo: COLLECTIONS_REPLY_TO,
       });
       results.push({ to, ok: r.ok, error: r.error });
       if (r.ok) sent++;
@@ -530,7 +578,10 @@ async function runCollections(
   return {
     wave,
     grad_years: gradYears,
+    only_player_id: onlyPlayerId,
     cycle_key: cycleKey,
+    from: COLLECTIONS_FROM,
+    reply_to: COLLECTIONS_REPLY_TO,
     players_matched: byPlayer.size,
     players_targeted: players,
     total_outstanding: formatCents(totalCents),
@@ -699,6 +750,8 @@ Deno.serve(async (req) => {
         gradYears: payload.grad_years,
         wave: payload.wave,
         redirectTo: payload.redirect_to,
+        // Render/send exactly one family, ignoring holds — the Riley test.
+        onlyPlayerId: payload.only_player_id ?? payload.test_player_id,
       });
     }
   } catch (e) {

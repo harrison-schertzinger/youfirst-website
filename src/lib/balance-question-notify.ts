@@ -78,11 +78,22 @@ export async function sendBalanceQuestionNotification(
   input: BalanceQuestionNotifyInput,
 ): Promise<{ sent: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.TRYOUT_FROM_EMAIL;
+  const verifiedSender = process.env.TRYOUT_FROM_EMAIL;
 
-  if (!apiKey || !from) {
+  if (!apiKey || !verifiedSender) {
     return { sent: false, error: "RESEND_API_KEY or TRYOUT_FROM_EMAIL not set" };
   }
+
+  // Keep the domain-verified address, change the display name. Extract the
+  // bare address from whatever form TRYOUT_FROM_EMAIL takes ("Name <a@b>" or
+  // "a@b") so we never send from an unverified sender.
+  const bareAddress =
+    verifiedSender.match(/<([^>]+)>/)?.[1]?.trim() ?? verifiedSender.trim();
+  const from =
+    process.env.BALANCE_QUESTION_FROM ??
+    `Harrison Schertzinger <${bareAddress}>`;
+  const replyTo =
+    process.env.BALANCE_QUESTION_REPLY_TO ?? "harrison@theyoufirstproject.com";
 
   const player = safeSubjectFragment(input.playerName);
   const subject = `💬 Balance question — ${player} (${money(
@@ -163,8 +174,10 @@ export async function sendBalanceQuestionNotification(
         subject,
         html,
         text,
-        // So a reply goes straight back to the parent who asked.
-        reply_to: input.guardianEmail,
+        // Replies land with Harrison. The parent's own address is in the
+        // subject-adjacent header line, in the body, and as a mailto in the
+        // admin queue — so answering her directly is still one click.
+        reply_to: replyTo,
       }),
     });
     if (!res.ok) {

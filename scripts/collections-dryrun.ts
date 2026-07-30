@@ -50,7 +50,9 @@ interface Target {
   guardian_email: string;
   guardian_first_name: string | null;
   guardian_greeting: string;
+  greeting_line: string;
   greeting_is_fallback: boolean;
+  collections_hold: boolean;
 }
 
 function money(cents: number): string {
@@ -118,6 +120,7 @@ async function main() {
   let emails = 0;
   let totalCents = 0;
   let fallbackGreetings = 0;
+  let bannedGreetings = 0;
 
   const sortedPlayers = Array.from(byPlayer.values()).sort(
     (a, b) =>
@@ -136,10 +139,10 @@ async function main() {
   out.push("NOTHING WAS SENT. This file is a render only.");
   out.push("");
   out.push(
-    "NOTE: guardians whose stored first_name is an import placeholder are",
+    "NOTE: every email opens \"Hi Name —\". Guardians with no real first name on",
   );
   out.push(
-    "greeted \"Hey there\". Names are never guessed from an email address.",
+    "file get a bare \"Hi —\". Names are never guessed from an email address.",
   );
   out.push("═".repeat(78));
   out.push("");
@@ -178,8 +181,10 @@ async function main() {
     for (const g of guardians) {
       const ctx = {
         player_name: p.player_name,
-        // Resolved in SQL: a real first name, or a neutral fallback when the
-        // stored value is an import placeholder. Never guessed from the email.
+        // Complete greeting line resolved in SQL: "Hi Michelle", or a bare
+        // "Hi" when we have no real name. Never "Hey", never "there", and
+        // never guessed from an email address.
+        greeting_line: g.greeting_line,
         parent_first_name: g.guardian_greeting,
         balance: money(p.remaining_cents),
         payment_link: PORTAL_LINK,
@@ -192,6 +197,7 @@ async function main() {
       if (g.greeting_is_fallback) fallbackGreetings++;
 
       const rendered = renderTemplate(
+
         { subject: tpl.subject, body: tpl.body },
         ctx,
         snippets,
@@ -210,6 +216,22 @@ async function main() {
       if (!rendered.body.includes(ctx.balance)) {
         problems.push(
           `${p.player_name} → ${g.guardian_email}: balance ${ctx.balance} missing from body`,
+        );
+      }
+      // Greeting rules: Harrison writes "Hi". "Hey", "Hey there", the import
+      // placeholder "Parent", and an empty greeting are all failures.
+      for (const banned of ["Hey ", "Hey there", "Hi there", "Parent"]) {
+        if (rendered.body.includes(banned)) {
+          bannedGreetings++;
+          problems.push(
+            `${p.player_name} → ${g.guardian_email}: banned greeting "${banned}"`,
+          );
+        }
+      }
+      if (!/^Hi( [A-Z][^\s—]*)? —/.test(rendered.body)) {
+        bannedGreetings++;
+        problems.push(
+          `${p.player_name} → ${g.guardian_email}: greeting is not "Hi —" or "Hi Name —" (opens: ${JSON.stringify(rendered.body.slice(0, 24))})`,
         );
       }
 
@@ -250,7 +272,8 @@ async function main() {
   console.log(`  2029s included: ${
     sortedPlayers.filter((g) => g[0].graduation_year === 2029).length
   }`);
-  console.log(`  "Hey there" fallbacks (guardian first_name is a placeholder): ${fallbackGreetings}/${emails}`);
+  console.log(`  bare "Hi" (no real first name on file): ${fallbackGreetings}/${emails}`);
+  console.log(`  banned greetings ("Hey"/"there"/"Parent"): ${bannedGreetings}`);
   console.log(`  problems:       ${problems.length}`);
   if (problems.length) for (const p of problems) console.log(`    ! ${p}`);
   console.log(`\n  written to ${path}`);
