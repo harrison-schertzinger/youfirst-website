@@ -92,8 +92,6 @@ export async function sendBalanceQuestionNotification(
   const from =
     process.env.BALANCE_QUESTION_FROM ??
     `Harrison Schertzinger <${bareAddress}>`;
-  const replyTo =
-    process.env.BALANCE_QUESTION_REPLY_TO ?? "harrison@theyoufirstproject.com";
 
   const player = safeSubjectFragment(input.playerName);
   const subject = `💬 Balance question — ${player} (${money(
@@ -174,10 +172,11 @@ export async function sendBalanceQuestionNotification(
         subject,
         html,
         text,
-        // Replies land with Harrison. The parent's own address is in the
-        // subject-adjacent header line, in the body, and as a mailto in the
-        // admin queue — so answering her directly is still one click.
-        reply_to: replyTo,
+        // Reply goes straight back to the parent who asked, so Kathleen can
+        // answer her family directly by hitting reply. This is deliberately
+        // DIFFERENT from the collections email, which replies to Harrison —
+        // that one is outbound to a family, this one is inbound to the club.
+        reply_to: input.guardianEmail,
       }),
     });
     if (!res.ok) {
