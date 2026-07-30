@@ -456,7 +456,13 @@ export default function PaymentDashboard({
     .reduce((s, c) => s + c.amount_cents, 0);
   const chargeRemaining = chargeCharged - chargePaid;
 
-  const totalCharged = summerCharged + rosterTicket.amountCents + chargeCharged;
+  // A released amount reduces what she was charged, so the strip reconciles:
+  // charged − paid − adjustment = remaining. Without netting the adjustment out
+  // of `totalCharged`, an adjusted family saw a summary whose three numbers did
+  // not add up.
+  const summerAdjustment = balance?.adjustment_cents ?? 0;
+  const totalCharged =
+    summerCharged - summerAdjustment + rosterTicket.amountCents + chargeCharged;
   const totalPaid = summerPaid + rosterTicket.paidCents + chargePaid;
   const totalRemaining = summerRemaining + rosterRemaining + chargeRemaining;
 

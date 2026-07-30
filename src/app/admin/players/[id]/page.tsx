@@ -72,6 +72,8 @@ interface PlanRow {
   amount_paid_cents: number | null;
   installments_total: number | null;
   installments_paid: number | null;
+  adjustment_cents: number | null;
+  adjustment_reason: string | null;
   next_due_date: string | null;
   created_at: string | null;
 }
@@ -191,7 +193,7 @@ export default async function PlayerProfilePage({
     admin
       .from("payment_plans")
       .select(
-        "id, plan_type, season, total_amount_cents, amount_paid_cents, installments_total, installments_paid, next_due_date, created_at",
+        "id, plan_type, season, total_amount_cents, amount_paid_cents, installments_total, installments_paid, adjustment_cents, adjustment_reason, next_due_date, created_at",
       )
       .eq("player_id", id)
       .order("created_at", { ascending: false })
@@ -258,7 +260,11 @@ export default async function PlayerProfilePage({
   // ── Financial summary numbers ─────────────────────────────────────────
   const billedCents = plan?.total_amount_cents ?? 0;
   const collectedCents = plan?.amount_paid_cents ?? 0;
-  const balanceCents = Math.max(0, billedCents - collectedCents);
+  // A released balance is released here too. Without subtracting the
+  // adjustment this page showed Demaree Vianello owing $1,800 and offered to
+  // generate a payment link for it, while her portal correctly read settled.
+  const adjustmentCents = plan?.adjustment_cents ?? 0;
+  const balanceCents = Math.max(0, billedCents - collectedCents - adjustmentCents);
 
   // ── Payment history ordering ──────────────────────────────────────────
   const paymentsSorted = [...payments].sort((a, b) => {
@@ -351,9 +357,18 @@ export default async function PlayerProfilePage({
             tone={balanceCents > 0 ? "negative" : "positive"}
           />
         </div>
-        {plan && (
-          <div className="mt-4 text-[11px] uppercase tracking-[0.12em] text-[#6B7280]">
-            {plan.installments_paid ?? 0} of {plan.installments_total ?? 0} installments paid
+        {/* Any released amount, with its reason. The installment counters are
+            deliberately NOT shown: the April 2026 import set them to 1 for
+            everyone who had paid anything, so "1 of 1 installments paid"
+            appeared beside a real outstanding balance. Money is the truth. */}
+        {plan && adjustmentCents > 0 && (
+          <div className="mt-4 rounded-lg border border-[#4A90D9]/25 bg-[#4A90D9]/5 px-3 py-2">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#4A90D9]">
+              Adjustment −{formatDollars(adjustmentCents)}
+            </div>
+            <p className="mt-0.5 text-[12px] text-[#1A1A1A]">
+              {plan.adjustment_reason}
+            </p>
           </div>
         )}
       </section>

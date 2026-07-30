@@ -237,6 +237,19 @@ async function runPaymentRadar(dryRun: boolean) {
     const subject = renderTemplate(tpl.subject, ctx, snippets);
     const bodyText = renderTemplate(tpl.body, ctx, snippets);
 
+    // The payment_reminder template was rewritten for the season close-out and
+    // now expects {{login_email}}, {{portal_password}} and {{deadline}} — keys
+    // this job does not supply. Without this guard the nightly cron would mail
+    // a parent the literal text "the password is {{portal_password}}" the
+    // moment anyone populated a next_due_date. Never send a half-rendered
+    // template; skip and report instead.
+    const unfilled = `${subject}\n${bodyText}`.match(/\{\{[^}]+\}\}/g);
+    if (unfilled) {
+      errors.push(`${f.player_name}: unfilled ${unfilled.join(",")}`);
+      bump("unfilled_placeholder");
+      continue;
+    }
+
     const preview = {
       kind, plan_id: f.plan_id, player: f.player_name, to: f.parent_email,
       balance: ctx.balance, due, subject,
@@ -389,8 +402,9 @@ async function runCollections(
 
       // A template that still carries an unfilled placeholder must never reach
       // a parent — an email reading "{{balance}}" destroys the credibility the
-      // whole send depends on.
-      const unfilled = bodyText.match(/\{\{[^}]+\}\}/g);
+      // whole send depends on. Subject AND body: a broken subject line is the
+      // first thing she sees.
+      const unfilled = `${subject}\n${bodyText}`.match(/\{\{[^}]+\}\}/g);
       if (unfilled) {
         errors.push(
           `${first.player_name} (${g.guardian_email}): unfilled ${unfilled.join(",")}`,
@@ -445,7 +459,11 @@ async function runCollections(
         recipient_email: recipients.join(","),
         cycle_key: cycleKey,
         subject: `Season close-out — ${first.player_name}`,
-        status: results.some((x) => x.ok) ? "sent" : "failed",
+        // 'sent' ONLY if every guardian for this family actually received it.
+        // Logging 'sent' on a partial success would make the dedup check skip
+        // the family on a re-run, and the guardian whose send failed would
+        // never be told what she owes.
+        status: results.every((x) => x.ok) ? "sent" : "failed",
         detail: {
           wave,
           grad_years: gradYears,

@@ -171,6 +171,11 @@ function QuickLinkBlock({
 function CustomLinkBlock({ playerId }: { playerId: string }) {
   const [dollars, setDollars] = useState("");
   const [description, setDescription] = useState("");
+  // Which ledger the money lands in. "summer" credits her season balance —
+  // player_balances() counts only 'summer' against the plan, so a season
+  // payment recorded as "custom" would leave her balance untouched and she
+  // would be asked for it again. "custom" is for genuinely extra items.
+  const [category, setCategory] = useState<"summer" | "custom">("summer");
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -206,7 +211,7 @@ function CustomLinkBlock({ playerId }: { playerId: string }) {
           body: JSON.stringify({
             amount_cents: Math.round(d * 100),
             description: description.trim(),
-            payment_category: "custom",
+            payment_category: category,
           }),
         });
         if (!res.ok) {
@@ -234,7 +239,9 @@ function CustomLinkBlock({ playerId }: { playerId: string }) {
         setSubmitting(false);
       }
     },
-    [description, dollars, playerId, submitting],
+    // `category` must be here: without it the closure keeps the initial
+    // "summer" and silently ignores the admin switching to a one-off.
+    [category, description, dollars, playerId, submitting],
   );
 
   return (
@@ -283,7 +290,27 @@ function CustomLinkBlock({ playerId }: { playerId: string }) {
               className="w-full bg-white border border-[#E5E7EB] rounded-lg px-2.5 py-1.5 text-[13px] text-[#0A0A0B] placeholder:text-[#6B7280]/60 focus:outline-none focus:ring-2 focus:ring-[#4A90D9]/20 focus:border-[#4A90D9] transition-colors"
             />
           </label>
+          <label className="block">
+            <span className="block text-[10px] font-medium uppercase tracking-wider text-[#6B7280] mb-1">
+              Applies to
+            </span>
+            <select
+              value={category}
+              onChange={(e) =>
+                setCategory(e.target.value === "custom" ? "custom" : "summer")
+              }
+              className="w-full bg-white border border-[#E5E7EB] rounded-lg px-2.5 py-1.5 text-[13px] text-[#0A0A0B] focus:outline-none focus:ring-2 focus:ring-[#4A90D9]/20 focus:border-[#4A90D9] transition-colors"
+            >
+              <option value="summer">Summer balance — reduces what she owes</option>
+              <option value="custom">One-off — does not touch her balance</option>
+            </select>
+          </label>
         </div>
+        <p className="text-[11px] leading-snug text-[#6B7280]">
+          Choose <strong>Summer balance</strong> for season money. A one-off is
+          recorded on the ledger but leaves her season balance unchanged, so she
+          will still be asked for it.
+        </p>
 
         {fieldError && (
           <p role="alert" className="text-[12px] text-[#EF4444]">

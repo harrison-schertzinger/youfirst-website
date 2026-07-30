@@ -215,6 +215,12 @@ export async function POST(request: NextRequest) {
       mode: "payment",
       line_items: [lineItem],
       customer_email: portalSession.email || undefined,
+      // Stripe's default is 24h. A session holds the amount that was owed when
+      // it was created, so a long-lived one can be completed after a payment
+      // has already reduced the balance. One hour is long enough to finish
+      // checkout and short enough that a forgotten tab expires. (Stripe allows
+      // 30 minutes to 24 hours.)
+      expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
       metadata: {
         player_id: playerId,
         guardian_id: portalSession.guardianId,

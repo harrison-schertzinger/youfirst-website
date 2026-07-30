@@ -235,7 +235,13 @@ export default function SendReminderModal(props: Props) {
           body: JSON.stringify({
             amount_cents,
             description,
-            payment_category: "custom",
+            // MUST be "summer": this link is generated against her season
+            // balance, and player_balances() credits only 'summer' money
+            // against the season plan. Recording it as "custom" left the
+            // balance unchanged after she paid — the portal kept showing a Pay
+            // button and the next collections wave would have emailed her
+            // again for money already received.
+            payment_category: "summer",
           }),
         });
         if (!res.ok) {
