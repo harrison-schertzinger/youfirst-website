@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ClipboardCheck,
+  ClipboardList,
   LayoutDashboard,
   Users,
   UserPlus,
@@ -26,6 +27,7 @@ const NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", Icon: LayoutDashboard },
   { href: "/admin/prospects", label: "Prospects", Icon: UserPlus },
   { href: "/admin/tryouts", label: "Tryouts", Icon: ClipboardCheck },
+  { href: "/admin/rosters", label: "Rosters", Icon: ClipboardList },
   { href: "/admin/players", label: "Players", Icon: Users },
   { href: "/admin/expenses", label: "Expenses", Icon: Receipt },
   { href: "/admin/tournaments", label: "Tournaments", Icon: Trophy },
@@ -52,7 +54,7 @@ export default function AdminShell({
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
       {/* ── Mobile top bar (hidden on md+) ── */}
-      <header className="md:hidden sticky top-0 z-30 bg-white border-b border-[#E5E7EB] flex items-center justify-between px-4 h-14">
+      <header className="md:hidden print:hidden sticky top-0 z-30 bg-white border-b border-[#E5E7EB] flex items-center justify-between px-4 h-14">
         <div className="flex items-center gap-2">
           <span className="text-[15px] font-bold tracking-tight text-[#0A0A0B]">
             You. First
@@ -94,12 +96,12 @@ export default function AdminShell({
       <Sidebar
         pathname={pathname}
         userEmail={userEmail}
-        className="hidden md:flex fixed inset-y-0 left-0 w-[240px] border-r border-[#E5E7EB]"
+        className="hidden md:flex print:hidden! fixed inset-y-0 left-0 w-[240px] border-r border-[#E5E7EB]"
       />
 
       {/* ── Main content area ── */}
-      <main className="md:ml-[240px] min-h-screen">
-        <div className="mx-auto max-w-[1280px] px-6 lg:px-10 py-8 md:py-12">
+      <main className="md:ml-[240px] print:ml-0 min-h-screen">
+        <div className="mx-auto max-w-[1280px] px-6 lg:px-10 py-8 md:py-12 print:max-w-none print:px-0 print:py-0">
           {children}
         </div>
       </main>
