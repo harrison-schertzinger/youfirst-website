@@ -97,9 +97,19 @@ function renderTemplate(
   return out;
 }
 
+// `**bold**` markers. Stripped for text/plain, and — in the HTML path — applied
+// only AFTER escapeHtml has neutralised the body, so a parent-supplied or
+// template-supplied angle bracket can never become live markup this way.
+function stripEmphasis(s: string): string {
+  return s.replace(/\*\*(.+?)\*\*/g, "$1");
+}
+function applyEmphasis(escaped: string): string {
+  return escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
 // Brand-compliant wrapper (Carolina blue / black / white — no gradients).
 function wrapHtml(bodyText: string, opts: { heading?: string } = {}): string {
-  const paragraphs = escapeHtml(bodyText)
+  const paragraphs = applyEmphasis(escapeHtml(bodyText))
     .split(/\n{2,}/)
     .map((p) => `<p style="margin:0 0 14px;line-height:1.55">${p.replaceAll("\n", "<br>")}</p>`)
     .join("");
@@ -398,16 +408,24 @@ async function runCollections(
   const previews: unknown[] = [];
   const skipped: Record<string, number> = {};
   const errors: string[] = [];
+  // Named, structured outcomes — a count alone cannot tell Harrison WHICH
+  // family never heard from us, and 4 silent failures out of 25 look exactly
+  // like 4 families ignoring him.
+  const failures: { player: string; email: string; reason: string }[] = [];
+  const skips: { player: string; reason: string }[] = [];
   let sent = 0;
   let players = 0;
-  const bump = (k: string) => (skipped[k] = (skipped[k] ?? 0) + 1);
+  const bump = (k: string, player?: string) => {
+    skipped[k] = (skipped[k] ?? 0) + 1;
+    if (player) skips.push({ player, reason: k });
+  };
 
   for (const [playerId, guardians] of byPlayer) {
     const first = guardians[0];
     const balance = Number(first.remaining_cents ?? 0);
 
     if (!Number.isFinite(balance) || balance <= 0) {
-      bump("zero_or_negative_balance"); // HARD SAFETY
+      bump("zero_or_negative_balance", first.player_name); // HARD SAFETY
       continue;
     }
 
@@ -422,7 +440,7 @@ async function runCollections(
       .eq("cycle_key", cycleKey)
       .in("status", ["claimed", "sent"]);
     if ((count ?? 0) > 0) {
-      bump("already_sent_this_wave");
+      bump("already_sent_this_wave", first.player_name);
       continue;
     }
 
@@ -452,12 +470,12 @@ async function runCollections(
         .single();
       if (claimErr || !claim) {
         if ((claimErr as { code?: string } | null)?.code === "23505") {
-          bump("already_sent_this_wave"); // lost a concurrent race — the winner sends
+          bump("already_sent_this_wave", first.player_name); // lost a race — winner sends
         } else {
           errors.push(
             `${first.player_name}: claim failed — ${claimErr?.message ?? "no row"}`,
           );
-          bump("claim_failed");
+          bump("claim_failed", first.player_name);
         }
         continue; // never send unclaimed
       }
@@ -474,6 +492,8 @@ async function runCollections(
         // Complete greeting line from SQL — "Hi Michelle" or a bare "Hi".
         greeting_line: g.greeting_line,
         parent_first_name: g.guardian_greeting,
+        // Her first name, for the "if the portal ever showed X as settled" line.
+        player_first_name: first.player_first_name,
         balance: formatCents(balance),
         payment_link: PAYMENT_LINK,
         login_email: g.guardian_email,
@@ -494,7 +514,7 @@ async function runCollections(
         errors.push(
           `${first.player_name} (${g.guardian_email}): unfilled ${unfilled.join(",")}`,
         );
-        bump("unfilled_placeholder");
+        bump("unfilled_placeholder", first.player_name);
         continue;
       }
 
@@ -527,14 +547,22 @@ async function runCollections(
         to,
         subject: finalSubject,
         html: wrapHtml(finalBody),
-        text: finalBody,
+        // Plain-text alternative: drop the ** markers rather than show them.
+        text: stripEmphasis(finalBody),
         // The email invites a reply. Make sure one reaches a human.
         from: COLLECTIONS_FROM,
         replyTo: COLLECTIONS_REPLY_TO,
       });
       results.push({ to, ok: r.ok, error: r.error });
       if (r.ok) sent++;
-      else errors.push(`${first.player_name} → ${to}: ${r.error}`);
+      else {
+        errors.push(`${first.player_name} → ${to}: ${r.error}`);
+        failures.push({
+          player: first.player_name,
+          email: to,
+          reason: r.error ?? "unknown",
+        });
+      }
     }
 
     if (!dryRun && claimId) {
@@ -575,7 +603,88 @@ async function runCollections(
     .filter((c) => c > 0)
     .reduce((a, b) => a + b, 0);
 
+  // ── One summary per wave ────────────────────────────────────────────
+  // A mass silent failure is provably possible on this path — the first Riley
+  // test hit a CHECK constraint and 25 families would have received nothing
+  // while the job reported claim_failed. Without this email, 4 bounces out of
+  // 25 look identical to 4 families ignoring him.
+  //
+  // Skipped for dry runs and for the single-family test. Never allowed to fail
+  // the wave: the emails are already delivered by this point.
+  let summary: { ok: boolean; error?: string } | string | undefined;
+  if (!dryRun && !onlyPlayerId) {
+    const subject =
+      `Wave ${wave} sent — ${players} famil${players === 1 ? "y" : "ies"} — ` +
+      `${failures.length} failed`;
+
+    const failLines = failures.length
+      ? failures
+          .map((f) => `  • ${f.player} — ${f.email}\n      ${f.reason}`)
+          .join("\n")
+      : "  • None";
+    const skipLines = skips.length
+      ? skips.map((s) => `  • ${s.player} — ${s.reason}`).join("\n")
+      : "  • None";
+
+    const text =
+`Wave ${wave} is done.
+
+SENT: ${sent} email${sent === 1 ? "" : "s"} to ${players} famil${players === 1 ? "y" : "ies"}
+Outstanding across the wave: ${formatCents(totalCents)}
+
+FAILED (${failures.length}) — these families were NOT told what they owe:
+${failLines}
+
+SKIPPED (${skips.length}):
+${skipLines}
+
+Grad years: ${gradYears ? gradYears.join(", ") : "all"}
+Cycle key:  ${cycleKey}
+
+Failed families can be retried by re-running this wave — a 'failed' log row
+does not hold the dedup key, so only they will be re-sent.
+
+— Hermes`;
+
+    try {
+      const r = await sendEmail({
+        to: ADMIN_HARRISON,
+        subject,
+        html: wrapHtml(text, { heading: subject }),
+        text,
+        from: COLLECTIONS_FROM,
+        replyTo: COLLECTIONS_REPLY_TO,
+      });
+      summary = r;
+      await logSend({
+        kind: "collections_summary",
+        cycle_key: cycleKey,
+        recipient_email: ADMIN_HARRISON,
+        subject,
+        status: r.ok ? "sent" : "failed",
+        detail: {
+          wave,
+          sent,
+          players,
+          failed: failures.length,
+          skipped: skips.length,
+          failures,
+          skips,
+        },
+      });
+    } catch (e) {
+      // Money landing and emails delivered both already happened. A summary
+      // failure is logged and swallowed.
+      summary = `summary send threw: ${String(e)}`;
+      console.error("collections summary failed", e);
+    }
+  }
+
   return {
+    summary_to: !dryRun && !onlyPlayerId ? ADMIN_HARRISON : undefined,
+    summary,
+    failures: failures.length ? failures : undefined,
+    skips: skips.length ? skips : undefined,
     wave,
     grad_years: gradYears,
     only_player_id: onlyPlayerId,

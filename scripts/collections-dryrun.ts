@@ -186,6 +186,8 @@ async function main() {
         // never guessed from an email address.
         greeting_line: g.greeting_line,
         parent_first_name: g.guardian_greeting,
+        // Her first name, for the "if the portal ever showed X as settled" line.
+        player_first_name: p.player_first_name,
         balance: money(p.remaining_cents),
         payment_link: PORTAL_LINK,
         login_email: g.guardian_email,
