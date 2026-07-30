@@ -41,12 +41,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ email: session.email, players: [] });
   }
 
+  // Deterministic order. Without this the row order is whatever Postgres
+  // happens to return, so in a sibling household one child landed above the
+  // other arbitrarily from one load to the next.
   const { data: playersData, error: playersErr } = await admin
     .from("players")
     .select(
       "id, first_name, last_name, graduation_year, position, jersey_number, photo_url, team_name, status, shirt_size, short_size, sweatshirt_size, shooting_shirt_size",
     )
-    .in("id", playerIds);
+    .in("id", playerIds)
+    .order("graduation_year", { ascending: true })
+    .order("last_name", { ascending: true })
+    .order("first_name", { ascending: true });
 
   if (playersErr) {
     console.error("[portal/data] players fetch failed:", playersErr);
@@ -55,7 +61,7 @@ export async function GET(request: NextRequest) {
 
   const players = await Promise.all(
     (playersData ?? []).map(async (player) => {
-      const [paymentsRes, plansRes, chargesRes] = await Promise.all([
+      const [paymentsRes, balanceRes, chargesRes] = await Promise.all([
         admin
           .from("payments")
           .select(
@@ -63,20 +69,20 @@ export async function GET(request: NextRequest) {
           )
           .eq("player_id", player.id)
           .order("payment_date", { ascending: false }),
-        admin
-          .from("payment_plans")
-          .select(
-            "id, season, plan_type, total_amount_cents, amount_paid_cents, installments_total, installments_paid, next_due_date",
-          )
-          .eq("player_id", player.id)
-          .order("created_at", { ascending: false })
-          .limit(1),
+        // THE balance. Derived from money by `player_balances()` and passed
+        // through untouched — the browser never computes what is owed, and the
+        // collections email reads this same function.
+        admin.rpc("player_balances", { p_player_id: player.id }),
         admin
           .from("player_charges")
           .select("id, label, amount_cents, season, status, paid_at, created_at")
           .eq("player_id", player.id)
           .order("created_at", { ascending: true }),
       ]);
+
+      if (balanceRes.error) {
+        console.error("[portal/data] player_balances failed:", balanceRes.error);
+      }
 
       return {
         ...player,
@@ -86,7 +92,7 @@ export async function GET(request: NextRequest) {
         // in /api/portal/link and is untouched.)
         guardians: [],
         payments: paymentsRes.data ?? [],
-        paymentPlan: plansRes.data?.[0] ?? null,
+        balance: balanceRes.data?.[0] ?? null,
         charges: chargesRes.data ?? [],
       };
     }),

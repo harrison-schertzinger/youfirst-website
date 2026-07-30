@@ -11,6 +11,7 @@ import { ClipboardCheck,
   Trophy,
   Mail,
   TrendingUp,
+  MessageSquare,
   Menu,
   X,
 } from "lucide-react";
@@ -29,6 +30,7 @@ const NAV: NavItem[] = [
   { href: "/admin/expenses", label: "Expenses", Icon: Receipt },
   { href: "/admin/tournaments", label: "Tournaments", Icon: Trophy },
   { href: "/admin/templates", label: "Templates", Icon: Mail },
+  { href: "/admin/questions", label: "Questions", Icon: MessageSquare },
   { href: "/admin/financials", label: "Financials", Icon: TrendingUp },
 ];
 

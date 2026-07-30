@@ -1,40 +1,20 @@
-import {
-  STRIPE_PRICE_IDS,
-  TICKET_AMOUNTS_DOLLARS,
-  TICKET_AMOUNTS_CENTS,
-} from "./feesData";
+import { TICKET_AMOUNTS_DOLLARS, TICKET_AMOUNTS_CENTS } from "./feesData";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface PaymentTicket {
   ticketId: string;
   playerId: string;
-  category: "roster" | "summer";
+  category: "roster";
   title: string;
-  amount: number;
   amountCents: number;
-  dueDate: string | null;
-  dueDateDisplay: string;
-  status: "paid" | "due" | "overdue";
+  /** Money actually received against this ticket. */
+  paidCents: number;
+  status: "paid" | "due";
   paidDate?: string;
-  stripePriceId: string;
-  installmentIndex?: number;
-  installmentsTotal?: number;
 }
 
-/** Minimal payment plan shape matching what PortalContent fetches. */
-export interface PortalPaymentPlan {
-  id: string;
-  season: string;
-  plan_type: string;
-  total_amount_cents: number;
-  amount_paid_cents: number;
-  installments_total: number;
-  installments_paid: number;
-  next_due_date: string | null;
-}
-
-/** Minimal payment row shape matching what PortalContent fetches. */
+/** Minimal payment row shape matching what /api/portal/data returns. */
 export interface PortalPayment {
   id: string;
   amount_cents: number;
@@ -46,182 +26,96 @@ export interface PortalPayment {
   payment_category?: string | null;
 }
 
+/** One line in the "Summer Payments" list. */
+export interface SummerPaymentLine {
+  id: string;
+  /** "Payment 1 — Apr 7, 2026". Derived from date order, never invented. */
+  label: string;
+  amountCents: number;
+  paymentDate: string;
+}
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const ROSTER_FEE = TICKET_AMOUNTS_DOLLARS.roster; // $200
-
-/**
- * Due dates for summer tuition installments (2025-26 season).
- * Keyed by installment count.
- */
-const SUMMER_DUE_DATES: Record<1 | 2 | 4, string[]> = {
-  1: ["2025-12-15"],
-  2: ["2025-12-15", "2026-03-15"],
-  4: ["2025-12-15", "2026-01-15", "2026-02-15", "2026-03-15"],
-};
+const ROSTER_FEE_CENTS = TICKET_AMOUNTS_CENTS.roster; // $200
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function formatLongDate(iso: string): string {
-  // I6 fix: parse date-only strings at local noon so Pacific time doesn't
-  // render "2025-12-15" as Dec 14.
-  const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00`) : new Date(iso);
+function formatShortDate(iso: string): string {
+  // Parse date-only strings at local noon so a Pacific-time viewer doesn't
+  // see "2026-04-07" render as Apr 6.
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(iso)
+    ? new Date(`${iso}T12:00:00`)
+    : new Date(iso);
   return d.toLocaleDateString("en-US", {
-    month: "long",
+    month: "short",
     day: "numeric",
     year: "numeric",
   });
 }
 
-/**
- * Find the Nth completed payment in a given category (sorted oldest-first).
- * Returns the payment_date ISO string, or undefined.
- */
-function paidDateForIndex(
+function completedInCategory(
   payments: PortalPayment[],
   category: string,
-  index: number,
-): string | undefined {
-  const matches = payments
+): PortalPayment[] {
+  return payments
     .filter((p) => p.status === "completed" && p.payment_category === category)
     .sort((a, b) => a.payment_date.localeCompare(b.payment_date));
-  return matches[index]?.payment_date;
 }
 
-/**
- * Determine the summer installment schedule from the payment plan.
- *
- * Naming inversion (matches Supabase enum, confirmed in dashboard):
- *   lump_sum  -> 1 installment  of $1,850
- *   monthly   -> 2 installments of $925   (the "half plan")
- *   quarterly -> 4 installments of $462.50 (the "quarter plan")
- */
-function inferSummerInstallments(plan: PortalPaymentPlan): {
-  count: 1 | 2 | 4;
-  amountDollars: number;
-  amountCents: number;
-  stripePriceId: string;
-  dueDates: string[];
-} {
-  let count: 1 | 2 | 4;
-  const installmentsTotal = plan.installments_total ?? 0;
-
-  if (
-    installmentsTotal === 1 ||
-    installmentsTotal === 2 ||
-    installmentsTotal === 4
-  ) {
-    count = installmentsTotal;
-  } else if (plan.plan_type === "quarterly") {
-    count = 4;
-  } else if (plan.plan_type === "monthly") {
-    count = 2;
-  } else {
-    count = 1;
-  }
-
-  const totalDollars = plan.total_amount_cents / 100;
-  const amountDollars = totalDollars / count;
-  const amountCents = Math.round(plan.total_amount_cents / count);
-
-  const stripePriceId =
-    count === 1
-      ? STRIPE_PRICE_IDS.summer_full
-      : count === 2
-        ? STRIPE_PRICE_IDS.summer_half
-        : STRIPE_PRICE_IDS.summer_quarter;
-
-  return {
-    count,
-    amountDollars,
-    amountCents,
-    stripePriceId,
-    dueDates: SUMMER_DUE_DATES[count],
-  };
-}
-
-// ─── Main builder ───────────────────────────────────────────────────────────
+// ─── Roster ticket ──────────────────────────────────────────────────────────
 
 /**
- * Build the full ordered ticket list for a player. Each ticket is one
- * payable item a parent can act on. Order: roster first, then summer
- * installments by due date.
+ * The roster fee is a fixed $200 and is settled purely by money received —
+ * it never consulted an installment counter, so it was always honest and is
+ * unchanged here.
  *
- * NO FALL TICKETS — fall is hidden from the portal entirely.
+ * The summer season is NOT a ticket any more. It is one balance surface driven
+ * by `player_balances()` (see SummerBalanceCard). There are no due dates and
+ * nothing is labeled overdue: the season is over, and the only question left
+ * is what is still owed.
+ *
+ * Fall money is deliberately absent from the portal entirely.
  */
-export function buildTickets(
+export function buildRosterTicket(
   playerId: string,
   payments: PortalPayment[],
-  paymentPlan: PortalPaymentPlan | null,
-  nowMs: number = Date.now(),
-): PaymentTicket[] {
-  const tickets: PaymentTicket[] = [];
+): PaymentTicket {
+  const rosterPayments = completedInCategory(payments, "roster");
+  const paidCents = rosterPayments.reduce((sum, p) => sum + p.amount_cents, 0);
+  const fullyPaid = paidCents >= ROSTER_FEE_CENTS;
 
-  // ── 1. Roster Fee ─────────────────────────────────────────────────────
-  // Sum completed roster payments in cents
-  const rosterPaidCents = payments
-    .filter((p) => p.payment_category === "roster" && p.status === "completed")
-    .reduce((sum, p) => sum + p.amount_cents, 0);
-  const rosterFullyPaid = rosterPaidCents >= ROSTER_FEE * 100;
-
-  tickets.push({
+  return {
     ticketId: `${playerId}-roster-1`,
     playerId,
     category: "roster",
     title: "Roster Fee",
-    amount: ROSTER_FEE,
-    amountCents: TICKET_AMOUNTS_CENTS.roster,
-    dueDate: null,
-    dueDateDisplay: "Due at Registration",
-    status: rosterFullyPaid ? "paid" : "due",
-    paidDate: rosterFullyPaid
-      ? paidDateForIndex(payments, "roster", 0)
-      : undefined,
-    stripePriceId: STRIPE_PRICE_IDS.roster,
-  });
-
-  // ── 2. Summer Tuition ─────────────────────────────────────────────────
-  if (paymentPlan && paymentPlan.total_amount_cents > 0) {
-    const summer = inferSummerInstallments(paymentPlan);
-
-    // Trust installments_paid when set; fall back to deriving from amount_paid.
-    let paidCount = paymentPlan.installments_paid ?? 0;
-    if (paidCount === 0 && paymentPlan.amount_paid_cents > 0 && summer.amountCents > 0) {
-      paidCount = Math.floor(
-        (paymentPlan.amount_paid_cents + 1) / summer.amountCents,
-      );
-    }
-    paidCount = Math.min(Math.max(0, paidCount), summer.count);
-
-    for (let i = 0; i < summer.count; i++) {
-      const isPaid = i < paidCount;
-      const dueDate = summer.dueDates[i];
-      // I6 fix: local-noon parse so overdue doesn't flip a day early in PT.
-      const dueMs = new Date(`${dueDate}T12:00:00`).getTime();
-      const isOverdue = !isPaid && dueMs < nowMs;
-
-      tickets.push({
-        ticketId: `${playerId}-summer-${i + 1}`,
-        playerId,
-        category: "summer",
-        title:
-          summer.count === 1
-            ? "Summer Tuition"
-            : `Summer Tuition \u00b7 ${i + 1} of ${summer.count}`,
-        amount: summer.amountDollars,
-        amountCents: summer.amountCents,
-        dueDate,
-        dueDateDisplay: `Due ${formatLongDate(dueDate)}`,
-        status: isPaid ? "paid" : isOverdue ? "overdue" : "due",
-        paidDate: isPaid
-          ? paidDateForIndex(payments, "summer", i)
-          : undefined,
-        stripePriceId: summer.stripePriceId,
-        installmentIndex: i + 1,
-        installmentsTotal: summer.count,
-      });
-    }
-  }
-
-  return tickets;
+    amountCents: ROSTER_FEE_CENTS,
+    paidCents,
+    status: fullyPaid ? "paid" : "due",
+    paidDate: fullyPaid ? rosterPayments[0]?.payment_date : undefined,
+  };
 }
+
+// ─── Summer payment list ────────────────────────────────────────────────────
+
+/**
+ * Every completed summer payment, oldest first, labeled by its position in
+ * that order. Existing rows have null descriptions and there never was an
+ * installment schedule, so we label by date rather than fabricate one.
+ *
+ * These lines sum to the `paid_cents` shown on the balance card — a parent can
+ * count her own payments and reconcile them against the figure above.
+ */
+export function buildSummerPaymentLines(
+  payments: PortalPayment[],
+): SummerPaymentLine[] {
+  return completedInCategory(payments, "summer").map((p, i) => ({
+    id: p.id,
+    label: `Payment ${i + 1} — ${formatShortDate(p.payment_date)}`,
+    amountCents: p.amount_cents,
+    paymentDate: p.payment_date,
+  }));
+}
+
+export const ROSTER_FEE_DOLLARS = TICKET_AMOUNTS_DOLLARS.roster;

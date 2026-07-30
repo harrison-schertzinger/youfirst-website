@@ -7,6 +7,8 @@ import PlayerCard from "./PlayerCard";
 import PaymentDashboard from "./PaymentDashboard";
 import PlayerProfileCard from "./PlayerProfileCard";
 import PlayerPicker from "./PlayerPicker";
+import PlayerSwitcher from "./PlayerSwitcher";
+import type { PlayerBalanceRow } from "@/lib/portal-balance";
 
 interface Guardian {
   id: string;
@@ -49,17 +51,6 @@ interface Payment {
   status: string;
 }
 
-interface PaymentPlan {
-  id: string;
-  season: string;
-  plan_type: string;
-  total_amount_cents: number;
-  amount_paid_cents: number;
-  installments_total: number;
-  installments_paid: number;
-  next_due_date: string | null;
-}
-
 export interface PortalCharge {
   id: string;
   label: string;
@@ -73,7 +64,8 @@ export interface PortalCharge {
 interface PlayerWithData extends Player {
   guardians: Guardian[];
   payments: Payment[];
-  paymentPlan: PaymentPlan | null;
+  /** From player_balances() — the one balance function. Never recomputed here. */
+  balance: PlayerBalanceRow | null;
   charges: PortalCharge[];
 }
 
@@ -83,6 +75,8 @@ export default function PortalContent() {
   const [players, setPlayers] = useState<PlayerWithData[]>([]);
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  // Sibling households only — which child's portal is on screen.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,6 +164,14 @@ export default function PortalContent() {
     );
   }
 
+  // Prefer active athletes. If a household's only athlete has been retired we
+  // still show her rather than dropping the family onto the "find your athlete"
+  // picker.
+  const activePlayers = players.filter((p) => p.status === "active");
+  const shownPlayers = activePlayers.length > 0 ? activePlayers : players;
+  const selectedPlayer =
+    shownPlayers.find((p) => p.id === selectedId) ?? shownPlayers[0];
+
   return (
     <div className="mx-auto max-w-[1280px] px-6 lg:px-8 py-12">
       {/* Header */}
@@ -180,26 +182,34 @@ export default function PortalContent() {
         </h1>
       </div>
 
-      {/* Player cards */}
-      {players.map((player) => (
-        <div key={player.id} className="mb-16">
-          <PlayerCard player={player} />
-          <PlayerProfileCard
-            player={player}
-            onUpdated={(next) =>
-              setPlayers((prev) =>
-                prev.map((p) => (p.id === next.id ? { ...p, ...next } : p))
-              )
-            }
-          />
-          <PaymentDashboard
-            playerId={player.id}
-            payments={player.payments}
-            paymentPlan={player.paymentPlan}
-            charges={player.charges}
-          />
-        </div>
-      ))}
+      {/* Sibling switcher — renders only when this session links to more than
+          one athlete. Single-player families see no switcher and no change. */}
+      <PlayerSwitcher
+        players={shownPlayers}
+        selectedId={selectedPlayer.id}
+        onSelect={setSelectedId}
+      />
+
+      {/* The selected athlete's portal. Everything below — profile, progress,
+          payments, comment box — belongs to this player and no sibling. */}
+      <div key={selectedPlayer.id} className="mb-16">
+        <PlayerCard player={selectedPlayer} />
+        <PlayerProfileCard
+          player={selectedPlayer}
+          onUpdated={(next) =>
+            setPlayers((prev) =>
+              prev.map((p) => (p.id === next.id ? { ...p, ...next } : p))
+            )
+          }
+        />
+        <PaymentDashboard
+          playerId={selectedPlayer.id}
+          playerFirstName={selectedPlayer.first_name}
+          payments={selectedPlayer.payments}
+          balance={selectedPlayer.balance}
+          charges={selectedPlayer.charges}
+        />
+      </div>
 
       {/* Sign out */}
       <div className="text-center pt-8 border-t border-[#E5E7EB]">

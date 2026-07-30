@@ -50,3 +50,6 @@ parent-emails.csv
 # Separate Node tooling sub-project — own package.json, node_modules,
 # raw photos, generated PNGs. Don't track from this repo.
 /scripts/recruiting-graphics/
+
+# Local dry-run renders — contain guardian emails and balances. Never commit.
+tmp/

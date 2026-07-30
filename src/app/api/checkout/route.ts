@@ -3,36 +3,22 @@ import { createClient } from "@supabase/supabase-js";
 import { getStripe } from "@/lib/stripe";
 import { STRIPE_PRICE_IDS, TICKET_AMOUNTS_CENTS } from "@/lib/feesData";
 import { readPortalSession } from "@/lib/portal-session";
+import type { PlayerBalanceRow } from "@/lib/portal-balance";
 
-// C1/C3 fix: derive price + verify unpaid state server-side.
-// Client only supplies (playerId, category, installmentIndex). Everything
-// that affects what the parent is charged is recomputed here.
+export const dynamic = "force-dynamic";
+
+// The client supplies only WHICH thing it wants to pay — (playerId, category,
+// intent). Every cent is re-derived here, server-side.
+//
+// Summer is charged as a dynamic amount taken from `player_balances()`: the
+// same function the portal renders and the collections email quotes. It is NOT
+// a fixed Stripe Price any more. The old code resolved one of three preset
+// prices from `installments_total`, which for every live plan meant $1,850 —
+// so a family who had already paid part of the season would have been billed
+// the whole thing again.
 
 type Category = "roster" | "summer";
-
-function resolveSummerPrice(
-  installmentsTotal: number,
-): { priceId: string; amountCents: number } | null {
-  if (installmentsTotal === 1) {
-    return {
-      priceId: STRIPE_PRICE_IDS.summer_full,
-      amountCents: TICKET_AMOUNTS_CENTS.summer_full,
-    };
-  }
-  if (installmentsTotal === 2) {
-    return {
-      priceId: STRIPE_PRICE_IDS.summer_half,
-      amountCents: TICKET_AMOUNTS_CENTS.summer_half,
-    };
-  }
-  if (installmentsTotal === 4) {
-    return {
-      priceId: STRIPE_PRICE_IDS.summer_quarter,
-      amountCents: TICKET_AMOUNTS_CENTS.summer_quarter,
-    };
-  }
-  return null;
-}
+type Intent = "full" | "quarter";
 
 export async function POST(request: NextRequest) {
   const stripe = getStripe();
@@ -54,14 +40,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
   }
 
-  const {
-    playerId,
-    category,
-    installmentIndex,
-  } = (body ?? {}) as {
+  const { playerId, category, intent } = (body ?? {}) as {
     playerId?: string;
     category?: string;
-    installmentIndex?: number;
+    intent?: string;
   };
 
   if (typeof playerId !== "string" || !playerId) {
@@ -72,6 +54,11 @@ export async function POST(request: NextRequest) {
   }
   const safeCategory: Category = category;
 
+  // A stale page (or an older client) may not send an intent. Defaulting to
+  // the full remaining balance is always the safe read — it can never charge
+  // more than what is actually owed.
+  const safeIntent: Intent = intent === "quarter" ? "quarter" : "full";
+
   // ── Authenticate: portal token (parents are NOT on Supabase Auth) ──
   const portalSession = readPortalSession(request);
   if (!portalSession) {
@@ -81,27 +68,44 @@ export async function POST(request: NextRequest) {
   // Any signed-in parent may pay for any player — intentionally not gated
   // (divorced/step-parent families etc.). The amount is still re-derived
   // server-side below, so the payer can never influence what is charged.
-  const admin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    return NextResponse.json({ error: "Server not configured." }, { status: 500 });
+  }
+  const admin = createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 
-  // ── Re-derive ticket state server-side (C1 + C3) ───────────────────
-  //  - Summer: look up the player's plan, derive price from installments_total
-  //  - Roster: fixed $200 price
-  //  - Reject if already paid
-  let stripePriceId: string;
-  let installmentsTotal: number | undefined;
+  // ── Derive the amount server-side ──────────────────────────────────
+  let lineItem: {
+    price?: string;
+    price_data?: {
+      currency: string;
+      unit_amount: number;
+      product_data: { name: string };
+    };
+    quantity: number;
+  };
   let ticketId: string;
+  let amountCents: number;
 
   if (safeCategory === "roster") {
-    // Fetch completed roster payments; sum to check paid state
-    const { data: rosterPayments } = await admin
+    // Fixed $200, settled by money received. Unchanged.
+    const { data: rosterPayments, error: rosterErr } = await admin
       .from("payments")
-      .select("amount_cents, status, payment_category")
+      .select("amount_cents")
       .eq("player_id", playerId)
       .eq("payment_category", "roster")
       .eq("status", "completed");
+
+    if (rosterErr) {
+      console.error("[checkout] roster payments lookup failed:", rosterErr);
+      return NextResponse.json(
+        { error: "Couldn’t start checkout." },
+        { status: 500 },
+      );
+    }
 
     const paidCents = (rosterPayments ?? []).reduce(
       (sum, p) => sum + (p.amount_cents ?? 0),
@@ -114,82 +118,85 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    stripePriceId = STRIPE_PRICE_IDS.roster;
+    amountCents = TICKET_AMOUNTS_CENTS.roster;
+    lineItem = { price: STRIPE_PRICE_IDS.roster, quantity: 1 };
     ticketId = `${playerId}-roster-1`;
   } else {
-    // Summer: fetch most recent plan
-    const { data: plan } = await admin
-      .from("payment_plans")
-      .select(
-        "id, total_amount_cents, amount_paid_cents, installments_total, installments_paid, plan_type",
-      )
-      .eq("player_id", playerId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // ── Summer: the amount IS the balance. One source of truth. ──────
+    const { data: balances, error: balanceErr } = await admin.rpc(
+      "player_balances",
+      { p_player_id: playerId },
+    );
 
-    if (!plan || !plan.total_amount_cents || plan.total_amount_cents <= 0) {
+    if (balanceErr) {
+      console.error("[checkout] player_balances failed:", balanceErr);
       return NextResponse.json(
-        { error: "No active summer payment plan for this player." },
+        { error: "Couldn’t start checkout." },
+        { status: 500 },
+      );
+    }
+
+    const balance = (balances as PlayerBalanceRow[] | null)?.[0];
+    if (!balance) {
+      return NextResponse.json(
+        { error: "No summer payment plan for this player." },
         { status: 404 },
       );
     }
 
-    // Normalize installments_total to a supported value (1, 2, or 4).
-    let iTotal = plan.installments_total ?? 0;
-    if (iTotal !== 1 && iTotal !== 2 && iTotal !== 4) {
-      if (plan.plan_type === "quarterly") iTotal = 4;
-      else if (plan.plan_type === "monthly") iTotal = 2;
-      else iTotal = 1;
-    }
-
-    const resolved = resolveSummerPrice(iTotal);
-    if (!resolved) {
+    if (balance.remaining_cents <= 0) {
       return NextResponse.json(
-        { error: "Unsupported installment configuration." },
-        { status: 400 },
-      );
-    }
-
-    const idx =
-      typeof installmentIndex === "number" && Number.isInteger(installmentIndex)
-        ? installmentIndex
-        : undefined;
-
-    if (idx == null || idx < 1 || idx > iTotal) {
-      return NextResponse.json(
-        { error: "Invalid installment index." },
-        { status: 400 },
-      );
-    }
-
-    const paidCount = Math.min(
-      Math.max(0, plan.installments_paid ?? 0),
-      iTotal,
-    );
-
-    // Reject if this specific installment (or an earlier one) is already paid.
-    if (idx <= paidCount) {
-      return NextResponse.json(
-        { error: "This installment is already paid." },
+        { error: "Summer tuition is already settled." },
         { status: 409 },
       );
     }
 
-    // Also reject if the plan is already fully paid by dollars.
-    if ((plan.amount_paid_cents ?? 0) >= plan.total_amount_cents) {
+    if (safeIntent === "quarter") {
+      // Only offer a quarter when it is a true fraction of what she owes.
+      // The function decides this — the browser cannot talk us into it.
+      if (!balance.quarter_eligible || balance.quarter_cents <= 0) {
+        return NextResponse.json(
+          { error: "The quarter option isn’t available on this balance." },
+          { status: 409 },
+        );
+      }
+      amountCents = balance.quarter_cents;
+      ticketId = `${playerId}-summer-quarter`;
+    } else {
+      amountCents = balance.remaining_cents;
+      ticketId = `${playerId}-summer-balance`;
+    }
+
+    // Belt and braces: never let a computed amount exceed what is owed, and
+    // never hand Stripe a non-positive amount.
+    if (amountCents <= 0 || amountCents > balance.remaining_cents) {
+      console.error("[checkout] refusing implausible summer amount", {
+        playerId,
+        amountCents,
+        remaining: balance.remaining_cents,
+      });
       return NextResponse.json(
-        { error: "Summer tuition is already paid in full." },
-        { status: 409 },
+        { error: "Couldn’t start checkout." },
+        { status: 500 },
       );
     }
 
-    stripePriceId = resolved.priceId;
-    installmentsTotal = iTotal;
-    ticketId = `${playerId}-summer-${idx}`;
+    lineItem = {
+      price_data: {
+        currency: "usd",
+        unit_amount: amountCents,
+        product_data: {
+          name:
+            safeIntent === "quarter"
+              ? "You. First — Summer Tuition (partial payment)"
+              : "You. First — Summer Tuition (remaining balance)",
+        },
+      },
+      quantity: 1,
+    };
   }
 
-  // ── Look up player name for receipt ────────────────────────────────
+  // ── Look up player name for the receipt ────────────────────────────
   const { data: player } = await admin
     .from("players")
     .select("first_name, last_name")
@@ -206,20 +213,18 @@ export async function POST(request: NextRequest) {
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      line_items: [{ price: stripePriceId, quantity: 1 }],
+      line_items: [lineItem],
       customer_email: portalSession.email || undefined,
       metadata: {
         player_id: playerId,
         guardian_id: portalSession.guardianId,
         ticket_id: ticketId,
         category: safeCategory,
-        ...(safeCategory === "summer" && installmentsTotal
-          ? {
-              installment_index: String(installmentIndex),
-              installments_total: String(installmentsTotal),
-            }
-          : {}),
         player_name: playerName,
+        // Recorded for reconciliation: what we believed was owed at the
+        // moment this session was created.
+        amount_cents: String(amountCents),
+        intent: safeCategory === "summer" ? safeIntent : "full",
       },
       success_url: `${origin}/portal?paid=${encodeURIComponent(ticketId)}`,
       cancel_url: `${origin}/portal?canceled=${encodeURIComponent(ticketId)}`,
