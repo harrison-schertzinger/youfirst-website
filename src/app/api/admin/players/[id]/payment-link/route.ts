@@ -144,6 +144,12 @@ export async function POST(
 
     const paymentLink = await stripe.paymentLinks.create({
       line_items: [{ price: price.id, quantity: 1 }],
+      // Single-use. A Stripe Payment Link is otherwise permanent and
+      // multi-completion: a stale link forwarded around a family (or clicked
+      // by both guardians) would charge its fixed amount every time, and the
+      // webhook correctly records each completion as new money. One completed
+      // session, then Stripe deactivates the link.
+      restrictions: { completed_sessions: { limit: 1 } },
       metadata: {
         player_id: player.id,
         guardian_id: primary_guardian_id,

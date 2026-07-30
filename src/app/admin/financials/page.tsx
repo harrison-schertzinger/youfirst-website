@@ -16,6 +16,7 @@ import CsvDownloadButton from "@/components/admin/CsvDownloadButton";
 import FinancialsChart, {
   type ChartPoint,
 } from "@/components/admin/FinancialsChart";
+import type { PlayerBalanceRow } from "@/lib/portal-balance";
 
 export const dynamic = "force-dynamic";
 
@@ -27,12 +28,6 @@ interface PaymentLite {
   season: string | null;
 }
 
-interface PlanLite {
-  total_amount_cents: number | null;
-  amount_paid_cents: number | null;
-  season: string | null;
-  created_at: string | null;
-}
 
 interface ExpenseLite {
   id: string;
@@ -134,9 +129,11 @@ export default async function FinancialsPage({
   // P&L queries.
   // Per audit rule (h): sum payments.amount_cents (NOT payment_plans.amount_paid_cents)
   // to avoid double-counting pending Stripe sessions.
+  // Billed/Outstanding/Rate come from player_balances() — the same function
+  // the portal, checkout and collections email read.
   const [
     paymentsRes,
-    plansRes,
+    balancesRes,
     expensesRes,
     tournamentsRes,
     chartPaymentsRes,
@@ -147,10 +144,7 @@ export default async function FinancialsPage({
       .select("amount_cents, status, season")
       .eq("season", season)
       .eq("status", "completed"),
-    admin
-      .from("payment_plans")
-      .select("total_amount_cents, amount_paid_cents, season, created_at")
-      .eq("season", season),
+    admin.rpc("player_balances"),
     admin
       .from("expenses")
       .select(
@@ -178,22 +172,37 @@ export default async function FinancialsPage({
   ]);
 
   const payments = (paymentsRes.data ?? []) as PaymentLite[];
-  const plans = (plansRes.data ?? []) as PlanLite[];
+  const balances = ((balancesRes.data ?? []) as PlayerBalanceRow[]).filter(
+    (b) => b.season === season,
+  );
   const expenses = (expensesRes.data ?? []) as ExpenseLite[];
   const tournaments = (tournamentsRes.data ?? []) as TournamentLite[];
 
+  // Revenue Collected is the P&L top line: every completed payment this
+  // season, all categories (summer + roster + fall). Correct for cash-in.
   const revenueCollectedCents = payments.reduce(
     (s, p) => s + (p.amount_cents ?? 0),
     0,
   );
-  const totalBilledCents = plans.reduce(
-    (s, p) => s + (p.total_amount_cents ?? 0),
+  // Billed vs collected is SUMMER money, from player_balances(). The previous
+  // version summed roster and fall payments against the summer-only billed
+  // total and ignored adjustments, which read $0.00 outstanding and a 100.76%
+  // collection rate while $47,375 was genuinely owed.
+  const totalBilledCents = balances.reduce(
+    (s, b) => s + (b.charged_cents ?? 0) - (b.adjustment_cents ?? 0),
     0,
   );
-  const outstandingCents = Math.max(0, totalBilledCents - revenueCollectedCents);
+  const summerCollectedCents = balances.reduce(
+    (s, b) => s + (b.paid_cents ?? 0),
+    0,
+  );
+  const outstandingCents = balances.reduce(
+    (s, b) => s + (b.remaining_cents ?? 0),
+    0,
+  );
   const collectionRate =
     totalBilledCents > 0
-      ? (revenueCollectedCents / totalBilledCents) * 100
+      ? (summerCollectedCents / totalBilledCents) * 100
       : 0;
   const totalExpensesCents = expenses.reduce(
     (s, e) => s + (e.amount_cents ?? 0),
@@ -365,8 +374,14 @@ export default async function FinancialsPage({
           Billed vs collected
         </h2>
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <SmallStat label="Total Billed" value={formatDollars(totalBilledCents)} />
-          <SmallStat label="Total Collected" value={formatDollars(revenueCollectedCents)} />
+          <SmallStat
+            label="Summer Billed (net)"
+            value={formatDollars(totalBilledCents)}
+          />
+          <SmallStat
+            label="Summer Collected"
+            value={formatDollars(summerCollectedCents)}
+          />
           <SmallStat
             label="Outstanding"
             value={formatDollars(outstandingCents)}

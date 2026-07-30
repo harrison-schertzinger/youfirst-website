@@ -368,17 +368,57 @@ async function runCollections(
       continue;
     }
 
-    // Dedupe at the family level for this wave.
+    // Dedupe at the family level for this wave. 'claimed' counts too: a row
+    // stuck in 'claimed' means a prior run died mid-send — never auto-resend
+    // over it; inspect hermes_send_log and clear it by hand.
     const { count } = await supabase
       .from("hermes_send_log")
       .select("id", { count: "exact", head: true })
       .eq("kind", "collections")
       .eq("player_id", playerId)
       .eq("cycle_key", cycleKey)
-      .eq("status", "sent");
+      .in("status", ["claimed", "sent"]);
     if ((count ?? 0) > 0) {
       bump("already_sent_this_wave");
       continue;
+    }
+
+    // CLAIM the family BEFORE anything sends. The partial unique index
+    // hermes_send_log_collections_claim_uniq (kind, player_id, cycle_key
+    // where status in claimed/sent) makes this atomic: if two invocations of
+    // the same wave overlap, exactly one insert succeeds and the loser skips.
+    // The read-check above alone cannot guarantee that — it is a race window
+    // the width of the whole send loop. Dry runs never claim. Redirected
+    // tests log under 'collections_test', outside the unique index, so a
+    // test can never consume the real wave's dedup key.
+    let claimId: string | null = null;
+    if (!dryRun) {
+      const { data: claim, error: claimErr } = await supabase
+        .from("hermes_send_log")
+        .insert({
+          kind: redirectTo ? "collections_test" : "collections",
+          plan_id: first.plan_id,
+          player_id: playerId,
+          recipient_email: "",
+          cycle_key: cycleKey,
+          subject: `Season close-out — ${first.player_name}`,
+          status: "claimed",
+          detail: { wave, grad_years: gradYears },
+        })
+        .select("id")
+        .single();
+      if (claimErr || !claim) {
+        if ((claimErr as { code?: string } | null)?.code === "23505") {
+          bump("already_sent_this_wave"); // lost a concurrent race — the winner sends
+        } else {
+          errors.push(
+            `${first.player_name}: claim failed — ${claimErr?.message ?? "no row"}`,
+          );
+          bump("claim_failed");
+        }
+        continue; // never send unclaimed
+      }
+      claimId = claim.id as string;
     }
 
     players++;
@@ -449,30 +489,36 @@ async function runCollections(
       else errors.push(`${first.player_name} → ${to}: ${r.error}`);
     }
 
-    if (!dryRun && recipients.length > 0) {
-      // ONE row per player. A redirected test logs under a different kind so it
-      // can never consume the real wave's dedup key.
-      await logSend({
-        kind: redirectTo ? "collections_test" : "collections",
-        plan_id: first.plan_id,
-        player_id: playerId,
-        recipient_email: recipients.join(","),
-        cycle_key: cycleKey,
-        subject: `Season close-out — ${first.player_name}`,
-        // 'sent' ONLY if every guardian for this family actually received it.
-        // Logging 'sent' on a partial success would make the dedup check skip
-        // the family on a re-run, and the guardian whose send failed would
-        // never be told what she owes.
-        status: results.every((x) => x.ok) ? "sent" : "failed",
-        detail: {
-          wave,
-          grad_years: gradYears,
-          balance_cents: balance,
-          guardians: recipients,
-          redirected_to: redirectTo,
-          results,
-        },
-      });
+    if (!dryRun && claimId) {
+      // Resolve the claim — ONE row per player. 'sent' ONLY if every guardian
+      // for this family actually received it. Logging 'sent' on a partial
+      // success would make the dedup check skip the family on a re-run, and
+      // the guardian whose send failed would never be told what she owes.
+      // 'failed' rows fall outside the unique index, so the family can be
+      // retried once the cause is fixed.
+      const { error: resolveErr } = await supabase
+        .from("hermes_send_log")
+        .update({
+          recipient_email: recipients.join(","),
+          status:
+            results.length > 0 && results.every((x) => x.ok)
+              ? "sent"
+              : "failed",
+          detail: {
+            wave,
+            grad_years: gradYears,
+            balance_cents: balance,
+            guardians: recipients,
+            redirected_to: redirectTo,
+            results,
+          },
+        })
+        .eq("id", claimId);
+      if (resolveErr) {
+        console.error("hermes_send_log claim resolve failed", resolveErr, {
+          claimId,
+        });
+      }
     }
   }
 

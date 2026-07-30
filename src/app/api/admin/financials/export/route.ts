@@ -8,6 +8,7 @@ import {
   isExpenseCategory,
   type ExpenseCategory,
 } from "@/lib/expense-categories";
+import type { PlayerBalanceRow } from "@/lib/portal-balance";
 
 export const dynamic = "force-dynamic";
 
@@ -15,9 +16,6 @@ const DEFAULT_SEASON = "2025-26";
 
 interface PaymentLite {
   amount_cents: number | null;
-}
-interface PlanLite {
-  total_amount_cents: number | null;
 }
 interface ExpenseLite {
   category: string;
@@ -58,16 +56,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const [paymentsRes, plansRes, expensesRes, tournamentsRes] = await Promise.all([
+  // Billed/Outstanding/Rate come from player_balances() — the same function
+  // the portal, checkout and collections email read. This export previously
+  // repeated the financials page's lie ($0.00 outstanding) in the CSV
+  // Kathleen downloads.
+  const [paymentsRes, balancesRes, expensesRes, tournamentsRes] = await Promise.all([
     admin
       .from("payments")
       .select("amount_cents")
       .eq("season", season)
       .eq("status", "completed"),
-    admin
-      .from("payment_plans")
-      .select("total_amount_cents")
-      .eq("season", season),
+    admin.rpc("player_balances"),
     admin
       .from("expenses")
       .select("category, amount_cents, tournament_id")
@@ -80,7 +79,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   ]);
 
   const payments = (paymentsRes.data ?? []) as PaymentLite[];
-  const plans = (plansRes.data ?? []) as PlanLite[];
+  const balances = ((balancesRes.data ?? []) as PlayerBalanceRow[]).filter(
+    (b) => b.season === season,
+  );
   const expenses = (expensesRes.data ?? []) as ExpenseLite[];
   const tournaments = (tournamentsRes.data ?? []) as TournamentLite[];
 
@@ -88,13 +89,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     (s, p) => s + (p.amount_cents ?? 0),
     0,
   );
-  const billedCents = plans.reduce(
-    (s, p) => s + (p.total_amount_cents ?? 0),
+  const billedCents = balances.reduce(
+    (s, b) => s + (b.charged_cents ?? 0) - (b.adjustment_cents ?? 0),
     0,
   );
-  const outstandingCents = Math.max(0, billedCents - revenueCents);
+  const summerCollectedCents = balances.reduce(
+    (s, b) => s + (b.paid_cents ?? 0),
+    0,
+  );
+  const outstandingCents = balances.reduce(
+    (s, b) => s + (b.remaining_cents ?? 0),
+    0,
+  );
   const collectionRate =
-    billedCents > 0 ? (revenueCents / billedCents) * 100 : 0;
+    billedCents > 0 ? (summerCollectedCents / billedCents) * 100 : 0;
   const expenseCents = expenses.reduce((s, e) => s + (e.amount_cents ?? 0), 0);
   const netCents = revenueCents - expenseCents;
 
@@ -153,8 +161,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   rows.push(["Section 1: Revenue Summary"]);
   rows.push(["Metric", "Value"]);
-  rows.push(["Total Billed", `$${fmtDollars(billedCents)}`]);
-  rows.push(["Total Collected", `$${fmtDollars(revenueCents)}`]);
+  rows.push(["Summer Billed (net of adjustments)", `$${fmtDollars(billedCents)}`]);
+  rows.push(["Summer Collected", `$${fmtDollars(summerCollectedCents)}`]);
+  rows.push(["Revenue Collected (all categories)", `$${fmtDollars(revenueCents)}`]);
   rows.push(["Outstanding", `$${fmtDollars(outstandingCents)}`]);
   rows.push(["Collection Rate", `${collectionRate.toFixed(1)}%`]);
   rows.push([]);

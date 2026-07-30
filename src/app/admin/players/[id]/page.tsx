@@ -9,6 +9,7 @@ import {
   type PlayerSourceInput,
 } from "@/lib/player-source";
 import PlayerArchiveButton from "@/components/admin/PlayerArchiveButton";
+import type { PlayerBalanceRow } from "@/lib/portal-balance";
 import PlayerInfoEditable from "@/components/admin/PlayerInfoEditable";
 import GuardiansEditableCard, {
   type GuardianWithLink,
@@ -178,8 +179,10 @@ export default async function PlayerProfilePage({
     );
   }
 
-  // Parallel: guardians (via player_guardians), payments, plan, and charges.
-  const [linksRes, paymentsRes, planRes, chargesRes] = await Promise.all([
+  // Parallel: guardians (via player_guardians), payments, plan, charges, and
+  // THE balance — player_balances(), the same function the portal, checkout
+  // and collections email read.
+  const [linksRes, paymentsRes, planRes, chargesRes, balanceRes] = await Promise.all([
     admin
       .from("player_guardians")
       .select("guardian_id, is_primary")
@@ -204,6 +207,7 @@ export default async function PlayerProfilePage({
       .select("id, label, amount_cents, season, status, paid_at, created_at")
       .eq("player_id", id)
       .order("created_at", { ascending: false }),
+    admin.rpc("player_balances", { p_player_id: id }),
   ]);
 
   const links: LinkRow[] = (linksRes.data ?? []) as LinkRow[];
@@ -258,13 +262,19 @@ export default async function PlayerProfilePage({
   const source = sourceLabels[sourceKey];
 
   // ── Financial summary numbers ─────────────────────────────────────────
-  const billedCents = plan?.total_amount_cents ?? 0;
-  const collectedCents = plan?.amount_paid_cents ?? 0;
-  // A released balance is released here too. Without subtracting the
-  // adjustment this page showed Demaree Vianello owing $1,800 and offered to
-  // generate a payment link for it, while her portal correctly read settled.
-  const adjustmentCents = plan?.adjustment_cents ?? 0;
-  const balanceCents = Math.max(0, billedCents - collectedCents - adjustmentCents);
+  // Every figure comes from player_balances() — the same function the portal,
+  // checkout and collections email read. The previous derivation read
+  // plan.amount_paid_cents, a counter only the Stripe webhook maintains: a
+  // check or Zelle payment logged straight into `payments` would have made
+  // this page show a stale Collected and a wrong balance on the one screen
+  // Kathleen bills from. Collected is the summer ledger (roster/fall money
+  // never nets against the season plan).
+  const balanceRow =
+    ((balanceRes.data ?? null) as PlayerBalanceRow[] | null)?.[0] ?? null;
+  const billedCents = balanceRow?.charged_cents ?? plan?.total_amount_cents ?? 0;
+  const collectedCents = balanceRow?.paid_cents ?? 0;
+  const adjustmentCents = balanceRow?.adjustment_cents ?? 0;
+  const balanceCents = balanceRow?.remaining_cents ?? 0;
 
   // ── Payment history ordering ──────────────────────────────────────────
   const paymentsSorted = [...payments].sort((a, b) => {
