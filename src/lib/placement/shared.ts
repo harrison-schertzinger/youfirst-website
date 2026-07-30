@@ -167,7 +167,8 @@ export type SkipReason =
   | "unfilled_merge_field"
   | "no_template"
   | "no_class_year"
-  | "already_confirmed";
+  | "already_confirmed"
+  | "banned_language";
 
 export const SKIP_REASON_LABEL: Record<SkipReason, string> = {
   no_email: "No email on file",
@@ -177,7 +178,60 @@ export const SKIP_REASON_LABEL: Record<SkipReason, string> = {
   no_template: "No template found for this tier",
   no_class_year: "No graduation year on file",
   already_confirmed: "Already confirmed",
+  banned_language: "Copy uses language Addendum B bans",
 };
+
+// ── Addendum B3 — banned language ─────────────────────────────────────────
+
+/**
+ * Language that must never reach a family, enforced rather than trusted. A
+ * rendered email matching any of these is refused at preview, test and live,
+ * exactly like unwritten copy — Addendum B3 says "banned … in every email",
+ * and a rule that depends on nobody slipping is not a rule.
+ *
+ * NOTE ON "DEVELOPMENT": B1 permits it for an activity or a philosophy — the
+ * club's own first pillar is "Own development in this area." Only the
+ * *labelling* uses are banned, so these patterns match "developmental" and
+ * "development team/player/squad/group", never the bare word.
+ *
+ * NOT MACHINE-CHECKABLE, and deliberately not faked here:
+ *   · "'second team' USED COMPARATIVELY" — the phrase is flagged outright
+ *     rather than judged in context. A false positive costs a rewrite; a false
+ *     negative costs a family.
+ *   · "any sentence that opens by naming what the athlete did not get" — this
+ *     needs a human read. It is called out in every template's guidance.
+ */
+export const BANNED_PATTERNS: { label: string; re: RegExp }[] = [
+  { label: '"developmental"', re: /\bdevelopmental\b/i },
+  {
+    label: '"development" labelling a person or team',
+    re: /\bdevelopment\s+(team|player|squad|group|roster|athlete)s?\b/i,
+  },
+  { label: '"B team"', re: /\bb[\s-]?team\b/i },
+  { label: '"second team"', re: /\bsecond\s+team\b/i },
+  { label: '"lower team"', re: /\blower\s+team\b/i },
+  { label: '"tier 2"', re: /\btier\s*2\b/i },
+  { label: '"didn\'t make it"', re: /\bdid\s?n[o']?t\s+make\s+(it|the)\b/i },
+  { label: '"unfortunately"', re: /\bunfortunately\b/i },
+];
+
+/**
+ * Every banned phrase present in the text, by label.
+ *
+ * `[[ ]]` blocks are stripped first: those are authoring guidance, not copy,
+ * and the guidance necessarily quotes the very words it is warning about.
+ * Nothing is lost by ignoring them — unwritten copy is already its own hard
+ * block, so a template containing a `[[ ]]` cannot send regardless, and once
+ * the blocks are deleted this check sees the real copy.
+ */
+export function bannedLanguageIn(text: string): string[] {
+  const copyOnly = String(text).replace(/\[\[[\s\S]*?\]\]/g, " ");
+  const hits = new Set<string>();
+  for (const { label, re } of BANNED_PATTERNS) {
+    if (re.test(copyOnly)) hits.add(label);
+  }
+  return Array.from(hits);
+}
 
 // ── Shapes crossing the wire to the send screen ───────────────────────────
 
@@ -235,6 +289,8 @@ export interface SendAudience {
     /** Regions still carrying [[ ]] copy Harrison has not written. */
     unwritten: string[];
     missingRegions: string[];
+    /** Addendum B3 phrases found in the copy. */
+    banned: string[];
   }[];
   fetchedAt: string;
 }

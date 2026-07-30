@@ -9,9 +9,22 @@
  * be mistaken for the finished document — including if one gets attached to a
  * receipt by accident.
  *
- * NAMING LAW (from the roster standard): the rosters are Elite, Blue, the Elite
- * Youth Program and the Elite Training Group. "Development" never labels a
- * person.
+ * ADDENDUM B applies to every word in this document:
+ *   B1  "Development" describes what the club does, never a person, a team or
+ *       a tier. "Own development in this area" is fine; "development team" is
+ *       not. The rosters are Elite, Blue, the Elite Youth Program and the
+ *       Elite Training Group.
+ *   B2  Tier labels are exact: "{Class} Elite", "{Class} Blue", "Elite Youth
+ *       Program", "Elite Training Group". no_tryout / no_registration /
+ *       declined / pending are INTERNAL and must never appear here.
+ *   B3  Banned: developmental / B team / second team / lower team / tier 2 /
+ *       did not make it / unfortunately. And never open a sentence by naming
+ *       what an athlete did not get.
+ *   B4  Blue is not a downgrade. It gets the same weight as Elite everywhere.
+ *
+ * The email path enforces the B3 word list automatically. This document is
+ * built by a script, so the same list is worth a manual read before shipping —
+ * `node scripts/build-club-standard.mjs` reports unwritten sections, not tone.
  */
 
 export const CLUB = {

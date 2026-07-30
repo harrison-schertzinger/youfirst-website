@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import ConfirmClient from "@/components/placement/ConfirmClient";
 import { getServiceClient } from "@/lib/placement/config";
 import { findToken, isExpired } from "@/lib/placement/tokens";
-import { tierLabel } from "@/lib/placement/shared";
+import { PLACEMENT_SEASON, tierLabel } from "@/lib/placement/shared";
 
 export const dynamic = "force-dynamic";
 
@@ -14,14 +14,16 @@ export const metadata: Metadata = {
 
 // ─── The confirmation page ───────────────────────────────────────────────────
 // She arrives from one button in one email. The page already knows who she is:
-// no form, no login, nothing to type. It states the placement in the club's own
-// naming standard — "2030 Elite", "Elite Youth Program", "Elite Training Group"
-// — and never in terms of something she did not make.
+// no form, no login, nothing to type.
 //
-// COPY NOTE: the brief points at "Addendum B" for the exact wording, which was
-// not supplied with this build. Rather than invent marketing copy for the page a
-// family lands on, everything here is factual — her name, her placement, the
-// deadline, the action. Prose can be added once Addendum B is in hand.
+// ADDENDUM B3 — the page states her name, her placement using the exact B2
+// display string, what happens next, the deadline, and the button. Facts only.
+// No sentence opens by naming what she did not get, because no sentence here
+// names it at all.
+//
+// The B2 "internal only" tiers cannot reach this page even in principle:
+// placement_tokens.placement_tier is CHECK-constrained to the four team tiers,
+// so no token can exist for declined / no_tryout / no_registration / pending.
 
 const INK = "#0A0A0B";
 const ACCENT = "#4B9CD3";
@@ -57,6 +59,8 @@ export default async function PlacementConfirmPage({
           token={token}
           initiallyConfirmed
           email={row.recipient_email}
+          placement={placement}
+          season={PLACEMENT_SEASON}
         />
       </Shell>
     );
@@ -74,6 +78,8 @@ export default async function PlacementConfirmPage({
         token={token}
         initiallyConfirmed={false}
         email={row.recipient_email}
+        placement={placement}
+        season={PLACEMENT_SEASON}
         expiresAt={row.expires_at}
       />
     </Shell>

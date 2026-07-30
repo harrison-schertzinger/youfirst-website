@@ -184,7 +184,11 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
   const unwrittenTemplates = useMemo(
     () =>
       data.templateHealth.filter(
-        (t) => !t.found || t.unwritten.length > 0 || t.missingRegions.length > 0,
+        (t) =>
+          !t.found ||
+          t.unwritten.length > 0 ||
+          t.missingRegions.length > 0 ||
+          t.banned.length > 0,
       ),
     [data.templateHealth],
   );
@@ -244,13 +248,14 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
                 Copy is not finished — these cannot send yet
               </div>
               <p className="mt-1 text-[13px] leading-relaxed text-[#92400E]/90">
-                A template still carrying a{" "}
-                <code className="rounded bg-[#92400E]/10 px-1">[[ ]]</code> block is
-                blocked at every level: preview, test and live. Edit the copy in{" "}
+                A template carrying a{" "}
+                <code className="rounded bg-[#92400E]/10 px-1">[[ ]]</code> block, or
+                language Addendum B bans, is blocked at every level: preview, test
+                and live. Edit the copy in{" "}
                 <a href="/admin/templates" className="underline">
                   Templates
-                </a>{" "}
-                and delete each block.
+                </a>
+                .
               </p>
               <ul className="mt-3 space-y-1.5 text-[13px] text-[#92400E]">
                 {unwrittenTemplates.map((t) => (
@@ -265,6 +270,12 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
                         )}
                         {t.missingRegions.length > 0 && (
                           <span> — missing: {t.missingRegions.join(", ")}</span>
+                        )}
+                        {t.banned.length > 0 && (
+                          <span className="font-semibold text-[#B91C1C]">
+                            {" "}
+                            — Addendum B bans {t.banned.join(", ")}
+                          </span>
                         )}
                       </>
                     )}

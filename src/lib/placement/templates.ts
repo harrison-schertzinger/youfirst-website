@@ -28,6 +28,7 @@ import {
   HERO_URL,
 } from "@/lib/placement/config";
 import {
+  bannedLanguageIn,
   NUDGE_TEMPLATE_NAME,
   PLACEMENT_SEASON,
   RECEIPT_TEMPLATE_NAME,
@@ -207,6 +208,18 @@ export function renderEmail(
     };
   }
 
+  // Addendum B3. Checked on the RENDERED text, so a banned word arriving
+  // through a snippet or a merge value is caught too, not just one typed into
+  // the template body.
+  const banned = bannedLanguageIn(`${rendered.subject}\n${rendered.body}`);
+  if (banned.length) {
+    return {
+      ok: false,
+      reason: "banned_language",
+      detail: `Addendum B bans ${banned.join(", ")}`,
+    };
+  }
+
   const chrome: EmailChrome = {
     shape,
     eyebrow:
@@ -241,6 +254,8 @@ export function templateHealth(bundle: TemplateBundle) {
     found: boolean;
     unwritten: string[];
     missingRegions: string[];
+    /** Addendum B3 hits, surfaced while writing rather than at send time. */
+    banned: string[];
   }[] = [];
 
   const check = (
@@ -250,7 +265,14 @@ export function templateHealth(bundle: TemplateBundle) {
   ) => {
     const tpl = bundle.byName.get(templateName);
     if (!tpl) {
-      entries.push({ tier, templateName, found: false, unwritten: [], missingRegions: [] });
+      entries.push({
+        tier,
+        templateName,
+        found: false,
+        unwritten: [],
+        missingRegions: [],
+        banned: [],
+      });
       return;
     }
     const regions = parseRegions(tpl.body);
@@ -263,6 +285,7 @@ export function templateHealth(bundle: TemplateBundle) {
         ...unwrittenRegions(regions),
       ],
       missingRegions: missingRegions(regions, shape),
+      banned: bannedLanguageIn(`${tpl.subject}\n${tpl.body}`),
     });
   };
 

@@ -14,11 +14,16 @@ export default function ConfirmClient({
   token,
   initiallyConfirmed,
   email,
+  placement,
+  season,
   expiresAt,
 }: {
   token: string;
   initiallyConfirmed: boolean;
   email: string;
+  /** The exact Addendum B2 display string — "2030 Blue", never a paraphrase. */
+  placement: string;
+  season: string;
   expiresAt?: string;
 }) {
   const [confirmed, setConfirmed] = useState(initiallyConfirmed);
@@ -61,16 +66,45 @@ export default function ConfirmClient({
           Her spot is confirmed.
         </div>
         <p className="mt-4 text-[16px] leading-relaxed text-[#C9CDD3]">
-          The Club Standard is on its way to{" "}
-          <span className="text-white">{email}</span> — everything about the
-          season, the staff, and what we expect, in one document.
+          She is on <span className="text-white">{placement}</span> for the{" "}
+          {season} season. The Club Standard is on its way to{" "}
+          <span className="text-white">{email}</span> — the season, the
+          structure, the staff, and what is expected, in one document.
         </p>
       </div>
     );
   }
 
+  const deadline = expiresAt
+    ? new Date(expiresAt).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
+
   return (
     <div className="mt-8">
+      {/* Addendum B3: what happens next, stated as fact. No marketing prose,
+          and never a sentence that opens by naming what she did not get. */}
+      <div className="mb-8 space-y-3 text-[16px] leading-relaxed text-[#C9CDD3]">
+        <p>
+          Confirming holds her place on{" "}
+          <span className="text-white">{placement}</span> for the {season} season.
+        </p>
+        <p>
+          The Club Standard comes to{" "}
+          <span className="text-white">{email}</span> straight away — the season,
+          the structure, the staff, and what is expected, in one document.
+        </p>
+        {deadline && (
+          <p>
+            Her place is held through{" "}
+            <span className="text-white">{deadline}</span>.
+          </p>
+        )}
+      </div>
+
       <button
         onClick={confirm}
         disabled={busy}
@@ -80,18 +114,6 @@ export default function ConfirmClient({
         {busy && <Loader2 className="h-5 w-5 animate-spin" />}
         Confirm her spot
       </button>
-
-      {expiresAt && (
-        <p className="mt-4 text-[14px] text-[#8A9099]">
-          This link is good through{" "}
-          {new Date(expiresAt).toLocaleDateString("en-US", {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          })}
-          .
-        </p>
-      )}
 
       {error && <p className="mt-4 text-[15px] text-[#F87171]">{error}</p>}
     </div>

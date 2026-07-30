@@ -14,7 +14,12 @@ config({ path: ".env.local" });
 import { getServiceClient } from "../src/lib/placement/config";
 import { buildAudience } from "../src/lib/placement/audience";
 import { loadTemplates, renderEmail } from "../src/lib/placement/templates";
-import { approvalPhrase, isSendableTier, SENDABLE_TIERS } from "../src/lib/placement/shared";
+import {
+  approvalPhrase,
+  bannedLanguageIn,
+  isSendableTier,
+  SENDABLE_TIERS,
+} from "../src/lib/placement/shared";
 import { PLACEMENT_TIERS } from "../src/lib/rosters/shared";
 
 async function main() {
@@ -30,6 +35,36 @@ async function main() {
       `  ${String(t ?? "(not placed)").padEnd(18)} ${isSendableTier(t) ? "SENDABLE" : "blocked"}`,
     );
   }
+
+  // Addendum B3. The critical case is the LAST one: B1 permits "development"
+  // for an activity — the club's own first pillar is "Own development in this
+  // area" — so a checker that blocks the bare word would block the pillar.
+  console.log("\nADDENDUM B3 WORD LIST");
+  const cases: [string, boolean][] = [
+    ["She is on our developmental squad.", true],
+    ["Welcome to the development team.", true],
+    ["She has been placed on the B team.", true],
+    ["This is our second team.", true],
+    ["She is on the lower team this year.", true],
+    ["Tier 2 plays in June.", true],
+    ["She didn't make it this time.", true],
+    ["Unfortunately, we had hard decisions.", true],
+    ["Own development in this area.", false],
+    ["2030 Blue plays the same schedule.", false],
+  ];
+  let failures = 0;
+  for (const [text, shouldBlock] of cases) {
+    const hits = bannedLanguageIn(text);
+    const blocked = hits.length > 0;
+    const ok = blocked === shouldBlock;
+    if (!ok) failures++;
+    console.log(
+      `  ${ok ? "PASS" : "FAIL"}  ${blocked ? "blocked" : "allowed"}  "${text}"${
+        hits.length ? `  [${hits.join(", ")}]` : ""
+      }`,
+    );
+  }
+  if (failures) console.log(`  ${failures} FAILURE(S) — the B3 checker is wrong.`);
 
   const audience = await buildAudience(db);
 
@@ -55,12 +90,14 @@ async function main() {
 
   console.log("\nTEMPLATES");
   for (const t of audience.templateHealth) {
+    const problems: string[] = [];
+    if (t.unwritten.length) problems.push(`unwritten: ${t.unwritten.join(", ")}`);
+    if (t.missingRegions.length) problems.push(`missing: ${t.missingRegions.join(", ")}`);
+    if (t.banned.length) problems.push(`ADDENDUM B BANS: ${t.banned.join(", ")}`);
     const state = !t.found
       ? "NOT FOUND"
-      : t.unwritten.length || t.missingRegions.length
-        ? `blocked — unwritten: ${t.unwritten.join(", ") || "none"}${
-            t.missingRegions.length ? `; missing: ${t.missingRegions.join(", ")}` : ""
-          }`
+      : problems.length
+        ? `blocked — ${problems.join("; ")}`
         : "ready";
     console.log(`  ${t.templateName.padEnd(38)} ${state}`);
   }
