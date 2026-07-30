@@ -5,6 +5,16 @@ import { sendTryoutConfirmationEmail } from "@/lib/tryout-email";
 import { sendTryoutAdminNotification } from "@/lib/tryout-admin-notify";
 import { pingCommandSheet } from "@/lib/command-sheet/engine";
 import { describeTryout, type TryoutType } from "@/lib/tryouts";
+import {
+  sendAdminNotification,
+  adminSubject,
+  money,
+} from "@/lib/admin-notify";
+import type { PlayerBalanceRow } from "@/lib/portal-balance";
+
+// Absolute base for admin deep links in notification emails.
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.youfirstlacrosse.com";
 
 // I5 fix: lazy init so missing env on a preview deploy surfaces a
 // 503 instead of crashing at module import.
@@ -232,7 +242,97 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // ── "A family paid" notification ────────────────────────────────────
+  // Deliberately AFTER the plan reconcile, so the balance quoted in the email
+  // is the post-payment figure — read from player_balances(), the same function
+  // the parent's portal renders.
+  //
+  // Only for a first delivery of a summer payment: a duplicate Stripe redelivery
+  // must not re-notify. Wrapped so it can NEVER fail the webhook — the money has
+  // already landed and Stripe must get its 200. Money always wins over a ping.
+  if (!duplicate && category === "summer") {
+    try {
+      await notifyPaymentReceived(supabase, playerId, amountCents, session);
+    } catch (notifyErr) {
+      console.error("Payment notification failed (non-fatal):", notifyErr);
+    }
+  }
+
   return NextResponse.json({ received: true, duplicate });
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Nothing previously told the club a family had paid — Stripe's own receipts
+// are noisy and go to the parent, not to us. This is the one that matters in
+// the week before an August 1 deadline.
+// ──────────────────────────────────────────────────────────────────────
+async function notifyPaymentReceived(
+  supabase: SupabaseClient,
+  playerId: string,
+  amountCents: number,
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  const [{ data: player }, { data: balances }] = await Promise.all([
+    supabase
+      .from("players")
+      .select("first_name, last_name, graduation_year, team_name")
+      .eq("id", playerId)
+      .maybeSingle(),
+    supabase.rpc("player_balances", { p_player_id: playerId }),
+  ]);
+
+  const playerName = player
+    ? `${player.first_name} ${player.last_name}`
+    : "Unknown player";
+  const balance = (balances as PlayerBalanceRow[] | null)?.[0] ?? null;
+
+  const method =
+    session.payment_method_types?.[0] === "card"
+      ? "Card"
+      : (session.payment_method_types?.[0] ?? "Stripe");
+
+  const settled = balance ? balance.remaining_cents <= 0 : false;
+
+  await sendAdminNotification({
+    subject: adminSubject("Payment received", playerName, money(amountCents)),
+    headline: playerName,
+    subhead:
+      [
+        player?.team_name,
+        player?.graduation_year ? `Class of ${player.graduation_year}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || undefined,
+    rows: [
+      { label: "Paid now", value: money(amountCents), emphasise: true },
+      { label: "Method", value: method },
+      ...(balance
+        ? [
+            { label: "Charged", value: money(balance.charged_cents) },
+            { label: "Paid total", value: money(balance.paid_cents) },
+            ...(balance.adjustment_cents > 0
+              ? [
+                  {
+                    label: "Adjustment",
+                    value: `−${money(balance.adjustment_cents)}`,
+                  },
+                ]
+              : []),
+            {
+              label: "Remaining",
+              value: money(balance.remaining_cents),
+              emphasise: true,
+            },
+          ]
+        : []),
+    ],
+    paragraphs: [
+      settled
+        ? `${playerName} is now settled for the summer season — nothing further due.`
+        : `${money(balance?.remaining_cents ?? 0)} still outstanding.`,
+    ],
+    button: { label: "Open her record", url: `${SITE_URL}/admin/players/${playerId}` },
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────

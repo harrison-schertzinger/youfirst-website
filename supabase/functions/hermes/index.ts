@@ -484,7 +484,13 @@ async function runCollections(
 
     players++;
     const recipients: string[] = [];
-    const results: { to: string; ok: boolean; error?: string }[] = [];
+    const results: {
+      to: string;
+      ok: boolean;
+      error?: string;
+      // Resend's message id — the key the bounce webhook looks up.
+      id?: string;
+    }[] = [];
 
     for (const g of guardians) {
       const ctx = {
@@ -553,7 +559,7 @@ async function runCollections(
         from: COLLECTIONS_FROM,
         replyTo: COLLECTIONS_REPLY_TO,
       });
-      results.push({ to, ok: r.ok, error: r.error });
+      results.push({ to, ok: r.ok, error: r.error, id: r.id });
       if (r.ok) sent++;
       else {
         errors.push(`${first.player_name} → ${to}: ${r.error}`);
@@ -594,6 +600,28 @@ async function runCollections(
         console.error("hermes_send_log claim resolve failed", resolveErr, {
           claimId,
         });
+      }
+
+      // Per-recipient delivery rows, keyed by Resend's message id, so a bounce
+      // webhook can name the family and the exact address that failed. Best
+      // effort: the emails are already sent, so a bookkeeping failure here must
+      // not look like a send failure.
+      const deliveryRows = results
+        .filter((x) => x.id)
+        .map((x) => ({
+          send_log_id: claimId,
+          player_id: playerId,
+          recipient_email: x.to,
+          resend_id: x.id,
+          status: x.ok ? "sent" : "failed",
+        }));
+      if (deliveryRows.length > 0) {
+        const { error: delErr } = await supabase
+          .from("hermes_email_deliveries")
+          .upsert(deliveryRows, { onConflict: "resend_id" });
+        if (delErr) {
+          console.error("hermes_email_deliveries insert failed", delErr);
+        }
       }
     }
   }
