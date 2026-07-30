@@ -119,15 +119,58 @@ export interface RosterAthlete {
   source: "tryout" | "recruiting" | null;
   /** Returning band: she also registered for tryouts this season. */
   registered: boolean;
+  /** Registration-backed athletes: the tryout fee actually went through. */
+  regPaid: boolean;
+  /**
+   * The registration row that carries this athlete's notes: her own row for
+   * new athletes, the absorbed registration for returning ones, null when a
+   * returning player never registered (players has no notes column).
+   */
+  regId: string | null;
   createdAt: string;
   flags: RosterFlag[];
   dupOf: DupCandidate[];
   noteText: string | null;
 }
 
+export interface AutoResolvedEntry {
+  keptKey: string;
+  keptName: string;
+  droppedName: string;
+}
+
 export interface RosterData {
   athletes: RosterAthlete[];
+  /** Duplicates collapsed on this read — the audit line lives in the
+   *  superseded row's notes; reversal is deleting that note. */
+  autoResolved: AutoResolvedEntry[];
   fetchedAt: string;
+}
+
+/**
+ * Which record survives a merge. Canonical beats convenient: a returning
+ * player always wins; then a confirmed record, a paid registration, the more
+ * complete record, the fuller name, the earlier registration. Used by both
+ * the server's auto-resolve and the one-click merge control so they never
+ * disagree.
+ */
+export function pickKeeper(a: RosterAthlete, b: RosterAthlete): [RosterAthlete, RosterAthlete] {
+  const completeness = (x: RosterAthlete) =>
+    [x.parentEmail, x.parentPhone, x.position, x.school, x.jersey, x.parentName].filter(
+      Boolean,
+    ).length;
+  const nameWeight = (x: RosterAthlete) =>
+    x.name.trim().split(/\s+/).length * 100 + x.name.trim().length;
+  const rank = (x: RosterAthlete) =>
+    (x.band === "returning" ? 1_000_000 : 0) +
+    (x.confirmed ? 100_000 : 0) +
+    (x.regPaid ? 10_000 : 0) +
+    completeness(x) * 1_000 +
+    nameWeight(x);
+  if (rank(a) === rank(b)) {
+    return a.createdAt <= b.createdAt ? [a, b] : [b, a];
+  }
+  return rank(a) > rank(b) ? [a, b] : [b, a];
 }
 
 // ── Class grouping ────────────────────────────────────────────────────────
@@ -141,6 +184,9 @@ export function groupKeyForYear(year: number): string {
 }
 
 export const POSITION_OPTIONS = ["Attack", "Midfield", "Defense", "Goalie"] as const;
+
+/** List grouping order — scarce positions first, so gaps surface at the top. */
+export const POSITION_ORDER = ["Goalie", "Defense", "Midfield", "Attack"] as const;
 
 // ── Sorting + formatting helpers ──────────────────────────────────────────
 

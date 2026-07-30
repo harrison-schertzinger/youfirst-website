@@ -23,6 +23,8 @@ import {
   type ConfirmationRow as BaseConfirmationRow,
 } from "@/lib/command-sheet/data";
 import {
+  pickKeeper,
+  type AutoResolvedEntry,
   type PaidStatus,
   type RosterAthlete,
   type RosterData,
@@ -322,6 +324,8 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
       placementTier: p.placement_tier,
       source: null,
       registered,
+      regPaid: bestReg?.payment_status === "paid",
+      regId: bestReg?.id ?? null,
       createdAt: bestReg?.created_at ?? p.created_at,
       flags,
       dupOf: [],
@@ -353,7 +357,8 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
     if (!email && !phone) flags.push("no_contact");
     if (r.graduation_year == null) flags.push("no_grad_year");
     if (!r.position || r.position === "Undecided") flags.push("no_position");
-    if (r.source === "recruiting") flags.push("clipboard");
+    // A clipboard origin stops mattering once the record is fully reachable.
+    if (r.source === "recruiting" && (!email || !phone)) flags.push("clipboard");
 
     // A reg linked to an inactive player still resolves payments through it;
     // a reg with no player link is 'unknown', which is not 'unpaid'.
@@ -379,6 +384,8 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
       placementTier: r.placement_tier,
       source: r.source === "recruiting" ? "recruiting" : "tryout",
       registered: r.source === "tryout",
+      regPaid: r.payment_status === "paid",
+      regId: r.id,
       createdAt: r.created_at,
       flags,
       dupOf: [],
@@ -386,9 +393,135 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
     });
   }
 
-  attachDuplicates(athletes);
+  const { remaining, autoResolved } = await autoResolveDuplicates(db, athletes);
+  attachDuplicates(remaining);
 
-  return { athletes, fetchedAt: new Date().toISOString() };
+  return { athletes: remaining, autoResolved, fetchedAt: new Date().toISOString() };
+}
+
+// ── Auto-resolve: facts collapse, only ambiguity asks ─────────────────────
+
+const digitsOf = (s: string | null) => (s ?? "").replace(/\D/g, "");
+
+/**
+ * Same last name + same graduation year + a shared parent email or phone is
+ * a fact, not a suggestion — collapse without asking. The first-name prefix
+ * guard keeps twins apart (they share everything except a first name). The
+ * dropped side is always a registration and gets the SUPERSEDED note — that
+ * note IS the audit log, and deleting it is the reversal. A registration
+ * that already carries a placement decision is never collapsed silently.
+ */
+async function autoResolveDuplicates(
+  db: SupabaseClient,
+  athletes: RosterAthlete[],
+): Promise<{ remaining: RosterAthlete[]; autoResolved: AutoResolvedEntry[] }> {
+  const autoResolved: AutoResolvedEntry[] = [];
+  const dropped = new Set<string>();
+
+  for (let i = 0; i < athletes.length; i++) {
+    for (let j = i + 1; j < athletes.length; j++) {
+      const a = athletes[i];
+      const b = athletes[j];
+      if (dropped.has(a.key) || dropped.has(b.key)) continue;
+      if (a.band === "returning" && b.band === "returning") continue;
+      if (a.gradYear == null || b.gradYear == null || a.gradYear !== b.gradYear) continue;
+
+      const ka = keysFor(a.name);
+      const kb = keysFor(b.name);
+      if (!ka.last || ka.last !== kb.last) continue;
+      if (!prefixEq(ka.first, kb.first, 3)) continue;
+
+      const emailShared =
+        !!a.parentEmail &&
+        !!b.parentEmail &&
+        a.parentEmail.toLowerCase() === b.parentEmail.toLowerCase();
+      const pa = digitsOf(a.parentPhone);
+      const phoneShared = pa.length >= 10 && pa === digitsOf(b.parentPhone);
+      if (!emailShared && !phoneShared) continue;
+
+      const [keep, drop] = pickKeeper(a, b);
+      if (drop.table !== "tryout_registrations") continue;
+      if (drop.placementTier) continue;
+
+      try {
+        // 1. Audit-log the drop side via the standing SUPERSEDED convention.
+        const { data: dropRow } = await db
+          .from("tryout_registrations")
+          .select("id, notes")
+          .eq("id", drop.id)
+          .maybeSingle();
+        if (!dropRow) continue;
+        const tag = `SUPERSEDED (auto-resolved) — duplicate of ${keep.name}, matched on last name + class + shared parent contact. Surviving record id ${keep.id}. Reverse by deleting this note.`;
+        const dropUpdate: Record<string, string | null> = {
+          notes: dropRow.notes ? `${dropRow.notes} | ${tag}` : tag,
+        };
+        if (keep.table === "players") dropUpdate.player_id = keep.id;
+        const { error: dropErr } = await db
+          .from("tryout_registrations")
+          .update(dropUpdate)
+          .eq("id", drop.id);
+        if (dropErr) continue;
+
+        // 2. The keeper absorbs what she was missing — fuller name included.
+        const fuller =
+          drop.name.trim().split(/\s+/).length > keep.name.trim().split(/\s+/).length
+            ? drop.name
+            : null;
+        if (keep.table === "tryout_registrations") {
+          const fills: Record<string, string | number | null> = {};
+          if (!keep.position && drop.position) fills.position = drop.position;
+          if (!keep.school && drop.school) fills.school = drop.school;
+          if (!keep.jersey && drop.jersey) fills.jersey_number = drop.jersey;
+          if (!keep.parentName && drop.parentName) fills.parent_name = drop.parentName;
+          if (!keep.parentEmail && drop.parentEmail) fills.email = drop.parentEmail;
+          if (!keep.parentPhone && drop.parentPhone) fills.phone = drop.parentPhone;
+          if (fuller) fills.player_full_name = fuller;
+          if (Object.keys(fills).length > 0) {
+            await db.from("tryout_registrations").update(fills).eq("id", keep.id);
+          }
+        } else {
+          const fills: Record<string, string | null> = {};
+          if (!keep.position && drop.position) fills.position = drop.position;
+          if (!keep.school && drop.school) fills.school = drop.school;
+          if (!keep.jersey && drop.jersey) fills.jersey_number = drop.jersey;
+          if (fuller) {
+            const { first, last } = splitName(fuller);
+            fills.first_name = first || fuller;
+            fills.last_name = last || "—";
+          }
+          if (Object.keys(fills).length > 0) {
+            await db.from("players").update(fills).eq("id", keep.id);
+          }
+        }
+
+        // 3. Collapse in this read's view.
+        keep.name = fuller ?? keep.name;
+        keep.position = keep.position ?? drop.position;
+        keep.school = keep.school ?? drop.school;
+        keep.jersey = keep.jersey ?? drop.jersey;
+        keep.parentName = keep.parentName ?? drop.parentName;
+        keep.parentEmail = keep.parentEmail ?? drop.parentEmail;
+        keep.parentPhone = keep.parentPhone ?? drop.parentPhone;
+        keep.confirmed = keep.confirmed || drop.confirmed;
+        keep.registered = keep.registered || drop.registered;
+        keep.regPaid = keep.regPaid || drop.regPaid;
+        keep.regId = keep.regId ?? drop.regId;
+        if (keep.parentEmail || keep.parentPhone) {
+          keep.flags = keep.flags.filter((f) => f !== "no_contact");
+        }
+        dropped.add(drop.key);
+        autoResolved.push({
+          keptKey: keep.key,
+          keptName: keep.name,
+          droppedName: drop.name,
+        });
+      } catch {
+        // A failed collapse falls back to being a chip — never a crash.
+      }
+    }
+  }
+
+  return { remaining: athletes.filter((x) => !dropped.has(x.key)), autoResolved };
 }
 
 // ── Duplicate detection (read side — write-side flagging is next sprint) ──
@@ -410,13 +543,14 @@ function prefixEq(a: string, b: string, minLen: number): boolean {
 }
 
 /**
- * Fuzzy candidate pairing — three independent signals, any one raises the
- * flag (a question chip, never an automatic merge):
- *   1. names agree — first names by prefix, last names equal / prefix / one
- *      side missing;
- *   2. same parent email in the same class ("Gigi" registered as "Gianna");
- *   3. same exact last name in the same class when one side is a clipboard
- *      entry (a hand-written "Liz" for a registered "Elizabeth").
+ * Chip candidates — GENUINE ambiguity only; anything that was a fact already
+ * auto-resolved before this runs. A chip is raised for:
+ *   1. names agree (first prefix, last equal/prefix/one side missing) with
+ *      NO shared contact detail to settle it;
+ *   2. same parent email but names that don't line up ("Gigi" vs "Gianna");
+ *   3. same exact last name where one side is a clipboard entry
+ *      (a hand-written "Liz" for a registered "Elizabeth");
+ *   4. the same full name in two different graduation years.
  * Pairs where both sides are returning players are skipped — players is the
  * canonical table and merging there is out of scope.
  */
@@ -426,12 +560,22 @@ function attachDuplicates(athletes: RosterAthlete[]): void {
       const a = athletes[i];
       const b = athletes[j];
       if (a.band === "returning" && b.band === "returning") continue;
-      if (a.gradYear != null && b.gradYear != null && a.gradYear !== b.gradYear) {
-        continue;
-      }
 
       const ka = keysFor(a.name);
       const kb = keysFor(b.name);
+      const gradsDiffer =
+        a.gradYear != null && b.gradYear != null && a.gradYear !== b.gradYear;
+
+      // Cross-year: only an exact full-name match is worth a question.
+      if (gradsDiffer) {
+        if (normName(a.name) === normName(b.name)) {
+          const pairInfo = describePair(a, b);
+          a.dupOf.push(pairInfo.forA);
+          b.dupOf.push(pairInfo.forB);
+        }
+        continue;
+      }
+
       const nameHit =
         prefixEq(ka.first, kb.first, 3) &&
         (ka.last === kb.last ||
@@ -448,33 +592,29 @@ function attachDuplicates(athletes: RosterAthlete[]): void {
         (a.source === "recruiting" || b.source === "recruiting");
       if (!nameHit && !emailHit && !clipboardLastHit) continue;
 
-      const describe = (x: RosterAthlete) =>
-        [
-          x.band === "returning"
-            ? "returning player"
-            : x.source === "recruiting"
-              ? "clipboard entry"
-              : "registration",
-          x.gradYear != null ? `class of ${x.gradYear}` : "no grad year",
-          x.parentEmail ?? undefined,
-        ]
-          .filter(Boolean)
-          .join(" · ");
-
-      a.dupOf.push({
-        key: b.key,
-        name: b.name,
-        detail: describe(b),
-        keepTable: b.table,
-        keepId: b.id,
-      });
-      b.dupOf.push({
-        key: a.key,
-        name: a.name,
-        detail: describe(a),
-        keepTable: a.table,
-        keepId: a.id,
-      });
+      const pairInfo = describePair(a, b);
+      a.dupOf.push(pairInfo.forA);
+      b.dupOf.push(pairInfo.forB);
     }
   }
+}
+
+function describePair(a: RosterAthlete, b: RosterAthlete) {
+  const describe = (x: RosterAthlete) =>
+    [
+      x.band === "returning"
+        ? "returning player"
+        : x.source === "recruiting"
+          ? "clipboard entry"
+          : "registration",
+      x.gradYear != null ? `class of ${x.gradYear}` : "no grad year",
+      x.parentEmail ?? undefined,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+  return {
+    forA: { key: b.key, name: b.name, detail: describe(b), keepTable: b.table, keepId: b.id },
+    forB: { key: a.key, name: a.name, detail: describe(a), keepTable: a.table, keepId: a.id },
+  };
 }

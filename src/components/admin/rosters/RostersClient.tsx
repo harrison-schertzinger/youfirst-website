@@ -13,12 +13,14 @@ import {
 } from "lucide-react";
 import {
   POSITION_OPTIONS,
+  POSITION_ORDER,
   ROSTER_SHAPE,
   ROSTER_SIZE_MAX,
   ROSTER_SIZE_MIN,
   formatPhone,
   groupKeyForYear,
   nameSortKey,
+  pickKeeper,
   placedTeamOk,
   tierLabel,
   type PlacementTier,
@@ -27,10 +29,11 @@ import {
 } from "@/lib/rosters/shared";
 
 // ─── Rosters — the decision screen ───────────────────────────────────────────
-// Dense, aligned, tabular. Two bands share one table so every column lines up;
-// color appears only when a fact caused it. The placement dropdown saves the
-// moment it changes — optimistic, visible save state, rollback on failure.
-// Every identity/contact field edits inline: click, type, enter.
+// The list carries only what a placement decision needs: number, name, chips,
+// position, school, confirmed, paid, and the placement dropdown — grouped by
+// position so "do I have enough goalies" is answered by looking. Everything
+// else (contact, notes, corrective and destructive actions) lives in the
+// detail panel that opens on row click and follows the selection.
 
 type Choice = PlacementTier | "pending" | "move_down" | "move_up";
 
@@ -38,6 +41,8 @@ type EditField =
   | "name"
   | "position"
   | "school"
+  | "jerseyNumber"
+  | "notes"
   | "parentName"
   | "parentEmail"
   | "parentPhone"
@@ -60,10 +65,11 @@ const TH = "py-2.5 font-semibold bg-white xl:sticky xl:top-[92px] xl:z-10 xl:sha
 export default function RostersClient({ initial }: { initial: RosterData }) {
   const [data, setData] = useState<RosterData>(initial);
   const [active, setActive] = useState<string>("");
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [mergeFor, setMergeFor] = useState<string | null>(null);
   const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({});
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [newKeys, setNewKeys] = useState<Set<string>>(new Set());
-  const [mergeFor, setMergeFor] = useState<string | null>(null);
   const [merging, setMerging] = useState(false);
 
   const toastSeq = useRef(0);
@@ -106,8 +112,30 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
       .sort((a, b) => nameSortKey(a.name).localeCompare(nameSortKey(b.name)));
   }, [data, active, unassigned]);
 
-  const returning = inClass.filter((a) => a.band === "returning");
-  const fresh = inClass.filter((a) => a.band === "new");
+  // Position groups — scarce positions first, unknown last, empties skipped.
+  const positionGroups = useMemo(() => {
+    const out: { label: string; athletes: RosterAthlete[] }[] = [];
+    for (const pos of POSITION_ORDER) {
+      const list = inClass.filter((a) => a.position === pos);
+      if (list.length > 0) out.push({ label: pos, athletes: list });
+    }
+    const unknown = inClass.filter(
+      (a) => !a.position || !(POSITION_ORDER as readonly string[]).includes(a.position),
+    );
+    if (unknown.length > 0) out.push({ label: "Position unknown", athletes: unknown });
+    return out;
+  }, [inClass]);
+
+  const selected = useMemo(
+    () => (selectedKey ? (data.athletes.find((a) => a.key === selectedKey) ?? null) : null),
+    [data, selectedKey],
+  );
+
+  const byKey = useMemo(() => {
+    const m = new Map<string, RosterAthlete>();
+    for (const a of data.athletes) m.set(a.key, a);
+    return m;
+  }, [data]);
 
   // ── Toasts ──────────────────────────────────────────────────────────────
   const pushToast = useCallback((kind: Toast["kind"], text: string) => {
@@ -117,6 +145,16 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
       setToasts((t) => t.filter((x) => x.id !== id));
     }, 7000);
   }, []);
+
+  // Auto-resolutions from the first server render — say what happened, once.
+  const announcedAutoResolve = useRef(false);
+  useEffect(() => {
+    if (announcedAutoResolve.current) return;
+    announcedAutoResolve.current = true;
+    for (const e of initial.autoResolved) {
+      pushToast("info", `Auto-resolved duplicate — kept ${e.keptName}, superseded ${e.droppedName}. Reversible from the record's notes.`);
+    }
+  }, [initial.autoResolved, pushToast]);
 
   // ── Quiet refresh: polling + focus, paused while a hand is on the data ──
   const refresh = useCallback(async () => {
@@ -131,6 +169,9 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
       );
       knownKeys.current = new Set(next.athletes.map((a) => a.key));
       setData(next);
+      for (const e of next.autoResolved) {
+        pushToast("info", `Auto-resolved duplicate — kept ${e.keptName}, superseded ${e.droppedName}.`);
+      }
       if (arrivals.length > 0) {
         setNewKeys((prev) => {
           const s = new Set(prev);
@@ -229,13 +270,23 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
 
   // ── Inline field edits: commit on success, cell shows its own state ─────
   const saveField = useCallback(
-    async (athlete: RosterAthlete, field: EditField, value: string) => {
+    async (
+      athlete: RosterAthlete,
+      field: EditField,
+      value: string,
+      target?: { table: "players" | "tryout_registrations"; id: string },
+    ) => {
       inFlight.current += 1;
       try {
         const res = await fetch("/api/admin/rosters/athlete", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ table: athlete.table, id: athlete.id, field, value }),
+          body: JSON.stringify({
+            table: target?.table ?? athlete.table,
+            id: target?.id ?? athlete.id,
+            field,
+            value,
+          }),
         });
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -253,6 +304,10 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
                 return { ...a, position: v };
               case "school":
                 return { ...a, school: v };
+              case "jerseyNumber":
+                return { ...a, jersey: v };
+              case "notes":
+                return { ...a, noteText: v };
               case "parentName":
                 return { ...a, parentName: v };
               case "parentEmail":
@@ -264,9 +319,8 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
                 return {
                   ...a,
                   gradYear: y,
-                  classYear: a.placedTeam && /^\d{4}$/.test(a.placedTeam)
-                    ? a.classYear
-                    : y,
+                  classYear:
+                    a.placedTeam && /^\d{4}$/.test(a.placedTeam) ? a.classYear : y,
                 };
               }
             }
@@ -283,7 +337,7 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
     async (athlete: RosterAthlete) => {
       if (
         !window.confirm(
-          `Set ${athlete.name} inactive? She leaves this list but stays on the Players page.`,
+          `Set ${athlete.name} inactive? She leaves every class list but stays on the Players page.`,
         )
       ) {
         return;
@@ -309,6 +363,7 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
           athletes: cur.athletes.filter((a) => a.key !== athlete.key),
         }));
         knownKeys.current.delete(athlete.key);
+        setSelectedKey(null);
         pushToast("success", `${athlete.name} set inactive.`);
       } catch (e) {
         pushToast("error", e instanceof Error ? e.message : "Save failed.");
@@ -317,6 +372,21 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
       }
     },
     [pushToast],
+  );
+
+  const removeFromRoster = useCallback(
+    (athlete: RosterAthlete) => {
+      const gradKeepsHer =
+        athlete.gradYear != null &&
+        athlete.classYear != null &&
+        groupKeyForYear(athlete.gradYear) === groupKeyForYear(athlete.classYear);
+      const warning = gradKeepsHer
+        ? `Clear ${athlete.name}'s placement? Her graduation year (${athlete.gradYear}) keeps her in this class — reclassify the year if she belongs somewhere else.`
+        : `Clear ${athlete.name}'s placement and return her to her own class?`;
+      if (!window.confirm(warning)) return;
+      void applyChoice(athlete, "pending");
+    },
+    [applyChoice],
   );
 
   // ── Merge ───────────────────────────────────────────────────────────────
@@ -336,8 +406,8 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
         };
         if (!res.ok) throw new Error(body.error ?? `Merge failed (${res.status}).`);
         pushToast("success", `Merged — kept ${body.keptName}, superseded ${body.superseded}.`);
-        setMergeFor(null);
         setMerging(false);
+        setMergeFor(null);
         await refresh();
       } catch (e) {
         setMerging(false);
@@ -360,6 +430,11 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
       .length;
 
   const activeLabel = active === "unassigned" ? "Unassigned" : `Class of ${active}`;
+
+  // With the panel open there isn't room for every column until 2xl; the ones
+  // that hide are all carried by the panel (and grouping already says the
+  // position). Placement never leaves the screen.
+  const compactHide = selected ? "hidden 2xl:table-cell" : "";
 
   // ── Render ──────────────────────────────────────────────────────────────
   return (
@@ -390,8 +465,8 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
             Rosters
           </h1>
           <p className="mt-1 text-sm text-[#6B7280]">
-            Every athlete in one place. Placements save the moment you pick
-            them; click any field to fix it.
+            Grouped by position. Placements save the moment you pick them;
+            click a row for details, contact, and edits.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -472,14 +547,13 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
         )}
       </div>
 
-      {/* Table */}
-      <div className="mt-4">
-        <div className="w-full">
+      {/* List + detail panel */}
+      <div className="mt-4 flex gap-5 items-start">
+        <div className="flex-1 min-w-0">
           {active === "unassigned" && (
             <p className="mb-3 text-[13px] text-[#B45309]">
               No graduation year on file — these athletes appear in no class.
-              Merge them into their real record, or click the year column and
-              type one.
+              Click a row and set the year, or merge into the real record.
             </p>
           )}
 
@@ -487,54 +561,44 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
             <table className="w-full text-[13px]">
               <thead>
                 <tr className="text-left text-[10px] uppercase tracking-[0.1em] text-[#9CA3AF] border-b border-[#E5E8EC]">
-                  <th className={`px-4 ${TH}`}>Athlete</th>
-                  <th className={`px-3 ${TH} text-right`}>Yr</th>
-                  <th className={`px-3 ${TH}`}>Pos</th>
-                  <th className={`px-3 ${TH}`}>School</th>
-                  <th className={`px-3 ${TH} text-right`}>#</th>
-                  <th className={`px-3 ${TH}`}>Parent</th>
-                  <th className={`px-3 ${TH}`}>Email</th>
-                  <th className={`px-3 ${TH}`}>Phone</th>
+                  <th className={`pl-4 pr-1 w-10 text-right ${TH}`}>#</th>
+                  <th className={`px-3 ${TH}`}>Athlete</th>
+                  <th className={`px-3 ${TH} ${compactHide}`}>Pos</th>
+                  <th className={`px-3 ${TH} ${compactHide}`}>School</th>
                   <th className={`px-3 ${TH}`}>Conf</th>
-                  <th className={`px-3 ${TH}`}>Paid</th>
-                  <th className={`px-4 ${TH}`}>Placement</th>
+                  <th className={`px-3 ${TH} ${compactHide}`}>Paid</th>
+                  <th className={`px-4 w-[230px] ${TH}`}>Placement</th>
                 </tr>
               </thead>
               <tbody>
-                <BandRows
-                  label="Returning"
-                  emptyNote={
-                    active === "unassigned"
-                      ? null
-                      : `No returning athletes — ${active} is a new class.`
-                  }
-                  athletes={returning}
-                  saveStates={saveStates}
-                  newKeys={newKeys}
-                  mergeFor={mergeFor}
-                  merging={merging}
-                  onChoice={applyChoice}
-                  onField={saveField}
-                  onDeactivate={deactivate}
-                  onMergeOpen={(k) => setMergeFor((cur) => (cur === k ? null : k))}
-                  onMerge={runMerge}
-                  onRowTouch={clearNewKey}
-                />
-                <BandRows
-                  label="New"
-                  emptyNote="No new athletes in this class yet."
-                  athletes={fresh}
-                  saveStates={saveStates}
-                  newKeys={newKeys}
-                  mergeFor={mergeFor}
-                  merging={merging}
-                  onChoice={applyChoice}
-                  onField={saveField}
-                  onDeactivate={deactivate}
-                  onMergeOpen={(k) => setMergeFor((cur) => (cur === k ? null : k))}
-                  onMerge={runMerge}
-                  onRowTouch={clearNewKey}
-                />
+                {positionGroups.map((g) => (
+                  <PositionGroup
+                    key={g.label}
+                    label={g.label}
+                    athletes={g.athletes}
+                    selectedKey={selectedKey}
+                    mergeFor={mergeFor}
+                    byKey={byKey}
+                    merging={merging}
+                    compactHide={compactHide}
+                    saveStates={saveStates}
+                    newKeys={newKeys}
+                    onChoice={applyChoice}
+                    onMerge={runMerge}
+                    onMergeOpen={(k) => setMergeFor((cur) => (cur === k ? null : k))}
+                    onSelect={(k) => {
+                      setSelectedKey((cur) => (cur === k ? null : k));
+                      clearNewKey(k);
+                    }}
+                  />
+                ))}
+                {inClass.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-6 text-[12px] text-[#9CA3AF]">
+                      No athletes in this class yet.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -550,6 +614,16 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
             ET · checks for new registrations every 30 seconds.
           </p>
         </div>
+
+        {selected && (
+          <DetailPanel
+            a={selected}
+            onClose={() => setSelectedKey(null)}
+            onField={saveField}
+            onDeactivate={deactivate}
+            onRemove={removeFromRoster}
+          />
+        )}
       </div>
 
       {/* Toasts */}
@@ -582,427 +656,317 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
   );
 }
 
-// ─── One band: quiet header rule + identical rows ────────────────────────────
+// ─── One position group: quiet subheader + rows ──────────────────────────────
 
-interface RowHandlers {
+function PositionGroup({
+  label,
+  athletes,
+  selectedKey,
+  mergeFor,
+  byKey,
+  merging,
+  compactHide,
+  saveStates,
+  newKeys,
+  onChoice,
+  onMerge,
+  onMergeOpen,
+  onSelect,
+}: {
+  label: string;
+  athletes: RosterAthlete[];
+  selectedKey: string | null;
+  mergeFor: string | null;
+  byKey: Map<string, RosterAthlete>;
+  merging: boolean;
+  compactHide: string;
+  saveStates: Record<string, SaveState>;
+  newKeys: Set<string>;
   onChoice: (a: RosterAthlete, c: Choice) => void;
-  onField: (a: RosterAthlete, f: EditField, v: string) => Promise<void>;
-  onDeactivate: (a: RosterAthlete) => void;
-  onMergeOpen: (key: string) => void;
   onMerge: (
     dropRegId: string,
     keepTable: "players" | "tryout_registrations",
     keepId: string,
   ) => void;
-  onRowTouch: (key: string) => void;
-}
-
-function BandRows({
-  label,
-  emptyNote,
-  athletes,
-  saveStates,
-  newKeys,
-  mergeFor,
-  merging,
-  ...handlers
-}: {
-  label: string;
-  emptyNote: string | null;
-  athletes: RosterAthlete[];
-  saveStates: Record<string, SaveState>;
-  newKeys: Set<string>;
-  mergeFor: string | null;
-  merging: boolean;
-} & RowHandlers) {
+  onMergeOpen: (key: string) => void;
+  onSelect: (key: string) => void;
+}) {
   return (
     <>
       <tr className="border-b border-[#E5E8EC] bg-[#F8F9FA]">
         <td
-          colSpan={11}
-          className="px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B7280]"
+          colSpan={7}
+          className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B7280]"
         >
           {label}
           <span className="ml-2 text-[#9CA3AF] tabular-nums">{athletes.length}</span>
         </td>
       </tr>
-      {athletes.length === 0 && emptyNote && (
-        <tr className="border-b border-[#F1F3F6]">
-          <td colSpan={11} className="px-4 py-3 text-[12px] text-[#9CA3AF]">
-            {emptyNote}
-          </td>
-        </tr>
-      )}
       {athletes.map((a) => (
-        <AthleteRow
-          key={a.key}
-          a={a}
-          saveState={saveStates[a.key] ?? null}
-          isNew={newKeys.has(a.key)}
-          mergeOpen={mergeFor === a.key}
-          merging={merging}
-          {...handlers}
-        />
+        <AthleteRowGroup key={a.key}>
+          <AthleteRow
+            a={a}
+            selected={selectedKey === a.key}
+            compactHide={compactHide}
+            saveState={saveStates[a.key] ?? null}
+            isNew={newKeys.has(a.key)}
+            onChoice={onChoice}
+            onMergeOpen={onMergeOpen}
+            onSelect={onSelect}
+          />
+          {mergeFor === a.key && a.dupOf.length > 0 && (
+            <MergeCompareRow a={a} byKey={byKey} merging={merging} onMerge={onMerge} />
+          )}
+        </AthleteRowGroup>
       ))}
     </>
   );
 }
 
-// ─── One athlete ─────────────────────────────────────────────────────────────
+// Fragment wrapper so a row and its open compare stay keyed together.
+function AthleteRowGroup({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
+// ─── One athlete — the whole row is a click target for the panel ─────────────
 
 function AthleteRow({
   a,
+  selected,
+  compactHide,
   saveState,
   isNew,
-  mergeOpen,
-  merging,
   onChoice,
-  onField,
-  onDeactivate,
   onMergeOpen,
-  onMerge,
-  onRowTouch,
+  onSelect,
 }: {
   a: RosterAthlete;
+  selected: boolean;
+  compactHide: string;
   saveState: SaveState | null;
   isNew: boolean;
-  mergeOpen: boolean;
-  merging: boolean;
-} & RowHandlers) {
+  onChoice: (a: RosterAthlete, c: Choice) => void;
+  onMergeOpen: (key: string) => void;
+  onSelect: (key: string) => void;
+}) {
   const declined = a.placementTier === "declined";
-  const noContact = a.flags.includes("no_contact");
-  const save = (f: EditField) => (v: string) => onField(a, f, v);
 
   return (
-    <>
-      <tr
-        onMouseEnter={() => onRowTouch(a.key)}
-        className={[
-          "group border-b border-[#F1F3F6] last:border-0 transition-colors",
-          isNew ? "bg-[#EDF5FB]" : "",
-          declined ? "text-[#9CA3AF]" : "text-[#1A1A1A]",
-        ].join(" ")}
-      >
-        <td className="px-4 py-1.5 whitespace-nowrap">
-          <span className="inline-flex items-center gap-2">
-            <EditableCell
-              value={a.name}
-              onSave={save("name")}
-              className="font-semibold"
-              minWidth={120}
-            />
-            <span className="inline-flex items-center gap-1">
-              {a.band === "returning" && a.registered && (
-                <Chip tone="blue" title="Registered for this season's tryouts">
-                  Tried out
-                </Chip>
-              )}
-              {a.flags.includes("clipboard") && (
-                <Chip tone="neutral" title="Clipboard name — written down by hand, never registered online">
-                  Clipboard
-                </Chip>
-              )}
-              {noContact && (
-                <Chip tone="red" title="No email and no phone on file — this athlete cannot be reached">
-                  No contact
-                </Chip>
-              )}
-              {a.flags.includes("no_grad_year") && (
-                <Chip tone="red" title="No graduation year — appears in no class">
-                  No grad year
-                </Chip>
-              )}
-              {a.band === "returning" && a.flags.includes("not_registered") && (
-                <Chip tone="neutral" title="On last season's roster but has not registered for tryouts">
-                  No registration
-                </Chip>
-              )}
-              {a.dupOf.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => onMergeOpen(a.key)}
-                  title="Possible duplicate — review and merge"
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#FEF3C7] text-[#92400E] text-[10px] font-semibold hover:bg-[#FDE68A] transition-colors print:hidden"
-                >
-                  <GitMerge size={11} strokeWidth={2.5} />
-                  Dup?
-                </button>
-              )}
-            </span>
-          </span>
-        </td>
-        <td className="px-3 py-1.5 text-right tabular-nums">
-          <EditableCell
-            value={a.gradYear != null ? String(a.gradYear) : null}
-            onSave={save("gradYear")}
-            numeric
-            minWidth={48}
-            missingTone={a.gradYear == null ? "red" : undefined}
-          />
-        </td>
-        <td className="px-3 py-1.5 whitespace-nowrap">
-          <EditableCell
-            value={a.position}
-            onSave={save("position")}
-            options={["", ...POSITION_OPTIONS]}
-            minWidth={72}
-            missingTone={a.position == null ? "amber" : undefined}
-          />
-        </td>
-        <td className="px-3 py-1.5 max-w-[150px]">
-          <EditableCell value={a.school} onSave={save("school")} minWidth={90} truncate />
-        </td>
-        <td className="px-3 py-1.5 text-right tabular-nums">
-          {a.jersey ?? <span className="text-[#C6CBD3]">—</span>}
-        </td>
-        <td className="px-3 py-1.5 max-w-[150px] whitespace-nowrap">
-          <EditableCell value={a.parentName} onSave={save("parentName")} minWidth={100} truncate />
-        </td>
-        <td className="px-3 py-1.5 max-w-[200px]">
-          <EditableCell
-            value={a.parentEmail}
-            onSave={save("parentEmail")}
-            className="text-[12px]"
-            minWidth={140}
-            truncate
-            missingTone={noContact ? "red" : undefined}
-          />
-        </td>
-        <td className="px-3 py-1.5 whitespace-nowrap tabular-nums text-[12px]">
-          <EditableCell
-            value={a.parentPhone}
-            display={formatPhone(a.parentPhone)}
-            onSave={save("parentPhone")}
-            className="tabular-nums text-[12px]"
-            minWidth={110}
-            missingTone={noContact ? "red" : undefined}
-          />
-        </td>
-        <td className="px-3 py-1.5">
-          {a.confirmed ? (
-            <span className="inline-flex items-center gap-1 text-[#177245] text-[12px] font-semibold">
-              <Check size={13} strokeWidth={3} /> Yes
-            </span>
-          ) : (
-            <span className="text-[#C6CBD3] text-[12px]">—</span>
+    <tr
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest("button, select, input, a")) return;
+        onSelect(a.key);
+      }}
+      className={[
+        "border-b border-[#F1F3F6] last:border-0 transition-colors cursor-pointer",
+        selected ? "bg-[#EDF5FB]" : isNew ? "bg-[#EDF5FB]/60" : "hover:bg-[#F8F9FA]",
+        declined ? "text-[#9CA3AF]" : "text-[#1A1A1A]",
+      ].join(" ")}
+    >
+      <td className="pl-4 pr-1 py-2.5 w-10 text-right tabular-nums text-[12px] text-[#9CA3AF]">
+        {a.jersey ?? ""}
+      </td>
+      <td className="px-3 py-2.5 whitespace-nowrap">
+        <span className="font-semibold">{a.name}</span>
+        <span className="inline-flex items-center gap-1 ml-2 align-middle">
+          {a.band === "returning" &&
+            (a.registered ? (
+              <Chip tone="blue" title="Returning player who registered for this season's tryouts">
+                Tried out
+              </Chip>
+            ) : a.flags.includes("not_registered") ? (
+              <Chip tone="neutral" title="On last season's roster but has not registered for tryouts">
+                No registration
+              </Chip>
+            ) : (
+              <Chip tone="neutral" title="On last season's roster">
+                Returning
+              </Chip>
+            ))}
+          {a.flags.includes("clipboard") && (
+            <Chip tone="neutral" title="Clipboard name — written down by hand, never registered online">
+              Clipboard
+            </Chip>
           )}
-        </td>
-        <td className="px-3 py-1.5">
-          {a.paidStatus === "paid" ? (
-            <span
-              title={a.paidDetail ?? undefined}
-              className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#E8F5EE] text-[#177245] text-[11px] font-semibold"
-            >
-              Paid
-            </span>
-          ) : a.paidStatus === "partial" ? (
-            <span
-              title={a.paidDetail ?? undefined}
-              className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] text-[11px] font-semibold"
-            >
-              Partial
-            </span>
-          ) : a.paidStatus === "none" ? (
-            <span
-              title={a.paidDetail ?? undefined}
-              className="inline-flex items-center px-2 py-0.5 rounded-full border border-[#EF4444]/40 text-[#B91C1C] text-[11px] font-semibold"
-            >
-              None
-            </span>
-          ) : (
-            <span
-              title={a.paidDetail ?? "No player link — payment can't be resolved"}
-              className="text-[#C6CBD3] text-[12px]"
-            >
-              —
-            </span>
+          {a.flags.includes("no_contact") && (
+            <Chip tone="red" title="No email and no phone on file — this athlete cannot be reached">
+              No contact
+            </Chip>
           )}
-        </td>
-        <td className="px-4 py-1.5 whitespace-nowrap">
-          <span className="inline-flex items-center gap-1">
-            <PlacementSelect a={a} saveState={saveState} onChoice={onChoice} />
-            {a.table === "players" && (
-              <button
-                type="button"
-                onClick={() => onDeactivate(a)}
-                title="Set inactive — leaves this list, stays on the Players page"
-                className="p-1 rounded-md text-[#C6CBD3] hover:text-[#B91C1C] hover:bg-[#FEE2E2] opacity-0 group-hover:opacity-100 transition-all print:hidden"
-              >
-                <UserMinus size={13} strokeWidth={2.5} />
-              </button>
-            )}
+          {a.flags.includes("no_grad_year") && (
+            <Chip tone="red" title="No graduation year — appears in no class">
+              No grad year
+            </Chip>
+          )}
+          {a.dupOf.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onMergeOpen(a.key)}
+              title="Possible duplicate — click to compare and merge"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#FEF3C7] text-[#92400E] text-[10px] font-semibold hover:bg-[#FDE68A] transition-colors print:hidden"
+            >
+              <GitMerge size={11} strokeWidth={2.5} />
+              Dup?
+            </button>
+          )}
+        </span>
+      </td>
+      <td className={`px-3 py-2.5 whitespace-nowrap ${compactHide}`}>
+        {a.position ?? <span className="text-[#D97706]">—</span>}
+      </td>
+      <td className={`px-3 py-2.5 max-w-[150px] truncate ${compactHide}`} title={a.school ?? undefined}>
+        {a.school ?? <span className="text-[#C6CBD3]">—</span>}
+      </td>
+      <td className="px-3 py-2.5">
+        {a.confirmed ? (
+          <span className="inline-flex items-center gap-1 text-[#177245] text-[12px] font-semibold">
+            <Check size={13} strokeWidth={3} /> Yes
           </span>
-        </td>
-      </tr>
-      {mergeOpen && a.dupOf.length > 0 && (
-        <tr className="border-b border-[#F1F3F6] bg-[#FFFBEB] print:hidden">
-          <td colSpan={11} className="px-4 py-3">
-            <div className="text-[12px] font-semibold text-[#92400E] mb-2">
-              Possible duplicate — nothing merges without you. Merging keeps one
-              record and tags the other SUPERSEDED (never deleted).
-            </div>
-            <div className="flex flex-col gap-1.5">
-              {a.dupOf.map((c) => (
-                <div key={c.key} className="flex flex-wrap items-center gap-2 text-[12px]">
-                  <span className="font-semibold text-[#1A1A1A]">{c.name}</span>
-                  <span className="text-[#6B7280]">{c.detail}</span>
-                  {a.table === "tryout_registrations" && (
-                    <button
-                      type="button"
-                      disabled={merging}
-                      onClick={() => onMerge(a.id, c.keepTable, c.keepId)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0B0E12] text-white text-[11px] font-semibold hover:bg-[#1c2027] disabled:opacity-50 transition-colors"
-                    >
-                      <GitMerge size={11} strokeWidth={2.5} />
-                      Keep {c.name} — supersede this row
-                    </button>
-                  )}
-                  {c.keepTable === "tryout_registrations" && (
-                    <button
-                      type="button"
-                      disabled={merging}
-                      onClick={() => onMerge(c.keepId, a.table, a.id)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#D6DBE1] bg-white text-[#1A1A1A] text-[11px] font-semibold hover:bg-[#F1F3F6] disabled:opacity-50 transition-colors"
-                    >
-                      Keep this row — supersede {c.name}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            {a.noteText && (
-              <div className="mt-2 text-[11px] text-[#6B7280]">Notes: {a.noteText}</div>
-            )}
-          </td>
-        </tr>
-      )}
-    </>
+        ) : (
+          <span className="text-[#C6CBD3] text-[12px]">—</span>
+        )}
+      </td>
+      <td className={`px-3 py-2.5 ${compactHide}`}>
+        <PaidPill status={a.paidStatus} detail={a.paidDetail} />
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap w-[230px]">
+        <PlacementSelect a={a} saveState={saveState} onChoice={onChoice} />
+      </td>
+    </tr>
   );
 }
 
-// ─── Inline editable cell — click, type, enter ───────────────────────────────
+// ─── One-click merge: both records side by side, differences highlighted ─────
 
-function EditableCell({
-  value,
-  display,
-  onSave,
-  options,
-  numeric,
-  className,
-  minWidth,
-  truncate,
-  missingTone,
+function MergeCompareRow({
+  a,
+  byKey,
+  merging,
+  onMerge,
 }: {
-  value: string | null;
-  /** Shown when not editing, if it differs from the raw value (e.g. phone). */
-  display?: string;
-  onSave: (v: string) => Promise<void>;
-  options?: readonly string[];
-  numeric?: boolean;
-  className?: string;
-  minWidth?: number;
-  truncate?: boolean;
-  missingTone?: "red" | "amber";
+  a: RosterAthlete;
+  byKey: Map<string, RosterAthlete>;
+  merging: boolean;
+  onMerge: (
+    dropRegId: string,
+    keepTable: "players" | "tryout_registrations",
+    keepId: string,
+  ) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [state, setState] = useState<SaveState | null>(null);
-
-  const begin = () => {
-    setDraft(value ?? "");
-    setEditing(true);
-  };
-
-  const commit = async (v: string) => {
-    setEditing(false);
-    if (v.trim() === (value ?? "")) return;
-    setState("saving");
-    try {
-      await onSave(v);
-      setState("saved");
-      window.setTimeout(() => setState(null), 1500);
-    } catch (e) {
-      setState("error");
-      window.setTimeout(() => setState(null), 3000);
-      // The row keeps its old value — the parent only commits on success.
-      void e;
-    }
-  };
-
-  if (editing && options) {
-    return (
-      <select
-        autoFocus
-        value={draft}
-        onChange={(e) => void commit(e.target.value)}
-        onBlur={() => setEditing(false)}
-        className="rounded-md border border-[#4A90D9] bg-white px-1.5 py-1 text-[12px] focus:outline-none"
-      >
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o === "" ? "—" : o}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
-  if (editing) {
-    return (
-      <input
-        autoFocus
-        type={numeric ? "number" : "text"}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") void commit(draft);
-          if (e.key === "Escape") setEditing(false);
-        }}
-        onBlur={() => void commit(draft)}
-        style={{ width: Math.max(minWidth ?? 80, 40) }}
-        className={[
-          "rounded-md border border-[#4A90D9] bg-white px-1.5 py-0.5 text-[12px]",
-          "focus:outline-none focus:ring-2 focus:ring-[#4A90D9]/20",
-          numeric ? "tabular-nums text-right" : "",
-        ].join(" ")}
-      />
-    );
-  }
-
-  const shown = display ?? value;
   return (
-    <span className="inline-flex items-center gap-1 max-w-full">
-      <button
-        type="button"
-        onClick={begin}
-        title="Click to edit"
-        className={[
-          "text-left rounded px-1 -mx-1 py-0.5 hover:bg-[#EDF5FB] focus:outline-none focus:ring-2 focus:ring-[#4A90D9]/25 transition-colors cursor-text",
-          truncate ? "truncate max-w-full block" : "",
-          className ?? "",
-        ].join(" ")}
-      >
-        {shown && shown !== "—" ? (
-          shown
-        ) : (
-          <span
-            className={
-              missingTone === "red"
-                ? "text-[#B91C1C]"
-                : missingTone === "amber"
-                  ? "text-[#D97706]"
-                  : "text-[#C6CBD3]"
-            }
-          >
-            —
-          </span>
-        )}
-      </button>
-      {state === "saving" && <Loader2 size={11} className="animate-spin text-[#4A90D9] shrink-0" />}
-      {state === "saved" && <Check size={11} strokeWidth={3} className="text-[#10B981] shrink-0" />}
-      {state === "error" && (
-        <AlertTriangle size={11} strokeWidth={2.5} className="text-[#EF4444] shrink-0" />
-      )}
+    <tr className="border-b border-[#F1F3F6] bg-[#FFFBEB] print:hidden">
+      <td colSpan={7} className="px-4 py-3">
+        {a.dupOf.map((c) => {
+          const other = byKey.get(c.key);
+          if (!other) return null;
+          const [keep, drop] = pickKeeper(a, other);
+          const mergeable = drop.table === "tryout_registrations";
+          const rows: { label: string; l: string | null; r: string | null }[] = [
+            { label: "Name", l: a.name, r: other.name },
+            {
+              label: "Year",
+              l: a.gradYear != null ? String(a.gradYear) : null,
+              r: other.gradYear != null ? String(other.gradYear) : null,
+            },
+            { label: "Pos", l: a.position, r: other.position },
+            { label: "School", l: a.school, r: other.school },
+            { label: "#", l: a.jersey, r: other.jersey },
+            { label: "Parent", l: a.parentName, r: other.parentName },
+            { label: "Email", l: a.parentEmail, r: other.parentEmail },
+            { label: "Phone", l: formatPhone(a.parentPhone), r: formatPhone(other.parentPhone) },
+            { label: "Conf", l: a.confirmed ? "Yes" : "No", r: other.confirmed ? "Yes" : "No" },
+          ];
+          return (
+            <div key={c.key} className="mb-2 last:mb-0">
+              <div className="grid grid-cols-[64px_1fr_1fr] gap-x-3 gap-y-0.5 text-[12px] max-w-[640px]">
+                <span />
+                <span className="font-semibold text-[#1A1A1A]">
+                  {a.name}
+                  {keep === a && <span className="ml-1.5 text-[10px] text-[#177245] font-semibold uppercase">keeps</span>}
+                </span>
+                <span className="font-semibold text-[#1A1A1A]">
+                  {other.name}
+                  {keep === other && <span className="ml-1.5 text-[10px] text-[#177245] font-semibold uppercase">keeps</span>}
+                </span>
+                {rows.map((r) => {
+                  const differ =
+                    (r.l ?? "").trim().toLowerCase() !== (r.r ?? "").trim().toLowerCase();
+                  const cell = (v: string | null) => (
+                    <span
+                      className={[
+                        "px-1 rounded",
+                        differ ? "bg-[#FDE68A]/60" : "",
+                        v ? "" : "text-[#C6CBD3]",
+                      ].join(" ")}
+                    >
+                      {v && v !== "—" ? v : "—"}
+                    </span>
+                  );
+                  return (
+                    <div key={r.label} className="contents">
+                      <span className="text-[10px] uppercase tracking-[0.1em] text-[#9CA3AF] pt-0.5">
+                        {r.label}
+                      </span>
+                      {cell(r.l)}
+                      {cell(r.r)}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-2">
+                {mergeable ? (
+                  <button
+                    type="button"
+                    disabled={merging}
+                    onClick={() => onMerge(drop.id, keep.table, keep.id)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0B0E12] text-white text-[11px] font-semibold hover:bg-[#1c2027] disabled:opacity-50 transition-colors"
+                  >
+                    <GitMerge size={12} strokeWidth={2.5} />
+                    Merge — keep {keep.name}
+                  </button>
+                ) : (
+                  <span className="text-[11px] text-[#92400E]">
+                    Both are canonical player records — resolve on the Players page.
+                  </span>
+                )}
+                <span className="ml-3 text-[11px] text-[#9CA3AF]">
+                  Keeps the fuller record, fills its blanks, tags the other
+                  SUPERSEDED. Nothing is deleted.
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </td>
+    </tr>
+  );
+}
+
+function PaidPill({ status, detail }: { status: RosterAthlete["paidStatus"]; detail: string | null }) {
+  if (status === "paid") {
+    return (
+      <span title={detail ?? undefined} className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#E8F5EE] text-[#177245] text-[11px] font-semibold">
+        Paid
+      </span>
+    );
+  }
+  if (status === "partial") {
+    return (
+      <span title={detail ?? undefined} className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] text-[11px] font-semibold">
+        Partial
+      </span>
+    );
+  }
+  if (status === "none") {
+    return (
+      <span title={detail ?? undefined} className="inline-flex items-center px-2 py-0.5 rounded-full border border-[#EF4444]/40 text-[#B91C1C] text-[11px] font-semibold">
+        None
+      </span>
+    );
+  }
+  return (
+    <span title={detail ?? "No player link — payment can't be resolved"} className="text-[#C6CBD3] text-[12px]">
+      —
     </span>
   );
 }
@@ -1055,7 +1019,7 @@ function PlacementSelect({
   const downTarget = cls != null && placedTeamOk(a.table, cls + 1) ? cls + 1 : null;
 
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="flex items-center gap-1.5">
       <select
         value={current}
         onChange={(e) => {
@@ -1063,7 +1027,7 @@ function PlacementSelect({
           if (v !== current) onChoice(a, v);
         }}
         className={[
-          "rounded-lg border bg-white px-2 py-1.5 text-[12px] font-medium",
+          "w-full min-w-[180px] rounded-lg border bg-white px-2 py-1.5 text-[12px] font-medium",
           "focus:outline-none focus:ring-2 focus:ring-[#4A90D9]/25 focus:border-[#4A90D9]",
           "print:hidden",
           current === "pending"
@@ -1107,6 +1071,351 @@ function PlacementSelect({
           <AlertTriangle size={13} strokeWidth={2.5} className="text-[#EF4444]" />
         )}
       </span>
+    </span>
+  );
+}
+
+// ─── Detail panel — everything that isn't a placement decision ───────────────
+
+function DetailPanel({
+  a,
+  onClose,
+  onField,
+  onDeactivate,
+  onRemove,
+}: {
+  a: RosterAthlete;
+  onClose: () => void;
+  onField: (
+    a: RosterAthlete,
+    f: EditField,
+    v: string,
+    target?: { table: "players" | "tryout_registrations"; id: string },
+  ) => Promise<void>;
+  onDeactivate: (a: RosterAthlete) => void;
+  onRemove: (a: RosterAthlete) => void;
+}) {
+  const save = (f: EditField) => (v: string) => onField(a, f, v);
+  const sourceLine =
+    a.band === "returning"
+      ? a.registered
+        ? "Returning player · registered for tryouts"
+        : "Returning player · no tryout registration"
+      : a.source === "recruiting"
+        ? "Clipboard entry — written down by hand"
+        : "Tryout registration";
+
+  return (
+    <aside
+      className={[
+        "print:hidden shrink-0 bg-white",
+        "fixed inset-y-0 right-0 z-40 w-[340px] border-l border-[#E5E8EC] shadow-2xl overflow-y-auto",
+        "lg:static lg:z-auto lg:w-[336px] lg:sticky lg:top-[96px] lg:max-h-[calc(100vh-112px)]",
+        "lg:rounded-2xl lg:border lg:shadow-none",
+      ].join(" ")}
+    >
+      <div className="p-5">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="flex items-baseline gap-2">
+              {a.jersey && (
+                <span className="tabular-nums text-[13px] text-[#9CA3AF]">#{a.jersey}</span>
+              )}
+              <span className="text-[16px] font-bold text-[#0A0A0B]">{a.name}</span>
+            </div>
+            <div className="mt-0.5 text-[11px] text-[#6B7280]">{sourceLine}</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close details"
+            className="p-1.5 -mr-1.5 rounded-md text-[#9CA3AF] hover:text-[#0A0A0B] hover:bg-[#F8F9FA] transition-colors"
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Status */}
+        <div className="mt-4 rounded-xl bg-[#F8F9FA] p-3 space-y-1.5 text-[12px]">
+          <div className="flex items-center justify-between">
+            <span className="text-[#6B7280]">Placement</span>
+            <span className="font-semibold">{tierLabel(a.placementTier, a.classYear)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[#6B7280]">Class team</span>
+            <span className="font-semibold tabular-nums">
+              {a.placedTeam ?? (a.gradYear != null ? `${a.gradYear} (by grad year)` : "—")}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[#6B7280]">Confirmed</span>
+            <span className={a.confirmed ? "font-semibold text-[#177245]" : "text-[#9CA3AF]"}>
+              {a.confirmed ? "Yes" : "No"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[#6B7280]">Payment</span>
+            <PaidPill status={a.paidStatus} detail={a.paidDetail} />
+          </div>
+          {a.paidDetail && (
+            <div className="text-[11px] text-[#6B7280] text-right">{a.paidDetail}</div>
+          )}
+        </div>
+
+        {/* Fields */}
+        <div className="mt-4 space-y-2.5">
+          <Field label="Name">
+            <EditableCell value={a.name} onSave={save("name")} minWidth={160} className="font-semibold" />
+          </Field>
+          <Field label="Graduation year">
+            <EditableCell
+              value={a.gradYear != null ? String(a.gradYear) : null}
+              onSave={save("gradYear")}
+              numeric
+              minWidth={70}
+              missingTone={a.gradYear == null ? "red" : undefined}
+            />
+          </Field>
+          <Field label="Position">
+            <EditableCell
+              value={a.position}
+              onSave={save("position")}
+              options={["", ...POSITION_OPTIONS]}
+              minWidth={100}
+              missingTone={a.position == null ? "amber" : undefined}
+            />
+          </Field>
+          <Field label="School">
+            <EditableCell value={a.school} onSave={save("school")} minWidth={140} />
+          </Field>
+          <Field label="Jersey #">
+            <EditableCell value={a.jersey} onSave={save("jerseyNumber")} minWidth={60} className="tabular-nums" />
+          </Field>
+          <Field label="Parent">
+            <EditableCell value={a.parentName} onSave={save("parentName")} minWidth={140} />
+          </Field>
+          <Field label="Email">
+            <EditableCell
+              value={a.parentEmail}
+              onSave={save("parentEmail")}
+              minWidth={170}
+              className="text-[12px] break-all"
+              missingTone={a.flags.includes("no_contact") ? "red" : undefined}
+            />
+          </Field>
+          <Field label="Phone">
+            <EditableCell
+              value={a.parentPhone}
+              display={a.parentPhone ? formatPhone(a.parentPhone) : undefined}
+              onSave={save("parentPhone")}
+              minWidth={130}
+              className="tabular-nums text-[12px]"
+              missingTone={a.flags.includes("no_contact") ? "red" : undefined}
+            />
+          </Field>
+          <Field label="Notes">
+            {a.regId ? (
+              <EditableCell
+                value={a.noteText}
+                onSave={(v) =>
+                  onField(a, "notes", v, { table: "tryout_registrations", id: a.regId! })
+                }
+                minWidth={200}
+                multiline
+                className="text-[12px]"
+              />
+            ) : (
+              <span
+                className="text-[11px] text-[#9CA3AF]"
+                title="Notes live on a registration record; this returning player has none."
+              >
+                No registration record to carry notes.
+              </span>
+            )}
+          </Field>
+        </div>
+
+        {/* Actions — removing from a roster and deactivating are different */}
+        <div className="mt-5 pt-4 border-t border-[#F1F3F6] space-y-2">
+          <button
+            type="button"
+            onClick={() => onRemove(a)}
+            className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-[#D6DBE1] bg-white text-[#1A1A1A] text-[12px] font-semibold hover:bg-[#F1F3F6] transition-colors"
+          >
+            Remove from this roster
+          </button>
+          {a.table === "players" && (
+            <button
+              type="button"
+              onClick={() => onDeactivate(a)}
+              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-[#EF4444]/40 bg-white text-[#B91C1C] text-[12px] font-semibold hover:bg-[#FEE2E2] transition-colors"
+            >
+              <UserMinus size={13} strokeWidth={2.5} />
+              Set inactive
+            </button>
+          )}
+          <p className="text-[11px] text-[#9CA3AF]">
+            Wrong class? Edit the graduation year above — the athlete moves to
+            that class unless a placement pins her here.
+          </p>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <span className="pt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#9CA3AF] shrink-0">
+        {label}
+      </span>
+      <span className="text-right text-[13px] min-w-0">{children}</span>
+    </div>
+  );
+}
+
+// ─── Inline editable cell — click, type, enter ───────────────────────────────
+
+function EditableCell({
+  value,
+  display,
+  onSave,
+  options,
+  numeric,
+  multiline,
+  className,
+  minWidth,
+  missingTone,
+}: {
+  value: string | null;
+  /** Shown when not editing, if it differs from the raw value (e.g. phone). */
+  display?: string;
+  onSave: (v: string) => Promise<void>;
+  options?: readonly string[];
+  numeric?: boolean;
+  multiline?: boolean;
+  className?: string;
+  minWidth?: number;
+  missingTone?: "red" | "amber";
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [state, setState] = useState<SaveState | null>(null);
+
+  const begin = () => {
+    setDraft(value ?? "");
+    setEditing(true);
+  };
+
+  const commit = async (v: string) => {
+    setEditing(false);
+    if (v.trim() === (value ?? "")) return;
+    setState("saving");
+    try {
+      await onSave(v);
+      setState("saved");
+      window.setTimeout(() => setState(null), 1500);
+    } catch (e) {
+      setState("error");
+      window.setTimeout(() => setState(null), 3000);
+      // The row keeps its old value — the parent only commits on success.
+      void e;
+    }
+  };
+
+  if (editing && options) {
+    return (
+      <select
+        autoFocus
+        value={draft}
+        onChange={(e) => void commit(e.target.value)}
+        onBlur={() => setEditing(false)}
+        className="rounded-md border border-[#4A90D9] bg-white px-1.5 py-1 text-[12px] focus:outline-none"
+      >
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o === "" ? "—" : o}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (editing && multiline) {
+    return (
+      <textarea
+        autoFocus
+        value={draft}
+        rows={3}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setEditing(false);
+        }}
+        onBlur={() => void commit(draft)}
+        style={{ width: Math.max(minWidth ?? 200, 160) }}
+        className="rounded-md border border-[#4A90D9] bg-white px-1.5 py-1 text-[12px] focus:outline-none focus:ring-2 focus:ring-[#4A90D9]/20 text-left"
+      />
+    );
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type={numeric ? "number" : "text"}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") void commit(draft);
+          if (e.key === "Escape") setEditing(false);
+        }}
+        onBlur={() => void commit(draft)}
+        style={{ width: Math.max(minWidth ?? 80, 40) }}
+        className={[
+          "rounded-md border border-[#4A90D9] bg-white px-1.5 py-0.5 text-[12px]",
+          "focus:outline-none focus:ring-2 focus:ring-[#4A90D9]/20",
+          numeric ? "tabular-nums text-right" : "",
+        ].join(" ")}
+      />
+    );
+  }
+
+  const shown = display ?? value;
+  return (
+    <span className="inline-flex items-center gap-1 max-w-full">
+      <button
+        type="button"
+        onClick={begin}
+        title="Click to edit"
+        className={[
+          "text-left rounded px-1 -mx-1 py-0.5 hover:bg-[#EDF5FB] focus:outline-none focus:ring-2 focus:ring-[#4A90D9]/25 transition-colors cursor-text",
+          multiline ? "whitespace-pre-wrap" : "",
+          className ?? "",
+        ].join(" ")}
+      >
+        {shown && shown !== "—" ? (
+          shown
+        ) : (
+          <span
+            className={
+              missingTone === "red"
+                ? "text-[#B91C1C]"
+                : missingTone === "amber"
+                  ? "text-[#D97706]"
+                  : "text-[#C6CBD3]"
+            }
+          >
+            —
+          </span>
+        )}
+      </button>
+      {state === "saving" && <Loader2 size={11} className="animate-spin text-[#4A90D9] shrink-0" />}
+      {state === "saved" && <Check size={11} strokeWidth={3} className="text-[#10B981] shrink-0" />}
+      {state === "error" && (
+        <AlertTriangle size={11} strokeWidth={2.5} className="text-[#EF4444] shrink-0" />
+      )}
     </span>
   );
 }

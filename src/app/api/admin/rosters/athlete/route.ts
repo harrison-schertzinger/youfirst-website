@@ -16,6 +16,8 @@ const FIELDS = [
   "name",
   "position",
   "school",
+  "jerseyNumber",
+  "notes",
   "parentName",
   "parentEmail",
   "parentPhone",
@@ -73,7 +75,8 @@ export async function PATCH(req: Request): Promise<NextResponse> {
   const field = body.field as Field;
   const value = clean(typeof body.value === "string" ? body.value : null);
 
-  if (value && value.length > 200) return fail(400, "Value is too long.");
+  const maxLen = field === "notes" ? 1000 : 200;
+  if (value && value.length > maxLen) return fail(400, "Value is too long.");
 
   // ── Shared validations ──────────────────────────────────────────────────
   if (field === "position" && value && !POSITIONS.includes(value)) {
@@ -98,6 +101,8 @@ export async function PATCH(req: Request): Promise<NextResponse> {
       name: "player_full_name",
       position: "position",
       school: "school",
+      jerseyNumber: "jersey_number",
+      notes: "notes",
       parentName: "parent_name",
       parentEmail: "email",
       parentPhone: "phone",
@@ -125,13 +130,18 @@ export async function PATCH(req: Request): Promise<NextResponse> {
     return NextResponse.json({ ok: true });
   }
 
-  if (field === "position" || field === "school") {
+  if (field === "position" || field === "school" || field === "jerseyNumber") {
+    const col = field === "jerseyNumber" ? "jersey_number" : field;
     const { error } = await admin
       .from("players")
-      .update({ [field]: value })
+      .update({ [col]: value })
       .eq("id", id);
     if (error) return fail(500, `Save failed: ${error.message}`);
     return NextResponse.json({ ok: true });
+  }
+
+  if (field === "notes") {
+    return fail(400, "Players carry no notes column — notes live on the registration.");
   }
 
   if (field === "gradYear") {
