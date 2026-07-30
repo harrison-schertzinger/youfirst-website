@@ -26,6 +26,11 @@ export default function PlayerPicker({ onLinked }: { onLinked: () => void }) {
   const [query, setQuery] = useState("");
   const [linkingId, setLinkingId] = useState<string | null>(null);
   const [linkError, setLinkError] = useState("");
+  // Self-linking is off by default (see src/lib/portal-self-link.ts). When it
+  // is, an unrecognised email gets a short human next step instead of a roster
+  // she can pick any child out of.
+  const [selfLinkDisabled, setSelfLinkDisabled] = useState(false);
+  const [disabledMessage, setDisabledMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -43,9 +48,15 @@ export default function PlayerPicker({ onLinked }: { onLinked: () => void }) {
           }
           return;
         }
-        const data = (await res.json()) as { players: RosterPlayer[] };
+        const data = (await res.json()) as {
+          players: RosterPlayer[];
+          self_link_disabled?: boolean;
+          message?: string;
+        };
         if (!cancelled) {
           setPlayers(data.players ?? []);
+          setSelfLinkDisabled(data.self_link_disabled === true);
+          setDisabledMessage(data.message ?? "");
           setLoading(false);
         }
       } catch {
@@ -95,6 +106,27 @@ export default function PlayerPicker({ onLinked }: { onLinked: () => void }) {
       setLinkError("Network error. Please try again.");
       setLinkingId(null);
     }
+  }
+
+  // Nothing to search and nothing to claim — just the next step.
+  if (!loading && selfLinkDisabled) {
+    return (
+      <div className="mx-auto max-w-xl px-6 py-16 text-center">
+        <p className="section-label mb-3">Player Portal</p>
+        <h1 className="text-[1.75rem] md:text-[2rem] font-bold tracking-tight leading-[1.15] text-[#1A1A1A] mb-4">
+          We need to connect your account
+        </h1>
+        <p className="text-base text-[#6B7280] leading-relaxed">
+          {disabledMessage}
+        </p>
+        <a
+          href="mailto:kathleen@youfirstlacrosse.com?subject=Portal%20access"
+          className="mt-7 inline-block px-6 py-3.5 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(74,144,217,0.35)] hover:shadow-[0_4px_24px_rgba(74,144,217,0.5)] transition-all duration-300"
+        >
+          Email Kathleen
+        </a>
+      </div>
+    );
   }
 
   return (

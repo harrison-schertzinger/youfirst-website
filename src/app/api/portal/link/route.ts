@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { readPortalSession } from "@/lib/portal-session";
+import {
+  isSelfLinkEnabled,
+  SELF_LINK_DISABLED_MESSAGE,
+} from "@/lib/portal-self-link";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +17,17 @@ export async function POST(request: NextRequest) {
   const session = readPortalSession(request);
   if (!session) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  }
+
+  // Self-linking is off unless explicitly enabled. Without verification this
+  // endpoint let any signed-in parent attach herself to any active player and
+  // read that family's finances. Existing links are untouched — this only
+  // blocks the creation of NEW ones.
+  if (!isSelfLinkEnabled()) {
+    return NextResponse.json(
+      { error: SELF_LINK_DISABLED_MESSAGE, self_link_disabled: true },
+      { status: 403 },
+    );
   }
 
   let body: { playerId?: unknown };

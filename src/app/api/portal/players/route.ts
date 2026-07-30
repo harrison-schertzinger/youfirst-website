@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { readPortalSession } from "@/lib/portal-session";
+import {
+  isSelfLinkEnabled,
+  SELF_LINK_DISABLED_MESSAGE,
+} from "@/lib/portal-self-link";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +17,18 @@ export async function GET(request: NextRequest) {
   const session = readPortalSession(request);
   if (!session) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  }
+
+  // With self-linking off there is nothing to pick, so the roster is not handed
+  // out at all. This endpoint returned every active player's name, class year,
+  // team and position to anyone holding the universal password — that directory
+  // was the first half of the hole, and linking was the second.
+  if (!isSelfLinkEnabled()) {
+    return NextResponse.json({
+      players: [],
+      self_link_disabled: true,
+      message: SELF_LINK_DISABLED_MESSAGE,
+    });
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
