@@ -36,7 +36,7 @@ export async function GET(): Promise<NextResponse> {
     .select(
       `id, message, guardian_email, charged_cents, paid_cents,
        adjustment_cents, remaining_cents, status, resolved_at, resolved_by,
-       resolution_note, created_at,
+       resolution_note, created_at, notify_status, notify_error,
        players ( id, first_name, last_name, graduation_year )`,
     )
     .order("created_at", { ascending: false });

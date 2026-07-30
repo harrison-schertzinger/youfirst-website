@@ -151,6 +151,21 @@ export async function POST(request: NextRequest) {
     }),
   });
 
+  // Record the outcome on the row. Console-only was unauditable in production:
+  // if the ping silently failed, the queue was the only thing that knew about
+  // the question and nobody knew the email never went.
+  const { error: auditErr } = await admin
+    .from("balance_questions")
+    .update({
+      notify_status: notify.sent ? "sent" : "failed",
+      notify_error: notify.sent ? null : (notify.error ?? "unknown").slice(0, 500),
+      notified_at: new Date().toISOString(),
+    })
+    .eq("id", inserted.id);
+
+  if (auditErr) {
+    console.error("[portal/balance-question] notify audit failed:", auditErr);
+  }
   if (!notify.sent) {
     console.error(
       "[portal/balance-question] notification not sent:",

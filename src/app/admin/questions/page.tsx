@@ -30,6 +30,8 @@ interface QuestionRow {
   resolved_by: string | null;
   resolution_note: string | null;
   created_at: string;
+  notify_status: "sent" | "failed" | "skipped" | null;
+  notify_error: string | null;
   players: PlayerRef | null;
 }
 
@@ -78,7 +80,7 @@ export default async function AdminQuestionsPage() {
     .select(
       `id, message, guardian_email, charged_cents, paid_cents,
        adjustment_cents, remaining_cents, status, resolved_at, resolved_by,
-       resolution_note, created_at,
+       resolution_note, created_at, notify_status, notify_error,
        players ( id, first_name, last_name, graduation_year )`,
     )
     .order("created_at", { ascending: false });
@@ -235,6 +237,15 @@ function QuestionCard({ q }: { q: QuestionRow }) {
           {q.message}
         </p>
       </div>
+
+      {/* If the ping failed, say so here — otherwise the only record that this
+          question exists is a screen nobody was told to open. */}
+      {q.notify_status === "failed" && (
+        <p className="mt-3 rounded-lg border border-[#EF4444]/30 bg-[#FEF2F2] px-3 py-2 text-[11px] text-[#EF4444]">
+          Email notification failed — nobody was pinged about this one.
+          {q.notify_error ? ` (${q.notify_error})` : ""}
+        </p>
+      )}
 
       {isResolved && q.resolved_by && (
         <p className="mt-3 text-[11px] text-[#9CA3AF]">
