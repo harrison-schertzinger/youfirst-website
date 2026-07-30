@@ -11,9 +11,14 @@ export const PLACEMENT_TIERS = [
   "blue",
   "elite_youth",
   "elite_training",
+  "no_tryout",
+  "no_registration",
   "declined",
 ] as const;
 export type PlacementTier = (typeof PLACEMENT_TIERS)[number];
+
+/** The tiers that put an athlete ON a class team (and so write placed_team). */
+export const TEAM_TIERS = ["elite", "blue", "elite_youth", "elite_training"] as const;
 
 export function isPlacementTier(v: string): v is PlacementTier {
   return (PLACEMENT_TIERS as readonly string[]).includes(v);
@@ -30,6 +35,10 @@ export function tierLabel(tier: string | null, classYear: number | null): string
       return "Elite Youth Program";
     case "elite_training":
       return "Elite Training Group";
+    case "no_tryout":
+      return "No Tryout";
+    case "no_registration":
+      return "No Registration";
     case "declined":
       return "Declined";
     default:
@@ -38,37 +47,12 @@ export function tierLabel(tier: string | null, classYear: number | null): string
 }
 
 /**
- * "No Tryout" / "No Registration" are decisions with no legal home in
- * placement_tier (five values, fixed) or pipeline_status (six values, fixed),
- * so they live as a machine tag in the registration's notes and map to
- * pipeline_status 'passed' — out of the send path, label round-trips.
+ * Payment state for the current season, resolved through player_id against
+ * the payments/payment_plans tables (player_balances). 'unknown' means the
+ * athlete has no player link so payment CANNOT be resolved — it is not the
+ * same fact as 'none' (a linked player with nothing on file).
  */
-export const DECISION_TAGS: Record<string, string> = {
-  no_tryout: "[decision:no_tryout]",
-  no_registration: "[decision:no_registration]",
-};
-export type Decision = "no_tryout" | "no_registration";
-
-export function decisionFromNotes(notes: string | null): Decision | null {
-  if (!notes) return null;
-  if (notes.includes(DECISION_TAGS.no_tryout)) return "no_tryout";
-  if (notes.includes(DECISION_TAGS.no_registration)) return "no_registration";
-  return null;
-}
-
-export function stripDecisionTags(notes: string | null): string | null {
-  if (!notes) return notes;
-  let out = notes;
-  for (const tag of Object.values(DECISION_TAGS)) {
-    out = out.split(tag).join("");
-  }
-  out = out.replace(/\s+\|\s*$/, "").replace(/^\s*\|\s+/, "").trim();
-  return out.length > 0 ? out : null;
-}
-
-export function decisionLabel(d: Decision): string {
-  return d === "no_tryout" ? "No Tryout" : "No Registration";
-}
+export type PaidStatus = "paid" | "partial" | "none" | "unknown";
 
 // Mirrors of the live CHECK constraints — placed_team rails per table.
 export const REG_PLACED_TEAM_MIN = 2027;
@@ -127,10 +111,11 @@ export interface RosterAthlete {
   parentEmail: string | null;
   parentPhone: string | null;
   confirmed: boolean;
-  paid: boolean;
+  paidStatus: PaidStatus;
+  /** Human line behind the pill — amounts, season, or why it's unknown. */
+  paidDetail: string | null;
   placedTeam: string | null;
   placementTier: string | null;
-  decision: Decision | null;
   source: "tryout" | "recruiting" | null;
   /** Returning band: she also registered for tryouts this season. */
   registered: boolean;

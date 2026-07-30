@@ -16,13 +16,11 @@ import {
   ROSTER_SHAPE,
   ROSTER_SIZE_MAX,
   ROSTER_SIZE_MIN,
-  decisionLabel,
   formatPhone,
   groupKeyForYear,
   nameSortKey,
   placedTeamOk,
   tierLabel,
-  type Decision,
   type PlacementTier,
   type RosterAthlete,
   type RosterData,
@@ -34,13 +32,7 @@ import {
 // moment it changes — optimistic, visible save state, rollback on failure.
 // Every identity/contact field edits inline: click, type, enter.
 
-type Choice =
-  | PlacementTier
-  | "pending"
-  | "no_tryout"
-  | "no_registration"
-  | "move_down"
-  | "move_up";
+type Choice = PlacementTier | "pending" | "move_down" | "move_up";
 
 type EditField =
   | "name"
@@ -191,19 +183,18 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
           return { ...a, classYear: target, placedTeam: String(target) };
         }
         if (choice === "pending") {
-          return { ...a, placementTier: null, placedTeam: null, decision: null };
+          return { ...a, placementTier: null, placedTeam: null };
         }
         if (choice === "no_tryout" || choice === "no_registration") {
-          return { ...a, placementTier: null, placedTeam: null, decision: choice as Decision };
+          return { ...a, placementTier: choice, placedTeam: null };
         }
         if (choice === "declined") {
-          return { ...a, placementTier: "declined", decision: null };
+          return { ...a, placementTier: "declined" };
         }
         return {
           ...a,
           placementTier: choice,
           placedTeam: cls != null ? String(cls) : a.placedTeam,
-          decision: null,
         };
       });
       setData({ ...data, athletes: optimistic });
@@ -797,16 +788,34 @@ function AthleteRow({
           )}
         </td>
         <td className="px-3 py-1.5">
-          {a.paid ? (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#E8F5EE] text-[#177245] text-[11px] font-semibold">
+          {a.paidStatus === "paid" ? (
+            <span
+              title={a.paidDetail ?? undefined}
+              className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#E8F5EE] text-[#177245] text-[11px] font-semibold"
+            >
               Paid
             </span>
-          ) : a.confirmed ? (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] text-[11px] font-semibold">
-              No
+          ) : a.paidStatus === "partial" ? (
+            <span
+              title={a.paidDetail ?? undefined}
+              className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] text-[11px] font-semibold"
+            >
+              Partial
+            </span>
+          ) : a.paidStatus === "none" ? (
+            <span
+              title={a.paidDetail ?? undefined}
+              className="inline-flex items-center px-2 py-0.5 rounded-full border border-[#EF4444]/40 text-[#B91C1C] text-[11px] font-semibold"
+            >
+              None
             </span>
           ) : (
-            <span className="text-[#C6CBD3] text-[12px]">—</span>
+            <span
+              title={a.paidDetail ?? "No player link — payment can't be resolved"}
+              className="text-[#C6CBD3] text-[12px]"
+            >
+              —
+            </span>
           )}
         </td>
         <td className="px-4 py-1.5 whitespace-nowrap">
@@ -1039,7 +1048,7 @@ function PlacementSelect({
   const cls = a.classYear;
   const current: Choice = a.placementTier
     ? (a.placementTier as PlacementTier)
-    : (a.decision ?? "pending");
+    : "pending";
 
   const canPlace = cls != null && placedTeamOk(a.table, cls);
   const upTarget = cls != null && placedTeamOk(a.table, cls - 1) ? cls - 1 : null;
@@ -1059,7 +1068,7 @@ function PlacementSelect({
           "print:hidden",
           current === "pending"
             ? "border-[#E5E7EB] text-[#6B7280]"
-            : current === "declined"
+            : current === "declined" || current === "no_tryout" || current === "no_registration"
               ? "border-[#E5E7EB] text-[#9CA3AF]"
               : "border-[#4B9CD3]/50 text-[#1A1A1A]",
         ].join(" ")}
@@ -1078,14 +1087,14 @@ function PlacementSelect({
         {a.table === "tryout_registrations" && a.source === "tryout" && (
           <option value="no_tryout">No Tryout</option>
         )}
-        {a.table === "tryout_registrations" && a.source === "recruiting" && (
+        {(a.source === "recruiting" || (a.table === "players" && !a.registered)) && (
           <option value="no_registration">No Registration</option>
         )}
         <option value="declined">Declined</option>
       </select>
       {/* What a printed roster shows instead of a control */}
       <span className="hidden print:inline text-[12px] font-medium">
-        {a.decision ? decisionLabel(a.decision) : tierLabel(a.placementTier, cls)}
+        {tierLabel(a.placementTier, cls)}
       </span>
       <span className="w-4 inline-flex justify-center print:hidden" aria-hidden>
         {saveState === "saving" && (
@@ -1113,8 +1122,8 @@ const POS_ABBR: Record<string, string> = {
 
 function ShapeStrip({ label, athletes }: { label: string; athletes: RosterAthlete[] }) {
   const byTier = (tier: string) => athletes.filter((a) => a.placementTier === tier);
-  const pending = athletes.filter((a) => !a.placementTier && !a.decision).length;
-  const parked = athletes.filter((a) => a.decision != null).length;
+  const pending = athletes.filter((a) => !a.placementTier).length;
+  const parked = byTier("no_tryout").length + byTier("no_registration").length;
 
   return (
     <div className="mt-1.5 h-8 flex items-center gap-x-6 overflow-x-auto whitespace-nowrap rounded-lg border border-[#E5E8EC] bg-white px-3 text-[12px] scrollbar-hide">

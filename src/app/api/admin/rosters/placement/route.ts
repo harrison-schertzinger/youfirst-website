@@ -2,12 +2,10 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { isEmailAllowed } from "@/lib/admin-auth";
 import {
-  DECISION_TAGS,
+  TEAM_TIERS,
   getServiceClient,
-  isPlacementTier,
   placedTeamOk,
   regPlacedTeamOk,
-  stripDecisionTags,
 } from "@/lib/rosters/data";
 
 export const dynamic = "force-dynamic";
@@ -74,7 +72,6 @@ export async function PATCH(req: Request): Promise<NextResponse> {
   // ── Load current state — every write validates against live data ────────
   let gradYear: number | null = null;
   let placedTeam: string | null = null;
-  let notes: string | null = null;
   let playerId: string | null = null;
 
   if (table === "players") {
@@ -90,14 +87,13 @@ export async function PATCH(req: Request): Promise<NextResponse> {
   } else {
     const { data, error } = await admin
       .from("tryout_registrations")
-      .select("id, graduation_year, placed_team, placement_tier, notes, player_id")
+      .select("id, graduation_year, placed_team, placement_tier, player_id")
       .eq("id", id)
       .maybeSingle();
     if (error) return fail(500, `Read failed: ${error.message}`);
     if (!data) return fail(404, "Registration not found.");
     gradYear = data.graduation_year as number | null;
     placedTeam = data.placed_team as string | null;
-    notes = data.notes as string | null;
     playerId = data.player_id as string | null;
   }
 
@@ -106,12 +102,6 @@ export async function PATCH(req: Request): Promise<NextResponse> {
       ? parseInt(placedTeam, 10)
       : gradYear;
 
-  if (picked === "no_tryout" || picked === "no_registration") {
-    if (table === "players") {
-      return fail(400, "That status applies to registrations, not returning players.");
-    }
-  }
-
   // ── Compute the write ───────────────────────────────────────────────────
   const regUpdate: Record<string, string | null> = {};
   const playerUpdate: Record<string, string | null> = {};
@@ -119,7 +109,7 @@ export async function PATCH(req: Request): Promise<NextResponse> {
 
   const validTeamFor = placedTeamOk;
 
-  if (isPlacementTier(picked) && picked !== "declined") {
+  if ((TEAM_TIERS as readonly string[]).includes(picked)) {
     if (currentClass == null) {
       return fail(400, "No graduation year on file — set or merge this athlete before placing.");
     }
@@ -132,25 +122,23 @@ export async function PATCH(req: Request): Promise<NextResponse> {
     regUpdate.placed_team = team;
     regUpdate.placement_tier = picked;
     regUpdate.pipeline_status = "placed";
-    regUpdate.notes = stripDecisionTags(notes);
   } else if (picked === "declined") {
     playerUpdate.placement_tier = "declined";
     regUpdate.placement_tier = "declined";
     regUpdate.pipeline_status = "passed";
-    regUpdate.notes = stripDecisionTags(notes);
   } else if (picked === "pending") {
     playerUpdate.placement_tier = null;
     playerUpdate.placed_team = null;
     regUpdate.placement_tier = null;
     regUpdate.placed_team = null;
     regUpdate.pipeline_status = "new";
-    regUpdate.notes = stripDecisionTags(notes);
   } else if (picked === "no_tryout" || picked === "no_registration") {
-    const base = stripDecisionTags(notes);
-    regUpdate.placement_tier = null;
+    // First-class tier values — T2's send gate reads this column, never notes.
+    playerUpdate.placement_tier = picked;
+    playerUpdate.placed_team = null;
+    regUpdate.placement_tier = picked;
     regUpdate.placed_team = null;
     regUpdate.pipeline_status = "passed";
-    regUpdate.notes = base ? `${base} ${DECISION_TAGS[picked]}` : DECISION_TAGS[picked];
   } else {
     // move_down → the class below (younger = later graduation year);
     // move_up → the class above.
@@ -188,7 +176,11 @@ export async function PATCH(req: Request): Promise<NextResponse> {
     if ("placement_tier" in playerUpdate) {
       const tier = playerUpdate.placement_tier;
       mirror.pipeline_status =
-        tier === null ? "new" : tier === "declined" ? "passed" : "placed";
+        tier === null
+          ? "new"
+          : tier === "declined" || tier === "no_tryout" || tier === "no_registration"
+            ? "passed"
+            : "placed";
     }
     if (Object.keys(mirror).length > 0) {
       const { error: mirrorErr } = await admin

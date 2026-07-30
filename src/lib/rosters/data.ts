@@ -23,8 +23,7 @@ import {
   type ConfirmationRow as BaseConfirmationRow,
 } from "@/lib/command-sheet/data";
 import {
-  decisionFromNotes,
-  stripDecisionTags,
+  type PaidStatus,
   type RosterAthlete,
   type RosterData,
   type RosterFlag,
@@ -125,8 +124,73 @@ function isSuperseded(notes: string | null): boolean {
   return !!notes && notes.toUpperCase().includes("SUPERSEDED");
 }
 
+interface BalanceRow {
+  player_id: string;
+  season: string | null;
+  charged_cents: number;
+  paid_cents: number;
+  remaining_cents: number;
+  is_settled: boolean;
+}
+
+interface PaymentRow {
+  player_id: string | null;
+  status: string;
+  amount_cents: number;
+}
+
+function dollars(cents: number): string {
+  return `$${Math.round(cents / 100).toLocaleString("en-US")}`;
+}
+
+/**
+ * Payment truth, read-only. player_balances() is the same plan-aware
+ * computation every financial surface reads; raw payments cover the one case
+ * it can't see — a player with payments on file but no plan.
+ */
+function buildPaidResolver(
+  balances: BalanceRow[],
+  payments: PaymentRow[],
+): (playerId: string | null) => { status: PaidStatus; detail: string | null } {
+  const balanceByPlayer = new Map<string, BalanceRow>();
+  for (const b of balances) balanceByPlayer.set(b.player_id, b);
+  const paidByPlayer = new Map<string, number>();
+  for (const p of payments) {
+    if (p.status !== "completed" || !p.player_id) continue;
+    paidByPlayer.set(p.player_id, (paidByPlayer.get(p.player_id) ?? 0) + p.amount_cents);
+  }
+
+  return (playerId) => {
+    if (!playerId) {
+      return {
+        status: "unknown",
+        detail: "No player link — payments can't be resolved for this athlete yet.",
+      };
+    }
+    const b = balanceByPlayer.get(playerId);
+    if (b) {
+      const season = b.season ? ` · ${b.season}` : "";
+      if (b.is_settled || b.remaining_cents <= 0) {
+        return { status: "paid", detail: `${dollars(b.paid_cents)} of ${dollars(b.charged_cents)} paid${season}` };
+      }
+      if (b.paid_cents > 0) {
+        return {
+          status: "partial",
+          detail: `${dollars(b.paid_cents)} of ${dollars(b.charged_cents)} paid · ${dollars(b.remaining_cents)} open${season}`,
+        };
+      }
+      return { status: "none", detail: `${dollars(b.charged_cents)} charged, nothing paid${season}` };
+    }
+    const paid = paidByPlayer.get(playerId) ?? 0;
+    if (paid > 0) {
+      return { status: "partial", detail: `${dollars(paid)} in payments on file, no payment plan` };
+    }
+    return { status: "none", detail: "No payments on file" };
+  };
+}
+
 export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
-  const [regs, players, guardians, pg, confs] = await Promise.all([
+  const [regs, players, guardians, pg, confs, balances, payments] = await Promise.all([
     db
       .from("tryout_registrations")
       .select(
@@ -147,10 +211,13 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
       .select(
         "id, created_at, player_first_name, player_last_name, player_grad_year, team, parent1_name, parent1_email, parent1_phone, parent2_name, parent2_email, parent2_phone, reserve_paid, paid_at",
       ),
+    db.rpc("player_balances"),
+    db.from("payments").select("player_id, status, amount_cents"),
   ]);
 
   const firstError =
-    regs.error ?? players.error ?? guardians.error ?? pg.error ?? confs.error;
+    regs.error ?? players.error ?? guardians.error ?? pg.error ?? confs.error ??
+    balances.error ?? payments.error;
   if (firstError) throw new Error(`Supabase read failed: ${firstError.message}`);
 
   const regRows = (regs.data ?? []) as RegRow[];
@@ -158,6 +225,10 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
   const guardianRows = (guardians.data ?? []) as GuardianRow[];
   const pgRows = (pg.data ?? []) as PlayerGuardianRow[];
   const confRows = (confs.data ?? []) as ConfRow[];
+  const resolvePaid = buildPaidResolver(
+    (balances.data ?? []) as BalanceRow[],
+    (payments.data ?? []) as PaymentRow[],
+  );
 
   const guardianById = new Map<string, GuardianRow>();
   for (const g of guardianRows) guardianById.set(g.id, g);
@@ -229,6 +300,7 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
     const registered = linked.some((r) => r.source === "tryout");
     if (!registered) flags.push("not_registered");
 
+    const paid = resolvePaid(p.id);
     athletes.push({
       key: `player:${p.id}`,
       table: "players",
@@ -244,16 +316,16 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
       parentEmail: parentEmail ?? null,
       parentPhone: parentPhone ?? null,
       confirmed: !!conf,
-      paid: !!conf && (conf.reserve_paid || conf.paid_at != null),
+      paidStatus: paid.status,
+      paidDetail: paid.detail,
       placedTeam: p.placed_team,
       placementTier: p.placement_tier,
-      decision: null,
       source: null,
       registered,
       createdAt: bestReg?.created_at ?? p.created_at,
       flags,
       dupOf: [],
-      noteText: stripDecisionTags(bestReg?.notes ?? null),
+      noteText: bestReg?.notes ?? null,
     });
   }
 
@@ -283,6 +355,9 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
     if (!r.position || r.position === "Undecided") flags.push("no_position");
     if (r.source === "recruiting") flags.push("clipboard");
 
+    // A reg linked to an inactive player still resolves payments through it;
+    // a reg with no player link is 'unknown', which is not 'unpaid'.
+    const paid = resolvePaid(r.player_id);
     athletes.push({
       key: `reg:${r.id}`,
       table: "tryout_registrations",
@@ -298,16 +373,16 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
       parentEmail: email,
       parentPhone: phone,
       confirmed: !!conf,
-      paid: !!conf && (conf.reserve_paid || conf.paid_at != null),
+      paidStatus: paid.status,
+      paidDetail: paid.detail,
       placedTeam: r.placed_team,
       placementTier: r.placement_tier,
-      decision: decisionFromNotes(r.notes),
       source: r.source === "recruiting" ? "recruiting" : "tryout",
       registered: r.source === "tryout",
       createdAt: r.created_at,
       flags,
       dupOf: [],
-      noteText: stripDecisionTags(r.notes),
+      noteText: r.notes,
     });
   }
 
