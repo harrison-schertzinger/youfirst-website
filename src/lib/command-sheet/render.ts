@@ -331,7 +331,9 @@ export function contextForPlayer(player: PlayerRow, snapshot: Snapshot): PlayerR
     if (name) push(name, g!.phone);
   }
   if (conf) {
-    push(conf.parent1_name, conf.parent1_phone);
+    // parent1_name is nullable since the placement-link confirmation; push()
+    // already drops an empty name, so this stays a no-op rather than a blank row.
+    push(conf.parent1_name ?? "", conf.parent1_phone);
     if (conf.parent2_name) push(conf.parent2_name, conf.parent2_phone);
   }
   for (const pair of parseParkedPairs(player.unverified_phone)) {

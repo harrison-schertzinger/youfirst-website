@@ -83,14 +83,17 @@ export interface ConfirmationRow {
   player_grad_year: number;
   team: string;
   player_phone: string | null;
-  parent1_name: string;
+  // Nullable since the placement-link confirmation: a one-click confirm knows
+  // the parent's email but not her phone or uniform sizes, which the gear flow
+  // collects later. The /roster form still requires all of them server-side.
+  parent1_name: string | null;
   parent1_email: string;
-  parent1_phone: string;
+  parent1_phone: string | null;
   parent2_name: string | null;
   parent2_email: string | null;
   parent2_phone: string | null;
-  jersey_size: string;
-  shorts_size: string;
+  jersey_size: string | null;
+  shorts_size: string | null;
   sweatshirt_size: string | null;
   shooting_shirt_size: string | null;
   emergency_contact_name: string | null;
@@ -422,8 +425,8 @@ export async function promoteRegistration(
     if (!p.position && reg.position && reg.position !== "Undecided") fills.position = reg.position;
     if (!p.school && reg.school) fills.school = reg.school;
     if (conf) {
-      if (!p.shirt_size) fills.shirt_size = conf.jersey_size;
-      if (!p.short_size) fills.short_size = conf.shorts_size;
+      if (!p.shirt_size && conf.jersey_size) fills.shirt_size = conf.jersey_size;
+      if (!p.short_size && conf.shorts_size) fills.short_size = conf.shorts_size;
       if (!p.sweatshirt_size && conf.sweatshirt_size) fills.sweatshirt_size = conf.sweatshirt_size;
       if (!p.shooting_shirt_size && conf.shooting_shirt_size)
         fills.shooting_shirt_size = conf.shooting_shirt_size;

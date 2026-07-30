@@ -11,6 +11,8 @@ export const TEMPLATE_TYPES = [
   "announcement",
   "general",
   "custom",
+  "qa_acknowledgement",
+  "placement",
 ] as const;
 
 export type TemplateType = (typeof TEMPLATE_TYPES)[number];
@@ -40,4 +42,6 @@ export const templateTypeLabel: Record<TemplateType, string> = {
   announcement: "Announcement",
   general: "General",
   custom: "Custom",
+  qa_acknowledgement: "Q&A Acknowledgement",
+  placement: "Placement",
 };
