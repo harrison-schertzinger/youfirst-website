@@ -38,7 +38,7 @@ const WORK = path.join(ROOT, "documents/email-header-build");
 
 // 2x for retina; the email renders it at 600 wide.
 const W = 1200;
-const H = 420;
+const H = 480; // 2.5:1 — a band, but tall enough that a portrait frame keeps its action
 
 // ── Palette, from src/app/globals.css ────────────────────────────────────
 const INK = "#0A1A2F"; // the email's ground — the band melts into it
@@ -77,8 +77,12 @@ const TREATMENTS = {
         radial-gradient(52% 130% at 88% 88%, ${MID}f2 0%, ${MID}73 46%, transparent 78%);
         mix-blend-mode:screen;filter:blur(46px)"></div>
       <div class="l" style="background:
-        linear-gradient(180deg, ${INK}59 0%, transparent 30%, ${INK}b3 100%)"></div>`,
-    wordmark: "center",
+        linear-gradient(180deg, ${INK}59 0%, transparent 30%, ${INK}b3 100%)"></div>
+      <div class="l" style="background:
+        linear-gradient(90deg, ${INK}e6 0%, ${INK}a6 26%, transparent 54%)"></div>`,
+    // Left third, not centred: the subject of an action frame is usually
+    // centre, and centred type lands squarely on her face.
+    wordmark: "third",
     scrim: false,
   },
 
@@ -131,11 +135,14 @@ function findChrome() {
 
 function page(photoUrl, t) {
   const centred = t.wordmark === "center";
+  const third = t.wordmark === "third";
   const panel = t.wordmark === "panel";
   const PANEL_W = 40; // % of the band the navy panel occupies in SPLIT
 
   const markBox = centred
     ? `left:0;right:0;top:0;bottom:0;align-items:center;justify-content:center;text-align:center`
+    : third
+      ? `left:0;top:0;bottom:0;width:46%;align-items:center;justify-content:flex-start;padding:0 0 0 54px;text-align:left`
     : panel
       ? `left:0;top:0;bottom:0;width:${PANEL_W}%;align-items:center;justify-content:center;padding:0 34px;text-align:left`
       : `left:0;right:0;top:0;bottom:0;align-items:flex-end;justify-content:flex-start;padding:0 0 44px 54px`;
@@ -162,7 +169,7 @@ function page(photoUrl, t) {
   .mark{position:absolute;display:flex;${markBox}}
   .wm{font-family:-apple-system,'Helvetica Neue',Helvetica,Arial,sans-serif;
       font-weight:800;letter-spacing:-.02em;line-height:1;color:#fff;
-      font-size:${centred ? 76 : panel ? 50 : 52}px;
+      font-size:${centred ? 76 : third ? 58 : panel ? 50 : 52}px;
       text-shadow:0 2px 30px rgba(10,26,47,.55)}
   .wm .dot{color:${CAROLINA}}
   .sub{font-family:-apple-system,'Helvetica Neue',Helvetica,Arial,sans-serif;
@@ -185,15 +192,27 @@ function page(photoUrl, t) {
 }
 
 /**
- * Crop to the band with sharp's saliency attention, NOT a centre crop.
- * These are portrait frames; centring them cut the athletes' faces out of a
- * shallow band and left jerseys and torsos. Attention keeps the subject.
+ * Crop the band from the UPPER-MIDDLE of the frame, not by saliency.
+ *
+ * Saliency was worse than useless here: on the goalie save it locked onto her
+ * shorts and threw the save — arms up, ball in the head — clean out of frame.
+ * In a standing action photograph the things that matter (face, hands, stick,
+ * ball) sit high; the legs and the turf are the bottom half. So scale to width
+ * and take a band centred on FOCUS of the height.
+ *
+ * FOCUS is overridable per run — `FOCUS=0.30 node scripts/build-email-header.mjs`
+ * — for a frame where the action sits higher or lower than usual.
  */
+const FOCUS = Number(process.env.FOCUS ?? 0.38);
+
 async function bandCrop(photo, stem) {
   const out = path.join(WORK, `${stem}-band.jpg`);
-  await sharp(photo)
-    .rotate()
-    .resize(W, H, { fit: "cover", position: sharp.strategy.attention })
+  const scaled = await sharp(photo).rotate().resize({ width: W }).toBuffer();
+  const meta = await sharp(scaled).metadata();
+  const top = Math.max(0, Math.min(meta.height - H, Math.round(meta.height * FOCUS - H / 2)));
+  await sharp(scaled)
+    .extract({ left: 0, top, width: W, height: Math.min(H, meta.height) })
+    .resize(W, H, { fit: "cover" })
     .jpeg({ quality: 92 })
     .toFile(out);
   return out;

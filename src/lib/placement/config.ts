@@ -30,16 +30,31 @@ export const ADMIN_NOTIFY = [
  * always use HEADER_DEFAULT — the variant is not a parameter a real send can
  * reach.
  */
+/**
+ * Every built band, keyed <photo>-<treatment>. Rebuild with
+ * `node scripts/build-email-header.mjs` after dropping photos into
+ * public/images/email/incoming/.
+ *
+ * TREATMENTS
+ *   aurora   Carolina light washes the band, wordmark in the left third
+ *   split    a navy panel carries the type; the photograph owns the rest
+ *   duotone  luminance kept, hue mapped navy → Carolina; reads as a graphic
+ */
 export const HEADER_VARIANTS: Record<string, string> = {
-  /** Centred wordmark, Carolina light washing the whole band. */
-  aurora: "header-img-1947-aurora.jpg",
-  /** Navy panel carries the type; the photograph owns the rest. */
-  split: "header-img-1947-split.jpg",
-  /** The photograph mapped navy → Carolina. Reads as a graphic. */
-  duotone: "header-img-1947-duotone.jpg",
+  "goalie-aurora": "header-img-1945-aurora.jpg",
+  "goalie-split": "header-img-1945-split.jpg",
+  "goalie-duotone": "header-img-1945-duotone.jpg",
+
+  "driving-aurora": "header-img-1951-2-aurora.jpg",
+  "driving-split": "header-img-1951-2-split.jpg",
+  "driving-duotone": "header-img-1951-2-duotone.jpg",
+
+  "defender-aurora": "header-tryouts-hero-defender-aurora.jpg",
+  "defender-split": "header-tryouts-hero-defender-split.jpg",
+  "defender-duotone": "header-tryouts-hero-defender-duotone.jpg",
 };
 
-export const HEADER_DEFAULT = "split";
+export const HEADER_DEFAULT = "driving-split";
 
 export function heroUrl(variant?: string | null): string {
   const file =
