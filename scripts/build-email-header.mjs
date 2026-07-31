@@ -203,13 +203,24 @@ function page(photoUrl, t) {
  * FOCUS is overridable per run — `FOCUS=0.30 node scripts/build-email-header.mjs`
  * — for a frame where the action sits higher or lower than usual.
  */
-const FOCUS = Number(process.env.FOCUS ?? 0.38);
+const FOCUS_DEFAULT = Number(process.env.FOCUS ?? 0.38);
+
+/**
+ * Per-photo crop height, by filename stem. Every frame sits differently: the
+ * default 0.38 clipped the top of the defender's head, and 0.26 gives her the
+ * headroom to read. Add an entry rather than nudging the default, so fixing one
+ * photo cannot silently recrop the others.
+ */
+const FOCUS_BY_STEM = {
+  "tryouts-hero-defender": 0.26,
+};
 
 async function bandCrop(photo, stem) {
+  const focus = FOCUS_BY_STEM[stem] ?? FOCUS_DEFAULT;
   const out = path.join(WORK, `${stem}-band.jpg`);
   const scaled = await sharp(photo).rotate().resize({ width: W }).toBuffer();
   const meta = await sharp(scaled).metadata();
-  const top = Math.max(0, Math.min(meta.height - H, Math.round(meta.height * FOCUS - H / 2)));
+  const top = Math.max(0, Math.min(meta.height - H, Math.round(meta.height * focus - H / 2)));
   await sharp(scaled)
     .extract({ left: 0, top, width: W, height: Math.min(H, meta.height) })
     .resize(W, H, { fit: "cover" })
