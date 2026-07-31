@@ -196,13 +196,18 @@ export interface SendGroupInput {
   /** Required for mode 'test' — the only address a test may ever reach. */
   testTo?: string;
   /**
-   * TEST MODE ONLY: restrict the run to one athlete.
+   * Restrict the run to one athlete. Honoured in TEST and DRY_RUN — the two
+   * modes that cannot reach a family — and IGNORED in live, where narrowing
+   * could make a partial send look complete while most of the group goes out
+   * to nobody.
    *
-   * Without this a test renders every athlete in the group and delivers all of
-   * them to the tester — 72 identical emails for Elite. A test is for reading
-   * one email, so the preview modal passes the athlete you are looking at.
-   * Ignored outside test mode: it must never be able to narrow a live send into
-   * looking complete while most of the group goes unsent.
+   * Without it a test renders every athlete in the group and delivers all of
+   * them to the tester: 72 identical emails for Elite.
+   *
+   * Dry run honours it so the narrowing itself can be PROVEN before a real
+   * send — asserting the exact feature you are about to depend on, using a
+   * mode that emails nobody. Gating this to test-only made that check
+   * impossible, which is how 72 emails once went out.
    */
   athleteKey?: string;
   /** TEST MODE ONLY — which header band to render. See config.HEADER_VARIANTS. */
@@ -236,8 +241,8 @@ export async function sendGroup(
   const audience = sendableAthletes(roster.athletes).filter(
     (a) =>
       a.tier === tier &&
-      // Narrowing is a TEST-mode affordance only — see SendGroupInput.
-      (mode !== "test" || !input.athleteKey || a.key === input.athleteKey),
+      // Narrowing never applies to a live send — see SendGroupInput.
+      (mode === "live" || !input.athleteKey || a.key === input.athleteKey),
   );
 
   for (const athlete of audience) {

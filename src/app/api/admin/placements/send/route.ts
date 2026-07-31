@@ -104,10 +104,11 @@ export async function POST(req: Request): Promise<NextResponse> {
       mode,
       // Test sends land on the signed-in admin, taken from the session.
       testTo: mode === "test" ? actor : undefined,
-      // Honoured in test mode only — sendGroup enforces that too, so a live
-      // send can never be narrowed to one athlete and still look complete.
+      // Honoured for test and dry_run — the two modes that cannot reach a
+      // family. sendGroup enforces the same rule, so a LIVE send can never be
+      // narrowed to one athlete and still look complete.
       athleteKey:
-        mode === "test" && typeof body.athleteKey === "string"
+        mode !== "live" && typeof body.athleteKey === "string"
           ? body.athleteKey
           : undefined,
       headerVariant:
