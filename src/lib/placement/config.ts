@@ -54,7 +54,7 @@ export const HEADER_VARIANTS: Record<string, string> = {
   "defender-duotone": "header-tryouts-hero-defender-duotone.jpg",
 };
 
-export const HEADER_DEFAULT = "driving-split";
+export const HEADER_DEFAULT = "driving-aurora";
 
 export function heroUrl(variant?: string | null): string {
   const file =
