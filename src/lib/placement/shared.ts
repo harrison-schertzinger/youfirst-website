@@ -9,7 +9,12 @@
  * restated — one definition of what a placement is.
  */
 
-import { TEAM_TIERS, type PlacementTier, tierLabel } from "@/lib/rosters/shared";
+import {
+  ELITE_DEV_PROGRAM,
+  TEAM_TIERS,
+  type PlacementTier,
+  tierLabel,
+} from "@/lib/rosters/shared";
 
 export { tierLabel };
 export type { PlacementTier };
@@ -37,7 +42,7 @@ export const TIER_GROUP_LABEL: Record<SendableTier, string> = {
   elite: "Elite",
   // One team across 2029 and 2030 — one group, one send, one anchor.
   blue: "You First Blue",
-  elite_youth: "Elite Youth Program",
+  elite_youth: ELITE_DEV_PROGRAM,
   elite_training: "Elite Training Group",
 };
 
@@ -58,7 +63,7 @@ export const NUDGE_APPROVAL = "SEND NUDGE";
 export const TEMPLATE_NAME_BY_TIER: Record<SendableTier, string> = {
   elite: "Placement — Elite",
   blue: "Placement — Blue",
-  elite_youth: "Placement — Elite Youth Program",
+  elite_youth: "Placement — Elite Development Program",
   elite_training: "Placement — Elite Training Group",
 };
 
@@ -77,6 +82,17 @@ export const NUDGE_TEMPLATE_NAME = "Placement — Unconfirmed Nudge";
 export const PLACEMENT_CAMPAIGN = "placement-2026-27";
 
 export const PLACEMENT_SEASON = "2026–27";
+
+/**
+ * The confirmation deadline. A FIXED DATE, not a per-send input — one date for
+ * the whole round, so no group can go out carrying a different one and nobody
+ * has to fill anything in before approving.
+ *
+ * Exposed to templates as {{deadline}} and seeded as the default deadline
+ * region, so a template gets it whether it writes the date or the token.
+ */
+export const PLACEMENT_DEADLINE = "August 7";
+export const PLACEMENT_DEADLINE_LONG = "Friday, August 7";
 
 /** hermes_send_log.kind values this sprint owns. */
 export const SEND_KINDS = {

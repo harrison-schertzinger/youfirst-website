@@ -30,6 +30,13 @@ export function isPlacementTier(v: string): v is PlacementTier {
  */
 export const BLUE_CLASSES = [2029, 2030] as const;
 export const BLUE_TEAM_NAME = "You First Blue";
+
+/**
+ * Renamed 2026-07-30 (was "Elite Youth Program"). Named once, here, so the
+ * next rename is one line instead of a search: tierLabel returns it and every
+ * surface reads it from tierLabel or from this constant.
+ */
+export const ELITE_DEV_PROGRAM = "Elite Development Program";
 export function isBlueClass(year: number | null): boolean {
   return year != null && (BLUE_CLASSES as readonly number[]).includes(year);
 }
@@ -43,7 +50,7 @@ export function tierLabel(tier: string | null, classYear: number | null): string
       // One team across 2029 and 2030 — never "{class} Blue".
       return BLUE_TEAM_NAME;
     case "elite_youth":
-      return "Elite Youth Program";
+      return ELITE_DEV_PROGRAM;
     case "elite_training":
       return "Elite Training Group";
     case "no_tryout":

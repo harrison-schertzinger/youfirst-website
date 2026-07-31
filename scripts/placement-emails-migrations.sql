@@ -5,6 +5,9 @@
 --    1. placement_emails_foundation
 --    2. placement_email_templates_seed
 --    3. hermes_send_log_placement_kinds
+--    4. placement_templates_addendum_b_guidance
+--    5. placement_elite_development_program_rename
+--    6. placement_seed_fixed_deadline
 --
 --  Applied via apply_migration; this file exists so the repo describes its own
 --  schema, matching scripts/roster-crm-migrations.sql. Re-running it is NOT
@@ -116,7 +119,7 @@ notify pgrst, 'reload schema';
 --
 --    Placement — Elite
 --    Placement — Blue
---    Placement — Elite Youth Program
+--    Placement — Elite Development Program (renamed in 5)
 --    Placement — Elite Training Group
 --    Placement — Confirmation Receipt
 --    Placement — Unconfirmed Nudge
@@ -138,5 +141,55 @@ alter table public.hermes_send_log
     'collections','collections_test','collections_summary',
     'placement','placement_nudge','placement_receipt','placement_test'
   ]));
+
+notify pgrst, 'reload schema';
+
+
+-- ─── 4. placement_templates_addendum_b_guidance ────────────────────────────
+--
+--  Prepends an Addendum B reminder into every placement template body, inside
+--  a [[ ]] block that deletes with the rest of the placeholders. B3's word list
+--  is enforced in code (BANNED_PATTERNS, src/lib/placement/shared.ts); the two
+--  rules a regex cannot judge are stated in the template, next to the cursor.
+--  Full text is in the migration history — it is copy, not schema.
+
+
+-- ─── 5. placement_elite_development_program_rename (2026-07-30) ────────────
+--
+--  "Elite Youth Program" → "Elite Development Program". The display label is
+--  ELITE_DEV_PROGRAM in src/lib/rosters/shared.ts and propagates through
+--  tierLabel() to the roster screen and the emails on its own. Only the
+--  template ROW name needs SQL — TEMPLATE_NAME_BY_TIER looks it up by name, so
+--  code and row must move together or the elite_youth send finds no template.
+
+update public.email_templates
+set name = 'Placement — Elite Development Program'
+where name = 'Placement — Elite Youth Program' and type = 'placement';
+
+update public.email_templates
+set body = replace(body, 'Elite Youth Program', 'Elite Development Program'),
+    subject = replace(subject, 'Elite Youth Program', 'Elite Development Program'),
+    description = replace(description, 'Elite Youth Program', 'Elite Development Program')
+where type = 'placement';
+
+notify pgrst, 'reload schema';
+
+
+-- ─── 6. placement_seed_fixed_deadline (2026-07-30) ─────────────────────────
+--
+--  The deadline is a FIXED DATE for the whole round, not a per-send variable:
+--  nobody fills anything in before approving, and no two groups can go out
+--  carrying different dates. It is the only sentence safe to write without
+--  Harrison, because it states a fact he set. {{deadline}} = "August 7" and
+--  {{deadline_long}} = "Friday, August 7" are also available as merge fields.
+
+update public.email_templates
+set body = regexp_replace(
+  body,
+  '--- deadline ---\s*\n\[\[[^\]]*\]\]',
+  '--- deadline ---' || chr(10) || 'Her place is held through Friday, August 7.',
+  'g'
+)
+where type = 'placement' and body like '%--- deadline ---%';
 
 notify pgrst, 'reload schema';

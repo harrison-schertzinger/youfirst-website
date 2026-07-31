@@ -21,6 +21,7 @@ import {
   ROSTER_SIZE_MAX,
   ROSTER_SIZE_MIN,
   BLUE_TEAM_NAME,
+  ELITE_DEV_PROGRAM,
   formatPhone,
   groupKeyForYear,
   isBlueClass,
@@ -164,7 +165,7 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
     const label = active === "unassigned" ? "" : active;
     return [
       { key: "elite", title: `${label} Elite`, list: byTier("elite"), always: true, targets: true, controls: true, forceYear: false },
-      { key: "elite_youth", title: "Elite Youth Program", list: byTier("elite_youth"), always: false, targets: false, controls: true, forceYear: false },
+      { key: "elite_youth", title: ELITE_DEV_PROGRAM, list: byTier("elite_youth"), always: false, targets: false, controls: true, forceYear: false },
       { key: "elite_training", title: "Elite Training Group", list: byTier("elite_training"), always: false, targets: false, controls: true, forceYear: false },
       { key: "declined", title: "Declined", list: byTier("declined"), always: false, targets: false, controls: false, forceYear: false },
       {
@@ -1592,7 +1593,7 @@ function PlacementSelect({
         <option value="pending">Pending</option>
         {canPlace && cls != null && <option value="elite">{cls} Elite</option>}
         {canPlace && isBlueClass(cls) && <option value="blue">{BLUE_TEAM_NAME}</option>}
-        <option value="elite_youth">Elite Youth Program</option>
+        <option value="elite_youth">{ELITE_DEV_PROGRAM}</option>
         <option value="elite_training">Elite Training Group</option>
         {upTarget != null && <option value="move_up">Move Up → {upTarget}</option>}
         {downTarget != null && <option value="move_down">Move Down → {downTarget}</option>}
@@ -2006,7 +2007,7 @@ function ShapeStrip({
       <TierInline title={`${label} Elite`} list={byTier("elite")} />
       {blueList && <TierInline title={BLUE_TEAM_NAME} list={blueList} />}
       <span className="inline-flex items-center gap-x-3 text-[#6B7280]">
-        <StripCount label="Youth" title="Elite Youth Program" n={byTier("elite_youth").length} />
+        <StripCount label="Elite Dev" title={ELITE_DEV_PROGRAM} n={byTier("elite_youth").length} />
         <StripCount label="Training" title="Elite Training Group" n={byTier("elite_training").length} />
         <StripCount label="Declined" title="Declined" n={byTier("declined").length} />
         <StripCount label="No T/R" title="No Tryout / No Registration" n={parked} />

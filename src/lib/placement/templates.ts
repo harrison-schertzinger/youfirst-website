@@ -32,6 +32,8 @@ import {
 import {
   bannedLanguageIn,
   NUDGE_TEMPLATE_NAME,
+  PLACEMENT_DEADLINE,
+  PLACEMENT_DEADLINE_LONG,
   PLACEMENT_SEASON,
   RECEIPT_TEMPLATE_NAME,
   SENDABLE_TIERS,
@@ -121,6 +123,9 @@ export function mergeContext(a: AthleteContext): Record<string, string> {
     placement_label: tierLabel(a.tier, a.classYear),
     class_year: a.classYear != null ? String(a.classYear) : "",
     season: PLACEMENT_SEASON,
+    // Fixed for the whole round — never an input on the send screen.
+    deadline: PLACEMENT_DEADLINE,
+    deadline_long: PLACEMENT_DEADLINE_LONG,
     confirm_url: a.confirmUrl,
     club: "YOU. FIRST Elite Lacrosse",
   };

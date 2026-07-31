@@ -16,11 +16,12 @@
  *
  * ADDENDUM B applies to every word that lands here:
  *   B1  "Development" describes what the club does — never a person, a team or
- *       a tier. The rosters are Elite, You First Blue, the Elite Youth Program
- *       and the Elite Training Group.
- *   B2  Tier labels are exact: "{Class} Elite", "{Class} Blue", "Elite Youth
- *       Program", "Elite Training Group". no_tryout / no_registration /
- *       declined / pending are INTERNAL and must never appear on this page.
+ *       a tier. The rosters are Elite, You First Blue, the Elite Development
+ *       Program and the Elite Training Group.
+ *   B2  Tier labels are exact and come from tierLabel(): "{Class} Elite",
+ *       "You First Blue", "Elite Development Program", "Elite Training Group".
+ *       no_tryout / no_registration / declined / pending are INTERNAL and must
+ *       never appear on this page.
  *   B3  Banned: developmental / B team / second team / lower team / tier 2 /
  *       did not make it / unfortunately. Never open a sentence by naming what
  *       an athlete did not get.
