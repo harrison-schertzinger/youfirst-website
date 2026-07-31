@@ -195,6 +195,16 @@ export interface SendGroupInput {
   mode: SendMode;
   /** Required for mode 'test' — the only address a test may ever reach. */
   testTo?: string;
+  /**
+   * TEST MODE ONLY: restrict the run to one athlete.
+   *
+   * Without this a test renders every athlete in the group and delivers all of
+   * them to the tester — 72 identical emails for Elite. A test is for reading
+   * one email, so the preview modal passes the athlete you are looking at.
+   * Ignored outside test mode: it must never be able to narrow a live send into
+   * looking complete while most of the group goes unsent.
+   */
+  athleteKey?: string;
   /** Who clicked. Recorded in the log so a send always has an author. */
   actor: string;
 }
@@ -222,7 +232,10 @@ export async function sendGroup(
 
   // The audience is derived here, from the database, every time.
   const audience = sendableAthletes(roster.athletes).filter(
-    (a) => a.tier === tier,
+    (a) =>
+      a.tier === tier &&
+      // Narrowing is a TEST-mode affordance only — see SendGroupInput.
+      (mode !== "test" || !input.athleteKey || a.key === input.athleteKey),
   );
 
   for (const athlete of audience) {

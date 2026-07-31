@@ -37,7 +37,12 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
   const actor = user.email;
 
-  let body: { tier?: unknown; mode?: unknown; confirmation?: unknown };
+  let body: {
+    tier?: unknown;
+    mode?: unknown;
+    confirmation?: unknown;
+    athleteKey?: unknown;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -98,6 +103,12 @@ export async function POST(req: Request): Promise<NextResponse> {
       mode,
       // Test sends land on the signed-in admin, taken from the session.
       testTo: mode === "test" ? actor : undefined,
+      // Honoured in test mode only — sendGroup enforces that too, so a live
+      // send can never be narrowed to one athlete and still look complete.
+      athleteKey:
+        mode === "test" && typeof body.athleteKey === "string"
+          ? body.athleteKey
+          : undefined,
       actor,
     });
     return NextResponse.json(report);

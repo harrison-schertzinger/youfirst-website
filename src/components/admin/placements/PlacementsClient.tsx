@@ -54,6 +54,9 @@ interface SendReport {
 }
 
 interface Preview {
+  /** Set by the client so the modal can send this one athlete as a test. */
+  athleteKey?: string;
+  tier?: SendableTier;
   name: string;
   email: string | null;
   placementLabel: string;
@@ -85,6 +88,7 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
   const [busy, setBusy] = useState<string | null>(null);
   const [typed, setTyped] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [sentToMe, setSentToMe] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -101,22 +105,54 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
     }
   }, []);
 
-  const openPreview = useCallback(async (athleteKey: string) => {
-    setPreviewLoading(athleteKey);
+  const openPreview = useCallback(
+    async (athleteKey: string, tier: SendableTier) => {
+      setPreviewLoading(athleteKey);
+      setError(null);
+      try {
+        const res = await fetch("/api/admin/placements/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ athleteKey }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "Preview failed.");
+        // Carry the identity through so the modal can test-send this one.
+        setPreview({ ...(json as Preview), athleteKey, tier });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Preview failed.");
+      } finally {
+        setPreviewLoading(null);
+      }
+    },
+    [],
+  );
+
+  /** This athlete's email, delivered to the signed-in admin. One email. */
+  const testOne = useCallback(async (athleteKey: string, tier: SendableTier) => {
+    setBusy("preview:test");
     setError(null);
     try {
-      const res = await fetch("/api/admin/placements/preview", {
+      const res = await fetch("/api/admin/placements/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ athleteKey }),
+        body: JSON.stringify({ tier, mode: "test", athleteKey }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Preview failed.");
-      setPreview(json as Preview);
+      const json = (await res.json()) as SendReport & { error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Test send failed.");
+      const ok = json.sent?.length ?? 0;
+      setError(
+        ok > 0
+          ? null
+          : (json.failed?.[0]?.error ??
+            json.skipped?.[0]?.detail ??
+            "Nothing was sent."),
+      );
+      if (ok > 0) setSentToMe(athleteKey);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Preview failed.");
+      setError(e instanceof Error ? e.message : "Test send failed.");
     } finally {
-      setPreviewLoading(null);
+      setBusy(null);
     }
   }, []);
 
@@ -400,7 +436,13 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
       </div>
 
       {preview && (
-        <PreviewModal preview={preview} onClose={() => setPreview(null)} />
+        <PreviewModal
+          preview={preview}
+          onClose={() => setPreview(null)}
+          onTest={testOne}
+          testing={busy === "preview:test"}
+          sent={sentToMe === preview.athleteKey}
+        />
       )}
     </div>
   );
@@ -424,7 +466,7 @@ function GroupCard({
   typed: string;
   onType: (v: string) => void;
   onSend: (mode: Mode) => void;
-  onPreview: (key: string) => void;
+  onPreview: (key: string, tier: SendableTier) => void;
   previewLoading: string | null;
 }) {
   const phrase = approvalPhrase(group.tier);
@@ -536,7 +578,7 @@ function Bucket({
   tone: "ready" | "blocked" | "sent";
   rows: SendCandidate[];
   empty?: string;
-  onPreview: (key: string) => void;
+  onPreview: (key: string, tier: SendableTier) => void;
   previewLoading: string | null;
 }) {
   const dot =
@@ -600,7 +642,7 @@ function Bucket({
                 </td>
                 <td className="py-2 text-right">
                   <button
-                    onClick={() => onPreview(r.key)}
+                    onClick={() => onPreview(r.key, r.tier)}
                     disabled={previewLoading !== null}
                     className="inline-flex items-center gap-1 rounded-md border border-[#E5E8EC] px-2 py-1 text-[12px] font-semibold text-[#374151] transition hover:bg-[#F8F9FA] disabled:opacity-40"
                   >
@@ -682,9 +724,15 @@ function ReportBlock({ report }: { report: SendReport }) {
 function PreviewModal({
   preview,
   onClose,
+  onTest,
+  testing,
+  sent,
 }: {
   preview: Preview;
   onClose: () => void;
+  onTest: (athleteKey: string, tier: SendableTier) => void;
+  testing: boolean;
+  sent: boolean;
 }) {
   const [tab, setTab] = useState<"html" | "text">("html");
 
@@ -716,13 +764,33 @@ function PreviewModal({
               </div>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-[#6B7280] transition hover:bg-[#F8F9FA]"
-            aria-label="Close preview"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* One email, this athlete, to you — not the whole group. */}
+            {!preview.blocked && preview.athleteKey && preview.tier && (
+              <button
+                onClick={() => onTest(preview.athleteKey!, preview.tier!)}
+                disabled={testing || sent}
+                className={`${BTN} border border-[#E5E8EC] text-[#374151] hover:bg-[#F8F9FA]`}
+                title="Sends exactly this email to your own address"
+              >
+                {testing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : sent ? (
+                  <Check className="h-4 w-4 text-[#10B981]" />
+                ) : (
+                  <Mail className="h-4 w-4" />
+                )}
+                {sent ? "Sent to you" : "Send this to me"}
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-[#6B7280] transition hover:bg-[#F8F9FA]"
+              aria-label="Close preview"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {preview.blocked ? (
