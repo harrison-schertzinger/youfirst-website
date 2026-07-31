@@ -24,7 +24,7 @@ import { standardIsWritten } from "@/content/standard";
 import {
   EMAIL_FOOTER,
   HERO_ALT,
-  HERO_URL,
+  heroUrl,
   STANDARD_LINK_LABEL,
   STANDARD_URL,
 } from "@/lib/placement/config";
@@ -177,6 +177,9 @@ export function renderEmail(
   shape: EmailShape,
   athlete: AthleteContext,
   actionUrl: string,
+  /** TEST SENDS ONLY — swaps the header band so treatments can be compared
+   *  in a real inbox. Live sends never pass it. */
+  headerVariant?: string | null,
 ): RenderResult {
   const name = templateNameFor(shape, athlete.tier);
   const tpl = bundle.byName.get(name);
@@ -262,7 +265,7 @@ export function renderEmail(
     // Equal to actionUrl → the shell renders no secondary link (see email-shell).
     standardUrl: standardIsWritten() ? STANDARD_URL : actionUrl,
     standardLabel: STANDARD_LINK_LABEL,
-    heroUrl: HERO_URL,
+    heroUrl: heroUrl(headerVariant),
     heroAlt: HERO_ALT,
     footer: EMAIL_FOOTER,
   };

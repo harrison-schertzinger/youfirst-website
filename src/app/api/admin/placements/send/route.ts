@@ -42,6 +42,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     mode?: unknown;
     confirmation?: unknown;
     athleteKey?: unknown;
+    headerVariant?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -109,6 +110,10 @@ export async function POST(req: Request): Promise<NextResponse> {
         mode === "test" && typeof body.athleteKey === "string"
           ? body.athleteKey
           : undefined,
+      headerVariant:
+        mode === "test" && typeof body.headerVariant === "string"
+          ? body.headerVariant
+          : null,
       actor,
     });
     return NextResponse.json(report);

@@ -205,6 +205,8 @@ export interface SendGroupInput {
    * looking complete while most of the group goes unsent.
    */
   athleteKey?: string;
+  /** TEST MODE ONLY — which header band to render. See config.HEADER_VARIANTS. */
+  headerVariant?: string | null;
   /** Who clicked. Recorded in the log so a send always has an author. */
   actor: string;
 }
@@ -309,6 +311,7 @@ export async function sendGroup(
         confirmUrl: url,
       },
       url,
+      mode === "test" ? input.headerVariant : null,
     );
     if (!rendered.ok) {
       report.skipped.push({

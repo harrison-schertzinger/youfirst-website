@@ -21,9 +21,31 @@ export const ADMIN_NOTIFY = [
   "kathleen@youfirstlacrosse.com",
 ];
 
-export const HERO_URL = `${SITE_URL}/images/email/placement-hero.jpg`;
-export const HERO_ALT =
-  "YOU. FIRST athletes on the field at sunrise, arms around each other.";
+/**
+ * The header band. Built by scripts/build-email-header.mjs — a flat JPEG,
+ * because Gmail strips blend modes and Outlook ignores CSS gradients.
+ *
+ * HEADER_VARIANTS exists so a treatment can be compared in a real inbox: a
+ * TEST send may name one, and the email is otherwise identical. Live sends
+ * always use HEADER_DEFAULT — the variant is not a parameter a real send can
+ * reach.
+ */
+export const HEADER_VARIANTS: Record<string, string> = {
+  aurora: "header-img-1947-aurora.jpg",
+  deep: "header-img-1947-deep.jpg",
+  edge: "header-img-1947-edge.jpg",
+};
+
+export const HEADER_DEFAULT = "deep";
+
+export function heroUrl(variant?: string | null): string {
+  const file =
+    (variant && HEADER_VARIANTS[variant]) ?? HEADER_VARIANTS[HEADER_DEFAULT];
+  return `${SITE_URL}/images/email/${file}`;
+}
+
+export const HERO_URL = heroUrl();
+export const HERO_ALT = "YOU. FIRST — Elite Lacrosse.";
 
 export const EMAIL_FOOTER =
   "YOU. FIRST Elite Lacrosse Club · Cincinnati, Ohio";
