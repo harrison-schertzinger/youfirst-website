@@ -43,6 +43,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     confirmation?: unknown;
     athleteKey?: unknown;
     headerVariant?: unknown;
+    classKey?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -58,6 +59,20 @@ export async function POST(req: Request): Promise<NextResponse> {
     );
   }
 
+  // Blue is one team across two classes and so carries no class; every other
+  // tier must name one. sendGroup refuses again on its own — this is the first
+  // of two independent checks, not the only one.
+  const classKey =
+    typeof body.classKey === "string" && body.classKey.trim()
+      ? body.classKey.trim()
+      : null;
+  if (tier !== "blue" && !classKey) {
+    return NextResponse.json(
+      { error: "A class must be named for this group." },
+      { status: 400 },
+    );
+  }
+
   const mode = body.mode as SendMode;
   if (!MODES.includes(mode)) {
     return NextResponse.json({ error: "Unknown send mode." }, { status: 400 });
@@ -68,10 +83,10 @@ export async function POST(req: Request): Promise<NextResponse> {
   if (mode === "live") {
     const typed =
       typeof body.confirmation === "string" ? body.confirmation.trim() : "";
-    if (typed !== approvalPhrase(tier)) {
+    if (typed !== approvalPhrase(tier, classKey)) {
       return NextResponse.json(
         {
-          error: `To send this group, type exactly: ${approvalPhrase(tier)}`,
+          error: `To send this group, type exactly: ${approvalPhrase(tier, classKey)}`,
         },
         { status: 400 },
       );
@@ -101,6 +116,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   try {
     const report = await sendGroup(db, {
       tier,
+      classKey,
       mode,
       // Test sends land on the signed-in admin, taken from the session.
       testTo: mode === "test" ? actor : undefined,

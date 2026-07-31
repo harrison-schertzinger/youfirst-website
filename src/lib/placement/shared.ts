@@ -11,10 +11,13 @@
 
 import {
   ELITE_DEV_PROGRAM,
+  groupKeyForYear,
   TEAM_TIERS,
   type PlacementTier,
   tierLabel,
 } from "@/lib/rosters/shared";
+
+export { groupKeyForYear };
 
 export { tierLabel };
 export type { PlacementTier };
@@ -47,12 +50,43 @@ export const TIER_GROUP_LABEL: Record<SendableTier, string> = {
 };
 
 /**
+ * Tiers that are split BY CLASS on the send screen. Blue is absent: it is one
+ * team across 2029 and 2030, so it is one group.
+ */
+export const CLASS_SPLIT_TIERS: readonly SendableTier[] = [
+  "elite",
+  "elite_youth",
+  "elite_training",
+];
+
+/**
+ * Classes that are NOT offered on this screen. 2028 is being handled separately
+ * by Harrison, so it must not appear as an approvable group at all — an empty
+ * group he could click is worse than no group.
+ */
+export const EXCLUDED_CLASSES: readonly string[] = ["2028"];
+
+/** "2030:elite", or "blue" — the id of one approvable group. */
+export function groupKeyFor(tier: SendableTier, classKey: string | null): string {
+  return tier === "blue" ? "blue" : `${classKey}:${tier}`;
+}
+
+/**
  * The phrase that approves a group. Typed, not clicked — and the server
  * compares it independently, so the screen showing it is a convenience, never
  * the gate.
+ *
+ * It names the CLASS as well as the tier, because the whole point of grouping
+ * by class is that approving 2030 must not be confusable with approving 2029.
  */
-export function approvalPhrase(tier: SendableTier): string {
-  return `SEND ${TIER_GROUP_LABEL[tier].toUpperCase()}`;
+export function approvalPhrase(
+  tier: SendableTier,
+  classKey: string | null,
+): string {
+  const label = TIER_GROUP_LABEL[tier].toUpperCase();
+  return tier === "blue" || !classKey
+    ? `SEND ${label}`
+    : `SEND ${classKey} ${label}`;
 }
 
 /** The phrase that approves a nudge round. */
@@ -308,7 +342,11 @@ export interface SendCandidate {
 }
 
 export interface SendGroup {
+  /** "2030:elite" | "blue" — stable id for typed-approval state and anchors. */
+  key: string;
   tier: SendableTier;
+  /** "2030", "2033/2034", or null for Blue which spans two classes. */
+  classKey: string | null;
   label: string;
   /** Everyone who would receive the email if this group were approved. */
   ready: SendCandidate[];
@@ -337,6 +375,12 @@ export interface SendAudience {
   groups: SendGroup[];
   /** Never sendable — counted and named, never listed as a recipient. */
   excluded: ExcludedBucket[];
+  /**
+   * Placed, but with no graduation year, so she belongs to no class group.
+   * Listed once at the bottom rather than dropped — she cannot be sent to
+   * either way, but she must still be visible.
+   */
+  noClassYear: SendCandidate[];
   templateHealth: {
     tier: SendableTier | "receipt" | "nudge";
     templateName: string;

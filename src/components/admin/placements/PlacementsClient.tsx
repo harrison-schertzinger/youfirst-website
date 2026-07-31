@@ -157,8 +157,9 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
   }, []);
 
   const runSend = useCallback(
-    async (tier: SendableTier, mode: Mode) => {
-      const busyKey = `${tier}:${mode}`;
+    async (group: SendGroup, mode: Mode) => {
+      const { tier, classKey, key: gk } = group;
+      const busyKey = `${gk}:${mode}`;
       setBusy(busyKey);
       setError(null);
       try {
@@ -167,15 +168,16 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             tier,
+            classKey,
             mode,
-            confirmation: mode === "live" ? (typed[tier] ?? "") : undefined,
+            confirmation: mode === "live" ? (typed[gk] ?? "") : undefined,
           }),
         });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "Send failed.");
-        setReports((r) => ({ ...r, [tier]: json as SendReport }));
+        setReports((r) => ({ ...r, [gk]: json as SendReport }));
         if (mode === "live") {
-          setTyped((t) => ({ ...t, [tier]: "" }));
+          setTyped((t) => ({ ...t, [gk]: "" }));
           await refresh();
         }
       } catch (e) {
@@ -347,20 +349,58 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
         </p>
       </div>
 
-      {/* ── Groups ─────────────────────────────────────────────────────── */}
-      {data.groups.map((group) => (
-        <GroupCard
-          key={group.tier}
-          group={group}
-          report={reports[group.tier]}
-          busy={busy}
-          typed={typed[group.tier] ?? ""}
-          onType={(v) => setTyped((t) => ({ ...t, [group.tier]: v }))}
-          onSend={(mode) => runSend(group.tier, mode)}
-          onPreview={openPreview}
-          previewLoading={previewLoading}
-        />
-      ))}
+      {/* ── Groups, by class ───────────────────────────────────────────── */}
+      {/* One heading per graduation class, its placements beneath it, then
+          You First Blue on its own — it is one team across 2029 and 2030 and
+          belongs to no single class. */}
+      {data.groups.map((group, i) => {
+        const prev = data.groups[i - 1];
+        const newClass = !prev || prev.classKey !== group.classKey;
+        const firstOfTier =
+          data.groups.findIndex((g) => g.tier === group.tier) === i;
+        return (
+          <div key={group.key} className={newClass ? "pt-2" : undefined}>
+            {newClass && (
+              <h2
+                id={group.classKey ? `class-${group.classKey.replace("/", "-")}` : "class-blue"}
+                className="mb-3 scroll-mt-24 text-[15px] font-bold tracking-tight text-[#0A0A0B]"
+              >
+                {group.classKey ? `Class of ${group.classKey}` : "You First Blue"}
+                {!group.classKey && (
+                  <span className="ml-2 text-[12px] font-medium text-[#6B7280]">
+                    one team · 2029 + 2030
+                  </span>
+                )}
+              </h2>
+            )}
+            <GroupCard
+              group={group}
+              firstOfTier={firstOfTier}
+              report={reports[group.key]}
+              busy={busy}
+              typed={typed[group.key] ?? ""}
+              onType={(v) => setTyped((t) => ({ ...t, [group.key]: v }))}
+              onSend={(mode) => runSend(group, mode)}
+              onPreview={openPreview}
+              previewLoading={previewLoading}
+            />
+          </div>
+        );
+      })}
+
+      {/* Placed but with no graduation year — she belongs to no class group,
+          so she is listed once here rather than disappearing. */}
+      {data.noClassYear.length > 0 && (
+        <div className={`${CARD} px-5 py-4`}>
+          <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#B45309]">
+            No graduation year · {data.noClassYear.length}
+          </div>
+          <p className="mt-2 text-[13px] text-[#374151]">
+            {data.noClassYear.map((a) => a.name).join(", ")} — placed, but with no
+            class to send under. Set a graduation year on the roster screen.
+          </p>
+        </div>
+      )}
 
       {/* ── Nudges ─────────────────────────────────────────────────────── */}
       <div className={`${CARD} p-5`}>
@@ -452,6 +492,7 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
 
 function GroupCard({
   group,
+  firstOfTier,
   report,
   busy,
   typed,
@@ -461,6 +502,7 @@ function GroupCard({
   previewLoading,
 }: {
   group: SendGroup;
+  firstOfTier: boolean;
   report?: SendReport;
   busy: string | null;
   typed: string;
@@ -469,12 +511,19 @@ function GroupCard({
   onPreview: (key: string, tier: SendableTier) => void;
   previewLoading: string | null;
 }) {
-  const phrase = approvalPhrase(group.tier);
+  const phrase = approvalPhrase(group.tier, group.classKey);
   const canSend = group.ready.length > 0;
 
   return (
     // The id anchors deep links from /admin/rosters team headers.
-    <div id={group.tier} className={`${CARD} overflow-hidden scroll-mt-24`}>
+    // Two anchors: the precise one ("2030:elite" → "2030-elite") and, on the
+    // first group of a tier, the bare tier — /admin/rosters still links to
+    // /admin/placements#elite and that link must keep landing somewhere.
+    <div
+      id={group.key.replace(":", "-")}
+      className={`${CARD} overflow-hidden scroll-mt-24`}
+    >
+      {firstOfTier && <span id={group.tier} className="block scroll-mt-24" />}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E8EC] px-5 py-4">
         <div>
           <div className="text-[15px] font-bold text-[#0A0A0B]">{group.label}</div>

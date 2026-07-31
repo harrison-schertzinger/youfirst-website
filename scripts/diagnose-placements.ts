@@ -78,14 +78,21 @@ async function main() {
 
   console.log("GROUPS");
   for (const g of audience.groups) {
+    const name = g.classKey ? `${g.classKey} ${g.label}` : g.label;
     console.log(
-      `  ${g.label.padEnd(22)} ready ${String(g.ready.length).padStart(3)} · sent ${String(
+      `  ${name.padEnd(34)} ready ${String(g.ready.length).padStart(3)} · sent ${String(
         g.alreadySent.length,
-      ).padStart(3)} · cannot contact ${String(g.cannotContact.length).padStart(3)}   [type "${approvalPhrase(g.tier)}"]`,
+      ).padStart(3)} · blocked ${String(g.cannotContact.length).padStart(3)}   [type "${approvalPhrase(g.tier, g.classKey)}"]`,
     );
     for (const a of g.cannotContact) {
       console.log(`      skip  ${a.name} — ${a.blockedBy}`);
     }
+  }
+
+  if (audience.noClassYear.length) {
+    console.log(
+      `\n  NO CLASS YEAR: ${audience.noClassYear.map((a) => a.name).join(", ")}`,
+    );
   }
 
   console.log("\nTEMPLATES");

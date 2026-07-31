@@ -19,13 +19,16 @@ import {
   type TemplateBundle,
 } from "@/lib/placement/templates";
 import {
+  CLASS_SPLIT_TIERS,
   cycleKeyFor,
+  EXCLUDED_CLASSES,
   greetingFor,
+  groupKeyFor,
+  groupKeyForYear,
   isSendableTier,
   PLACEMENT_CAMPAIGN,
   PLACEMENT_SEASON,
   SEND_KINDS,
-  SENDABLE_TIERS,
   TEMPLATE_NAME_BY_TIER,
   TIER_GROUP_LABEL,
   tierLabel,
@@ -185,8 +188,7 @@ export async function buildAudience(db: SupabaseClient): Promise<SendAudience> {
   const sendable = sendableAthletes(roster.athletes);
 
   // By exclusion, not by enumeration: anyone who is not sendable is counted
-  // and named here, whatever her tier says. A tier added to the roster
-  // vocabulary later appears on its own instead of vanishing from both lists.
+  // and named here, whatever her tier says.
   const excludedCounts = new Map<string, number>();
   for (const a of roster.athletes) {
     if (isSendableTier(a.placementTier)) continue;
@@ -201,34 +203,85 @@ export async function buildAudience(db: SupabaseClient): Promise<SendAudience> {
     }))
     .sort((a, b) => b.count - a.count);
 
-  const groups: SendGroup[] = SENDABLE_TIERS.map((tier) => {
+  // ── The class each athlete is offered under ─────────────────────────────
+  // groupKeyForYear is T1's, so these keys ARE the roster screen's tabs —
+  // including the combined 2033/2034.
+  const classOf = (a: SendableAthlete): string | null =>
+    a.classYear == null ? null : groupKeyForYear(a.classYear);
+
+  const noClassYear: SendCandidate[] = [];
+  const buckets = new Map<string, SendableAthlete[]>();
+  const classMinYear = new Map<string, number>();
+
+  for (const a of sendable) {
+    const cls = classOf(a);
+    if (a.tier === "blue") {
+      // Blue is ONE team across 2029 and 2030 — one group, never split.
+      const list = buckets.get("blue") ?? [];
+      list.push(a);
+      buckets.set("blue", list);
+      continue;
+    }
+    if (cls == null) {
+      noClassYear.push(toCandidate(a, state, blockReason(a, state, bundle)));
+      continue;
+    }
+    if (EXCLUDED_CLASSES.includes(cls)) continue;
+    classMinYear.set(cls, Math.min(classMinYear.get(cls) ?? 9999, a.classYear!));
+    const key = groupKeyFor(a.tier, cls);
+    const list = buckets.get(key) ?? [];
+    list.push(a);
+    buckets.set(key, list);
+  }
+
+  const build = (
+    key: string,
+    tier: SendableTier,
+    classKey: string | null,
+  ): SendGroup => {
     const ready: SendCandidate[] = [];
     const alreadySent: SendCandidate[] = [];
     const cannotContact: SendCandidate[] = [];
-
-    for (const a of sendable) {
-      if (a.tier !== tier) continue;
+    for (const a of buckets.get(key) ?? []) {
       const reason = blockReason(a, state, bundle);
       const candidate = toCandidate(a, state, reason);
       if (reason === null) ready.push(candidate);
       else if (reason === "already_sent") alreadySent.push(candidate);
       else cannotContact.push(candidate);
     }
-
     return {
+      key,
       tier,
+      classKey,
       label: TIER_GROUP_LABEL[tier],
       ready: ready.sort(byName),
       alreadySent: alreadySent.sort(byName),
       cannotContact: cannotContact.sort(byName),
     };
-  });
+  };
+
+  // Classes ascending, each with its tiers in a fixed order; Blue last, because
+  // it belongs to no single class.
+  const groups: SendGroup[] = [];
+  const classes = Array.from(classMinYear.entries())
+    .sort((a, b) => a[1] - b[1])
+    .map(([k]) => k);
+
+  for (const cls of classes) {
+    for (const tier of CLASS_SPLIT_TIERS) {
+      const key = groupKeyFor(tier, cls);
+      if (!buckets.has(key)) continue;
+      groups.push(build(key, tier, cls));
+    }
+  }
+  if (buckets.has("blue")) groups.push(build("blue", "blue", null));
 
   return {
     campaign: PLACEMENT_CAMPAIGN,
     season: PLACEMENT_SEASON,
     groups,
     excluded,
+    noClassYear: noClassYear.sort(byName),
     templateHealth: templateHealth(bundle),
     fetchedAt: new Date().toISOString(),
   };

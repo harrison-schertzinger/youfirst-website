@@ -45,7 +45,9 @@ import { issueToken, type TokenRow } from "@/lib/placement/tokens";
 import {
   approvalPhrase,
   cycleKeyFor,
+  EXCLUDED_CLASSES,
   greetingFor,
+  groupKeyForYear,
   isSendableTier,
   NUDGE_DAYS,
   PLACEMENT_CAMPAIGN,
@@ -192,6 +194,14 @@ export async function previewAthlete(
 
 export interface SendGroupInput {
   tier: SendableTier;
+  /**
+   * The class being approved — "2030", "2033/2034". REQUIRED for every tier
+   * except Blue, which is one team across 2029 and 2030 and so has no single
+   * class. A missing classKey on a class-split tier REFUSES the whole run
+   * rather than falling back to "everyone": the entire point of grouping by
+   * class is that approving 2030 can never reach 2029.
+   */
+  classKey?: string | null;
   mode: SendMode;
   /** Required for mode 'test' — the only address a test may ever reach. */
   testTo?: string;
@@ -231,16 +241,34 @@ export async function sendGroup(
     skipped: [],
   };
 
+  const classKey = input.classKey ?? null;
+  if (tier !== "blue" && !classKey) {
+    report.refusal =
+      "No class given. A class-split group must name its class, or the send " +
+      "would reach every class at once.";
+    return report;
+  }
+  if (classKey && EXCLUDED_CLASSES.includes(classKey)) {
+    report.refusal = `${classKey} is not offered on this screen.`;
+    return report;
+  }
+
   const [roster, bundle, state] = await Promise.all([
     buildRosterData(db),
     loadTemplates(db),
     loadSendState(db),
   ]);
 
-  // The audience is derived here, from the database, every time.
+  // THE AUDIENCE IS DERIVED HERE, from the database, every time — from
+  // graduation class AND tier together. The client sends two labels and a typed
+  // phrase; it never sends a recipient list, and it cannot widen one.
   const audience = sendableAthletes(roster.athletes).filter(
     (a) =>
       a.tier === tier &&
+      // Blue spans 2029+2030 by definition; every other tier is pinned to its
+      // class, so a 2030 approval cannot reach a 2029.
+      (tier === "blue" ||
+        (a.classYear != null && groupKeyForYear(a.classYear) === classKey)) &&
       // Narrowing never applies to a live send — see SendGroupInput.
       (mode === "live" || !input.athleteKey || a.key === input.athleteKey),
   );
@@ -374,7 +402,7 @@ export async function sendGroup(
   }
 
   if (mode === "live") {
-    await notifyWaveSummary(report, actor);
+    await notifyWaveSummary(report, actor, classKey);
   }
 
   return report;
@@ -728,8 +756,14 @@ export async function sendNudges(
  * failure is indistinguishable from a quiet inbox. Fails soft — it reports on
  * something that has already happened.
  */
-async function notifyWaveSummary(report: SendReport, actor: string) {
-  const label = TIER_GROUP_LABEL[report.tier];
+async function notifyWaveSummary(
+  report: SendReport,
+  actor: string,
+  classKey: string | null,
+) {
+  const label = classKey
+    ? `${classKey} ${TIER_GROUP_LABEL[report.tier]}`
+    : TIER_GROUP_LABEL[report.tier];
   const result = await sendAdminNotification({
     subject: adminSubject(
       `${label} placement sent`,
