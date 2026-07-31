@@ -40,6 +40,7 @@ import {
 } from "@/lib/placement/audience";
 import { buildRosterData } from "@/lib/rosters/data";
 import { loadTemplates, renderEmail } from "@/lib/placement/templates";
+import { standardIsWritten } from "@/content/standard";
 import { issueToken, type TokenRow } from "@/lib/placement/tokens";
 import {
   approvalPhrase,
@@ -508,6 +509,13 @@ export async function sendReceipt(
 ): Promise<{ ok: boolean; error?: string }> {
   const bundle = await loadTemplates(db);
 
+  // The receipt's button points at The You First Standard once that page has
+  // copy; until then it points at the site, which is where the receipt's own
+  // words send the family ("Everything about the club is at
+  // youfirstlacrosse.com"). Sending them to a page of placeholders would be
+  // worse than sending them to the front door.
+  const receiptAction = standardIsWritten() ? STANDARD_URL : SITE_URL;
+
   const rendered = renderEmail(
     bundle,
     "receipt",
@@ -516,9 +524,9 @@ export async function sendReceipt(
       classYear: token.class_year,
       tier: token.placement_tier,
       parentName: token.parent_name,
-      confirmUrl: STANDARD_URL,
+      confirmUrl: receiptAction,
     },
-    STANDARD_URL,
+    receiptAction,
   );
   if (!rendered.ok) return { ok: false, error: rendered.detail };
 
@@ -539,7 +547,7 @@ export async function sendReceipt(
       athlete_table: token.athlete_table,
       athlete_id: token.athlete_id,
       athlete_name: token.athlete_name,
-      standard_url: STANDARD_URL,
+      standard_url: receiptAction,
     },
   });
 

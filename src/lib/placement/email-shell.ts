@@ -23,11 +23,7 @@
  *   • a plain-text alternative is built from the same regions, never omitted
  */
 
-import {
-  pillarsFrom,
-  paragraphsOf,
-  type Regions,
-} from "@/lib/placement/regions";
+import { paragraphsOf, type Regions } from "@/lib/placement/regions";
 import { type EmailShape } from "@/lib/placement/shared";
 
 // ── Tokens ────────────────────────────────────────────────────────────────
@@ -107,11 +103,6 @@ function rule(): string {
   );
 }
 
-function sectionLabel(text: string): string {
-  return row(
-    `<div style="font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:${ACCENT};mso-line-height-rule:exactly;line-height:16px">${escapeHtml(text)}</div>`,
-  );
-}
 
 function prose(region: string | undefined): string {
   const paras = paragraphsOf(region);
@@ -124,24 +115,6 @@ function prose(region: string | undefined): string {
     .join("");
 }
 
-/**
- * The four pillars. Bold lead-in, then the body — the structure that makes
- * this read as a club with a plan.
- */
-function pillarBlocks(regions: Regions): string {
-  return pillarsFrom(regions)
-    .map(
-      (p) => `<tr><td style="padding:0 40px 22px">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-          <tr><td style="border-left:3px solid ${ACCENT};padding:2px 0 2px 16px">
-            <div style="font-family:${FONT};font-size:18px;font-weight:700;line-height:26px;mso-line-height-rule:exactly;color:${WHITE}">${inline(p.lead)}</div>
-            ${p.body ? `<div style="font-family:${FONT};font-size:16px;line-height:26px;mso-line-height-rule:exactly;color:${PROSE};padding-top:6px">${inline(p.body)}</div>` : ""}
-          </td></tr>
-        </table>
-      </td></tr>`,
-    )
-    .join("");
-}
 
 function deadlineBlock(region: string | undefined): string {
   if (!region?.trim()) return "";
@@ -218,49 +191,22 @@ export function buildHtml(chrome: EmailChrome, regions: Regions): string {
 
     prose(regions.opening),
 
-    // Pillars — placement email only.
-    ...(isPlacement
+    // The spine — the club paragraphs, set between hairlines so seven
+    // paragraphs read as a block rather than as more of the opening.
+    ...(isPlacement && regions.spine
       ? [
           spacer(14),
           rule(),
           spacer(30),
-          sectionLabel("What we are building"),
-          spacer(20),
-          pillarBlocks(regions),
-          spacer(8),
-          rule(),
-          spacer(30),
-          sectionLabel("The 2026–27 staff"),
-          spacer(16),
-          prose(regions.staff),
-          spacer(14),
-          sectionLabel("Summer"),
-          spacer(16),
-          prose(regions.summer),
-          spacer(14),
-          sectionLabel("The platform"),
-          spacer(16),
-          prose(regions.platform),
+          prose(regions.spine),
           spacer(10),
           rule(),
           spacer(30),
         ]
-      : []),
+      : [spacer(4)]),
 
-    // Receipt only.
-    ...(chrome.shape === "receipt" && regions.whats_next
-      ? [
-          spacer(4),
-          rule(),
-          spacer(30),
-          sectionLabel("What happens next"),
-          spacer(16),
-          prose(regions.whats_next),
-          spacer(14),
-        ]
-      : []),
-
-    ...(chrome.shape === "nudge" ? [spacer(4)] : []),
+    prose(regions.closing),
+    ...(regions.closing?.trim() ? [spacer(10)] : []),
 
     deadlineBlock(regions.deadline),
     ...(regions.deadline?.trim() ? [spacer(28)] : []),
@@ -324,39 +270,10 @@ export function buildText(chrome: EmailChrome, regions: Regions): string {
     push();
   }
 
-  if (chrome.shape === "placement") {
-    push("WHAT WE ARE BUILDING");
-    push();
-    for (const p of pillarsFrom(regions)) {
-      push(stripEmphasis(p.lead));
-      if (p.body) push(stripEmphasis(p.body));
+  for (const key of ["spine", "closing"] as const) {
+    for (const p of paragraphsOf(regions[key])) {
+      push(stripEmphasis(p));
       push();
-    }
-    for (const [label, key] of [
-      ["THE 2026-27 STAFF", "staff"],
-      ["SUMMER", "summer"],
-      ["THE PLATFORM", "platform"],
-    ] as const) {
-      const paras = paragraphsOf(regions[key]);
-      if (!paras.length) continue;
-      push(label);
-      push();
-      for (const p of paras) {
-        push(stripEmphasis(p));
-        push();
-      }
-    }
-  }
-
-  if (chrome.shape === "receipt") {
-    const paras = paragraphsOf(regions.whats_next);
-    if (paras.length) {
-      push("WHAT HAPPENS NEXT");
-      push();
-      for (const p of paras) {
-        push(stripEmphasis(p));
-        push();
-      }
     }
   }
 

@@ -27,6 +27,7 @@ import {
 import { parseRegions } from "../src/lib/placement/regions";
 import { renderTemplate } from "../src/lib/template-render";
 import { getServiceClient } from "../src/lib/placement/config";
+import { standardIsWritten } from "../src/content/standard";
 import { loadTemplates } from "../src/lib/placement/templates";
 import { mergeContext } from "../src/lib/placement/templates";
 import {
@@ -38,29 +39,19 @@ import {
 
 const OUT_DIR = path.resolve(process.cwd(), "documents/placement-preview");
 
-/** Stand-in prose. Structurally faithful, obviously not Harrison's voice. */
+/**
+ * Stand-in prose for the layout-only mode, in the real region shape
+ * (opening / spine / closing / signature). Never written to the database.
+ */
 const SAMPLE: Record<string, string> = {
-  preheader: "Her spot is held. One tap confirms it.",
   opening:
-    "Sample paragraph. This is where the placement is stated plainly, in the first sentence, so a parent reading on a phone in a parking lot knows the answer before they scroll.\n\nSample second paragraph. This is where the club says what the placement means and why it was made — the part that turns a decision into a welcome.",
-  pillar_1:
-    "Own development in this area.\nSample body copy for the first pillar, two sentences long, describing what the club commits to and what it means for her week.",
-  pillar_2:
-    "Build the best players.\nSample body copy for the second pillar, two sentences long, describing what the club commits to and what it means for her week.",
-  pillar_3:
-    "Take our teams to the best tournaments.\nSample body copy for the third pillar, two sentences long, describing what the club commits to and what it means for her season.",
-  pillar_4:
-    "Play at the highest level.\nSample body copy for the fourth pillar, two sentences long, describing what the club commits to and what it means for her future.",
-  staff:
-    "Sample staff paragraph naming the coaches for the season and what they have done, because families decide on coaches.",
-  summer:
-    "Sample summer paragraph describing what happens between now and the season, where it happens, and how often.",
-  platform:
-    "Sample platform paragraph describing what every team will be on this year and what she will actually use it for.",
-  button_label: "Confirm Ella's spot",
-  deadline:
-    "Her spot is held through Friday, 21 August. After that it goes to the next athlete on the list.",
-  signature: "Sample signature block.\nHarrison Schertzinger · YOU. FIRST Elite Lacrosse",
+    "{{parent_greeting}}\n\nSample opening. The placement is stated plainly in the first sentence, so a parent reading on a phone in a parking lot knows the answer before they scroll.",
+  spine:
+    "Sample spine paragraph one — the club's commitment.\n\nSample spine paragraph two — the record.\n\nSample spine paragraph three — the coaches.\n\nSample spine paragraph four — how often she trains.",
+  closing:
+    "Sample closing. The ask, and the deadline.\n\nSample sign-off line.",
+  button_label: "Confirm {{player_first_name}}'s spot",
+  signature: "Harrison Schertzinger\nDirector, You First Elite Lacrosse",
 };
 
 function sampleBody(): string {
@@ -115,7 +106,12 @@ async function main() {
       headline: tierLabel(tier, athlete.classYear),
       subhead: athlete.name,
       actionUrl: athlete.confirmUrl,
-      standardUrl: "https://www.youfirstlacrosse.com/standard",
+      // Mirrors renderEmail: the Standard link is suppressed until /standard
+      // has copy, and the shell drops it when it equals the primary action.
+      // Hardcoding a URL here made previews show a link the real send omits.
+      standardUrl: standardIsWritten()
+        ? "https://www.youfirstlacrosse.com/standard"
+        : athlete.confirmUrl,
       standardLabel: "Read The You First Standard",
       // Absolute in production; the local file renders against the live site.
       heroUrl: "https://www.youfirstlacrosse.com/images/email/placement-hero.jpg",

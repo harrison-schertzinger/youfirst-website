@@ -131,36 +131,30 @@ export type NudgeDay = (typeof NUDGE_DAYS)[number];
  * renders each into its designed slot; the regions are the only thing that
  * varies between the five placement templates.
  */
+/**
+ * The regions the copy actually has.
+ *
+ *   opening    the greeting and what this placement is
+ *   spine      the club paragraphs, identical in all four offers and expanded
+ *              INLINE in each — not a shared snippet, so a change to one offer
+ *              can never silently rewrite the other three
+ *   closing    what is specific to this tier again, plus the ask
+ *   signature  the sign-off
+ *
+ * `preheader`, `deadline` and `button_label` are OPTIONAL: rendered when a
+ * template defines them, skipped when it does not. The final copy carries its
+ * deadline inside the closing, so no separate deadline panel is drawn.
+ */
 export const PLACEMENT_REGIONS = [
-  "preheader",
   "opening",
-  "pillar_1",
-  "pillar_2",
-  "pillar_3",
-  "pillar_4",
-  "staff",
-  "summer",
-  "platform",
-  "button_label",
-  "deadline",
+  "spine",
+  "closing",
   "signature",
 ] as const;
 
-export const RECEIPT_REGIONS = [
-  "preheader",
-  "opening",
-  "whats_next",
-  "button_label",
-  "signature",
-] as const;
+export const RECEIPT_REGIONS = ["opening", "signature"] as const;
 
-export const NUDGE_REGIONS = [
-  "preheader",
-  "opening",
-  "button_label",
-  "deadline",
-  "signature",
-] as const;
+export const NUDGE_REGIONS = ["opening", "signature"] as const;
 
 export type RegionKey =
   | (typeof PLACEMENT_REGIONS)[number]
@@ -247,10 +241,11 @@ export const SKIP_REASON_LABEL: Record<SkipReason, string> = {
  * exactly like unwritten copy — Addendum B3 says "banned … in every email",
  * and a rule that depends on nobody slipping is not a rule.
  *
- * NOTE ON "DEVELOPMENT": B1 permits it for an activity or a philosophy — the
- * club's own first pillar is "Own development in this area." Only the
- * *labelling* uses are banned, so these patterns match "developmental" and
- * "development team/player/squad/group", never the bare word.
+ * NOTE ON "DEVELOPMENT": only "developmental" is banned. B3's list never
+ * included "development team" — that pattern was an over-reading of B1 on my
+ * part, and the final copy disproves it twice: the tier is now the "Elite
+ * Development Program", and the Elite Development offer says "our development
+ * teams". B1 governs what LABELS a tier, not the word in prose.
  *
  * NOT MACHINE-CHECKABLE, and deliberately not faked here:
  *   · "'second team' USED COMPARATIVELY" — the phrase is flagged outright
@@ -261,10 +256,6 @@ export const SKIP_REASON_LABEL: Record<SkipReason, string> = {
  */
 export const BANNED_PATTERNS: { label: string; re: RegExp }[] = [
   { label: '"developmental"', re: /\bdevelopmental\b/i },
-  {
-    label: '"development" labelling a person or team',
-    re: /\bdevelopment\s+(team|player|squad|group|roster|athlete)s?\b/i,
-  },
   { label: '"B team"', re: /\bb[\s-]?team\b/i },
   { label: '"second team"', re: /\bsecond\s+team\b/i },
   { label: '"lower team"', re: /\blower\s+team\b/i },

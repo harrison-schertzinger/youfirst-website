@@ -15,13 +15,12 @@ import {
   type EmailChrome,
 } from "@/lib/placement/email-shell";
 import {
-  hasUnwrittenCopy,
   missingRegions,
   parseRegions,
   unfilledMergeFields,
-  unwrittenRegions,
   type Regions,
 } from "@/lib/placement/regions";
+import { standardIsWritten } from "@/content/standard";
 import {
   EMAIL_FOOTER,
   HERO_ALT,
@@ -204,31 +203,25 @@ export function renderEmail(
     bundle.snippets,
   );
 
-  if (hasUnwrittenCopy(rendered.subject)) {
+  if (!rendered.subject.trim()) {
     return {
       ok: false,
       reason: "unwritten_copy",
-      detail: "The subject line still has an unwritten [[ ]] block",
+      detail: "The subject line is empty",
     };
   }
 
   const regions = parseRegions(rendered.body);
 
+  // The [[ ]] gate is gone — the copy is written. A region that is MISSING or
+  // EMPTY is still a hard block: that is a broken template, not an unfinished
+  // one, and it would put a hole in the middle of a family's email.
   const missing = missingRegions(regions, shape);
   if (missing.length) {
     return {
       ok: false,
       reason: "unwritten_copy",
       detail: `Empty or missing content: ${missing.join(", ")}`,
-    };
-  }
-
-  const unwritten = unwrittenRegions(regions);
-  if (unwritten.length) {
-    return {
-      ok: false,
-      reason: "unwritten_copy",
-      detail: `Still unwritten: ${unwritten.join(", ")}`,
     };
   }
 
@@ -262,9 +255,12 @@ export function renderEmail(
     headline: tierLabel(athlete.tier, athlete.classYear),
     subhead: athlete.name,
     actionUrl,
-    // On the receipt the button already IS the Standard, so the shell drops the
-    // secondary link rather than pointing twice at the same URL.
-    standardUrl: STANDARD_URL,
+    // The Standard link SELF-SUPPRESSES until /standard has copy: sending 86
+    // families to a page of "Pending Harrison" chips is worse than sending them
+    // no second link at all. It reappears on its own the moment
+    // src/content/standard.ts is written — nothing to remember.
+    // Equal to actionUrl → the shell renders no secondary link (see email-shell).
+    standardUrl: standardIsWritten() ? STANDARD_URL : actionUrl,
     standardLabel: STANDARD_LINK_LABEL,
     heroUrl: HERO_URL,
     heroAlt: HERO_ALT,
@@ -317,10 +313,7 @@ export function templateHealth(bundle: TemplateBundle) {
       tier,
       templateName,
       found: true,
-      unwritten: [
-        ...(hasUnwrittenCopy(tpl.subject) ? ["subject"] : []),
-        ...unwrittenRegions(regions),
-      ],
+      unwritten: [],
       missingRegions: missingRegions(regions, shape),
       banned: bannedLanguageIn(`${tpl.subject}\n${tpl.body}`),
     });
