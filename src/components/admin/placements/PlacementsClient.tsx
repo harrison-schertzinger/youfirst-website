@@ -573,13 +573,30 @@ function Bucket({
                   )}
                 </td>
                 <td className="py-2 pr-3 text-[#6B7280]">
-                  {tone === "blocked" && r.blockedBy
-                    ? SKIP_REASON_LABEL[r.blockedBy]
-                    : tone === "sent"
-                      ? r.confirmedAt
-                        ? `Confirmed ${fmtDate(r.confirmedAt)}`
-                        : `Sent ${fmtDate(r.sentAt)} · unconfirmed`
-                      : (r.parentName ?? "—")}
+                  {tone === "blocked" && r.blockedBy ? (
+                    SKIP_REASON_LABEL[r.blockedBy]
+                  ) : tone === "sent" ? (
+                    r.confirmedAt ? (
+                      `Confirmed ${fmtDate(r.confirmedAt)}`
+                    ) : (
+                      `Sent ${fmtDate(r.sentAt)} · unconfirmed`
+                    )
+                  ) : r.greeting ? (
+                    // How her email actually opens. A surname typo is visible
+                    // here, before the send, instead of in her inbox.
+                    <span
+                      className={r.parentName ? "" : "text-[#B45309]"}
+                      title={
+                        r.parentName
+                          ? `Parent on file: ${r.parentName}`
+                          : "No parent name on file — greeting falls back to the surname"
+                      }
+                    >
+                      {r.greeting}
+                    </span>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td className="py-2 text-right">
                   <button

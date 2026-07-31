@@ -31,6 +31,8 @@ import {
 } from "@/lib/placement/config";
 import {
   bannedLanguageIn,
+  greetingFor,
+  lastNameOf,
   NUDGE_TEMPLATE_NAME,
   PLACEMENT_DEADLINE,
   PLACEMENT_DEADLINE_LONG,
@@ -110,16 +112,28 @@ function firstWord(s: string | null): string | null {
   return w || null;
 }
 
+/**
+ * A key that is UNKNOWN is OMITTED, never set to "".
+ *
+ * The renderer leaves an unmatched `{{token}}` literal, which the
+ * unfilled_merge_field check then hard-blocks. So a template that reaches for a
+ * name we do not have fails loudly instead of quietly emitting "Hi ," to a
+ * family. Empty-string defaults are the reason that class of bug ships.
+ */
 export function mergeContext(a: AthleteContext): Record<string, string> {
   const first = firstWord(a.name) ?? a.name;
   const parentFirst = firstWord(a.parentName);
+  const greeting = greetingFor(a.parentName, a.name);
+  const surname = lastNameOf(a.name);
   return {
     player_name: a.name,
     player_first_name: first,
-    parent_first_name: parentFirst ?? "",
-    // A complete greeting line, so a template never has to compose around a
-    // missing name and produce "Hi ,".
-    parent_greeting: parentFirst ? `Hi ${parentFirst},` : "Hi,",
+    ...(parentFirst ? { parent_first_name: parentFirst } : {}),
+    ...(surname ? { player_last_name: surname, family_name: `${surname} family` } : {}),
+    // The complete opening line — "Meredith —" or "Cline family —". Omitted
+    // when neither is knowable, which blocks the send rather than greeting
+    // nobody. Templates should reach for THIS, not for the parts.
+    ...(greeting ? { parent_greeting: greeting } : {}),
     placement_label: tierLabel(a.tier, a.classYear),
     class_year: a.classYear != null ? String(a.classYear) : "",
     season: PLACEMENT_SEASON,
@@ -169,6 +183,18 @@ export function renderEmail(
   const tpl = bundle.byName.get(name);
   if (!tpl) {
     return { ok: false, reason: "no_template", detail: `No active template named "${name}"` };
+  }
+
+  // Held before anything renders: no parent first name AND no surname means
+  // there is no honest way to open the email. Applies to every shape — offer,
+  // nudge and receipt all come through here.
+  if (!greetingFor(athlete.parentName, athlete.name)) {
+    return {
+      ok: false,
+      reason: "no_greeting_name",
+      detail:
+        "No parent name on file and no last name to fall back on — add either before sending.",
+    };
   }
 
   const ctx = mergeContext(athlete);

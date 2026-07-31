@@ -44,6 +44,7 @@ import { issueToken, type TokenRow } from "@/lib/placement/tokens";
 import {
   approvalPhrase,
   cycleKeyFor,
+  greetingFor,
   isSendableTier,
   NUDGE_DAYS,
   PLACEMENT_CAMPAIGN,
@@ -246,6 +247,14 @@ export async function sendGroup(
         name: athlete.name,
         reason: "no_class_year",
         detail: SKIP_REASON_LABEL.no_class_year,
+      });
+      continue;
+    }
+    if (!greetingFor(athlete.parentName, athlete.name)) {
+      report.skipped.push({
+        name: athlete.name,
+        reason: "no_greeting_name",
+        detail: SKIP_REASON_LABEL.no_greeting_name,
       });
       continue;
     }

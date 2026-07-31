@@ -20,6 +20,7 @@ import {
 } from "@/lib/placement/templates";
 import {
   cycleKeyFor,
+  greetingFor,
   isSendableTier,
   PLACEMENT_CAMPAIGN,
   PLACEMENT_SEASON,
@@ -138,6 +139,10 @@ export function blockReason(
 ): SkipReason | null {
   if (!a.email) return "no_email";
   if (a.classYear == null) return "no_class_year";
+  // Nothing to greet her by. Surfaced here so she appears in cannot-contact
+  // with a reason, rather than sitting in the ready list and being skipped at
+  // send time with no warning.
+  if (!greetingFor(a.parentName, a.name)) return "no_greeting_name";
   if (state.sentAt.has(cycleKeyFor(a.table, a.id))) return "already_sent";
   if (!bundle.byName.has(TEMPLATE_NAME_BY_TIER[a.tier])) return "no_template";
   return null;
@@ -159,6 +164,7 @@ function toCandidate(
     placementLabel: tierLabel(a.tier, a.classYear),
     parentName: a.parentName,
     email: a.email,
+    greeting: greetingFor(a.parentName, a.name),
     sentAt: state.sentAt.get(key) ?? null,
     confirmedAt: state.confirmedAt.get(key) ?? null,
     blockedBy,

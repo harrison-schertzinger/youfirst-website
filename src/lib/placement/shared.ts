@@ -175,6 +175,45 @@ export function regionsFor(shape: EmailShape): readonly string[] {
   return PLACEMENT_REGIONS;
 }
 
+// ── The greeting ──────────────────────────────────────────────────────────
+
+/**
+ * Last whitespace-separated token, or null when the name is a single word.
+ * Same semantics as splitName() in command-sheet/data.ts, restated here as a
+ * pure function so the client bundle never pulls that module in.
+ */
+export function lastNameOf(fullName: string | null): string | null {
+  const parts = (fullName ?? "").trim().split(/\s+/).filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 1] : null;
+}
+
+function firstWord(s: string | null): string | null {
+  const w = (s ?? "").trim().split(/\s+/)[0];
+  return w || null;
+}
+
+/**
+ * How the email opens.
+ *
+ *   parent first name known   →  "Meredith —"
+ *   not known, surname known  →  "Cline family —"
+ *   neither                   →  null
+ *
+ * Null means HOLD. A headless greeting is worse than an unsent email, so the
+ * caller blocks and she surfaces in the cannot-contact bucket instead of going
+ * out addressed to nobody.
+ */
+export function greetingFor(
+  parentName: string | null,
+  athleteName: string | null,
+): string | null {
+  const parentFirst = firstWord(parentName);
+  if (parentFirst) return `${parentFirst} —`;
+  const surname = lastNameOf(athleteName);
+  if (surname) return `${surname} family —`;
+  return null;
+}
+
 // ── Why an athlete cannot be contacted ────────────────────────────────────
 
 export type SkipReason =
@@ -185,7 +224,8 @@ export type SkipReason =
   | "no_template"
   | "no_class_year"
   | "already_confirmed"
-  | "banned_language";
+  | "banned_language"
+  | "no_greeting_name";
 
 export const SKIP_REASON_LABEL: Record<SkipReason, string> = {
   no_email: "No email on file",
@@ -196,6 +236,7 @@ export const SKIP_REASON_LABEL: Record<SkipReason, string> = {
   no_class_year: "No graduation year on file",
   already_confirmed: "Already confirmed",
   banned_language: "Copy uses language Addendum B bans",
+  no_greeting_name: "No parent name and no last name — nothing to greet her by",
 };
 
 // ── Addendum B3 — banned language ─────────────────────────────────────────
@@ -262,6 +303,12 @@ export interface SendCandidate {
   placementLabel: string;
   parentName: string | null;
   email: string | null;
+  /**
+   * Exactly how her email will open — "Meredith —" or "Cline family —".
+   * Shown on the send screen so a misspelled surname is caught BEFORE the send,
+   * not discovered in a family's inbox. Null means the send is held.
+   */
+  greeting: string | null;
   /** Non-null once she has received her placement email. */
   sentAt: string | null;
   confirmedAt: string | null;
