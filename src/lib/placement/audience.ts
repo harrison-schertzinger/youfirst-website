@@ -22,6 +22,7 @@ import {
   CLASS_SPLIT_TIERS,
   cycleKeyFor,
   EXCLUDED_CLASSES,
+  HELD_ATHLETES,
   greetingFor,
   groupKeyFor,
   groupKeyForYear,
@@ -140,6 +141,9 @@ export function blockReason(
   state: SendState,
   bundle: TemplateBundle,
 ): SkipReason | null {
+  // A hold outranks every other reason: it is a decision, not a data problem,
+  // and it must survive the family later gaining an email or a parent name.
+  if (a.key in HELD_ATHLETES) return "held";
   if (!a.email) return "no_email";
   if (a.classYear == null) return "no_class_year";
   // Nothing to greet her by. Surfaced here so she appears in cannot-contact

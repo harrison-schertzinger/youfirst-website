@@ -66,6 +66,24 @@ export const CLASS_SPLIT_TIERS: readonly SendableTier[] = [
  */
 export const EXCLUDED_CLASSES: readonly string[] = ["2028"];
 
+/**
+ * Athletes held out of every send, by roster key, with the reason shown on
+ * screen. Harrison is contacting these families himself.
+ *
+ * This is a HOLD, not a fix for a broken check. Kelsey Lorenzen has a perfectly
+ * good address — Anna Lorenzen, from her family's own roster confirmation filed
+ * 23 July — which is why she was sendable. The check was right; the decision to
+ * hold her is a separate thing, so it gets its own mechanism rather than being
+ * disguised as a contact problem.
+ *
+ * Grace Lanzillotta is already 'declined' and so blocked twice over. She is
+ * listed anyway: if her tier ever changes, the hold still stands.
+ */
+export const HELD_ATHLETES: Record<string, string> = {
+  "reg:ffb64ea4-1fb9-466b-81ac-8d0dd5297888": "Kelsey Lorenzen",
+  "player:36e8db08-366e-4806-9b4e-01992f113426": "Grace Lanzillotta",
+};
+
 /** "2030:elite", or "blue" — the id of one approvable group. */
 export function groupKeyFor(tier: SendableTier, classKey: string | null): string {
   return tier === "blue" ? "blue" : `${classKey}:${tier}`;
@@ -253,7 +271,8 @@ export type SkipReason =
   | "no_class_year"
   | "already_confirmed"
   | "banned_language"
-  | "no_greeting_name";
+  | "no_greeting_name"
+  | "held";
 
 export const SKIP_REASON_LABEL: Record<SkipReason, string> = {
   no_email: "No email on file",
@@ -265,6 +284,7 @@ export const SKIP_REASON_LABEL: Record<SkipReason, string> = {
   already_confirmed: "Already confirmed",
   banned_language: "Copy uses language Addendum B bans",
   no_greeting_name: "No parent name and no last name — nothing to greet her by",
+  held: "Held — Harrison is contacting this family directly",
 };
 
 // ── Addendum B3 — banned language ─────────────────────────────────────────

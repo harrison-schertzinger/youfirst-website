@@ -46,6 +46,7 @@ import {
   approvalPhrase,
   cycleKeyFor,
   EXCLUDED_CLASSES,
+  HELD_ATHLETES,
   greetingFor,
   groupKeyForYear,
   isSendableTier,
@@ -280,6 +281,14 @@ export async function sendGroup(
         name: athlete.name,
         reason: "blocked",
         detail: "Not a sendable placement.",
+      });
+      continue;
+    }
+    if (athlete.key in HELD_ATHLETES) {
+      report.skipped.push({
+        name: athlete.name,
+        reason: "held",
+        detail: SKIP_REASON_LABEL.held,
       });
       continue;
     }
