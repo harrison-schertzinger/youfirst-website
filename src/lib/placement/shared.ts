@@ -35,7 +35,8 @@ export const TIER_ORDER: readonly SendableTier[] = SENDABLE_TIERS;
 
 export const TIER_GROUP_LABEL: Record<SendableTier, string> = {
   elite: "Elite",
-  blue: "Blue",
+  // One team across 2029 and 2030 — one group, one send, one anchor.
+  blue: "You First Blue",
   elite_youth: "Elite Youth Program",
   elite_training: "Elite Training Group",
 };

@@ -20,8 +20,10 @@ import {
   ROSTER_SHAPE,
   ROSTER_SIZE_MAX,
   ROSTER_SIZE_MIN,
+  BLUE_TEAM_NAME,
   formatPhone,
   groupKeyForYear,
+  isBlueClass,
   nameSortKey,
   pickKeeper,
   placedTeamOk,
@@ -136,19 +138,33 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
       .sort((a, b) => nameSortKey(a.name).localeCompare(nameSortKey(b.name)));
   }, [data, active, unassigned]);
 
-  // Team sections: Elite and Blue always render — he fills both at once.
-  // Programs, Declined and parked states appear once they hold someone.
-  // Unplaced sits below the teams; play-ups listed on their own class tab
-  // come last, marked, and count toward nothing here.
+  // You First Blue is ONE team across 2029 and 2030 — the same union list
+  // renders on both tabs, and its shape is counted across both together.
+  const isBlueTab = active === "2029" || active === "2030";
+  const allBlue = useMemo(
+    () =>
+      data.athletes
+        .filter((a) => a.placementTier === "blue")
+        .sort((a, b) => nameSortKey(a.name).localeCompare(nameSortKey(b.name))),
+    [data],
+  );
+
+  // Team sections: Elite always renders, and on 2029/2030 so does the one
+  // Blue team — he fills both at once. Programs, Declined and parked states
+  // appear once they hold someone. Unplaced sits below the teams; play-ups
+  // listed on their own class tab come last, marked, counting toward nothing.
   const sections = useMemo(() => {
     const byTier = (t: string) => inClass.filter((a) => a.placementTier === t);
     const label = active === "unassigned" ? "" : active;
+    const showBlue = isBlueTab || inClass.some((a) => a.placementTier === "blue");
     return [
-      { key: "elite", title: `${label} Elite`, list: byTier("elite"), always: true, targets: true, controls: true },
-      { key: "blue", title: `${label} Blue`, list: byTier("blue"), always: true, targets: true, controls: true },
-      { key: "elite_youth", title: "Elite Youth Program", list: byTier("elite_youth"), always: false, targets: false, controls: true },
-      { key: "elite_training", title: "Elite Training Group", list: byTier("elite_training"), always: false, targets: false, controls: true },
-      { key: "declined", title: "Declined", list: byTier("declined"), always: false, targets: false, controls: false },
+      { key: "elite", title: `${label} Elite`, list: byTier("elite"), always: true, targets: true, controls: true, forceYear: false },
+      ...(showBlue
+        ? [{ key: "blue", title: BLUE_TEAM_NAME, list: allBlue, always: true, targets: true, controls: true, forceYear: true }]
+        : []),
+      { key: "elite_youth", title: "Elite Youth Program", list: byTier("elite_youth"), always: false, targets: false, controls: true, forceYear: false },
+      { key: "elite_training", title: "Elite Training Group", list: byTier("elite_training"), always: false, targets: false, controls: true, forceYear: false },
+      { key: "declined", title: "Declined", list: byTier("declined"), always: false, targets: false, controls: false, forceYear: false },
       {
         key: "parked",
         title: "No Tryout / No Registration",
@@ -156,9 +172,34 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
         always: false,
         targets: false,
         controls: false,
+        forceYear: false,
       },
     ];
-  }, [inClass, active]);
+  }, [inClass, active, isBlueTab, allBlue]);
+
+  // Acceptance per team: over everyone whose placement email OFFERED this
+  // tier (token at send time), classified by where she stands now — so a
+  // decline still counts against the team that was declined.
+  const acceptanceFor = useCallback(
+    (tierKey: string) => {
+      const pop = data.athletes.filter(
+        (a) =>
+          a.placementEmail &&
+          (a.placementEmail.tier ?? a.placementTier) === tierKey &&
+          (tierKey === "blue" ||
+            (a.classYear != null && groupKeyForYear(a.classYear) === active)),
+      );
+      const confirmed = pop.filter((a) => a.confirmed).length;
+      const declined = pop.filter((a) => a.placementTier === "declined").length;
+      return {
+        sent: pop.length,
+        confirmed,
+        declined,
+        silent: pop.length - confirmed - declined,
+      };
+    },
+    [data, active],
+  );
 
   const unplaced = useMemo(() => inClass.filter((a) => !a.placementTier), [inClass]);
 
@@ -670,7 +711,7 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
         </div>
         {/* Shape strip — the roster he's building, pinned under the tabs */}
         {active !== "unassigned" && (
-          <ShapeStrip label={active} athletes={inClass} />
+          <ShapeStrip label={active} athletes={inClass} blueList={isBlueTab ? allBlue : null} />
         )}
       </div>
 
@@ -716,9 +757,15 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
                       clearNewKey(k);
                     },
                   };
-                  const renderGroups = (list: RosterAthlete[]) =>
+                  const renderGroups = (list: RosterAthlete[], forceYear = false) =>
                     positionGroupsOf(list).map((g) => (
-                      <PositionGroup key={g.label} label={g.label} athletes={g.athletes} {...groupProps} />
+                      <PositionGroup
+                        key={g.label}
+                        label={g.label}
+                        athletes={g.athletes}
+                        forceYear={forceYear}
+                        {...groupProps}
+                      />
                     ));
 
                   if (active === "unassigned") {
@@ -745,6 +792,7 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
                               title={s.title}
                               list={s.list}
                               targets={s.targets}
+                              acceptance={s.controls ? acceptanceFor(s.key) : null}
                               sendTier={s.controls ? s.key : null}
                               onCopy={s.controls ? () => copyEmails(s.title, s.list) : null}
                               onCsv={s.controls ? () => exportCsv(s.title, s.list) : null}
@@ -756,13 +804,13 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
                                 </td>
                               </tr>
                             ) : (
-                              renderGroups(s.list)
+                              renderGroups(s.list, s.forceYear)
                             )}
                           </SectionBlock>
                         ) : null,
                       )}
 
-                      <TeamHeaderRow title="Unplaced" list={unplaced} targets={false} sendTier={null} onCopy={null} onCsv={null} />
+                      <TeamHeaderRow title="Unplaced" list={unplaced} targets={false} acceptance={null} sendTier={null} onCopy={null} onCsv={null} />
                       {unplaced.length === 0 ? (
                         <tr className="border-b border-[#F1F3F6]">
                           <td colSpan={7} className="px-4 py-3 text-[12px] text-[#177245]">
@@ -779,6 +827,7 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
                             title="Placed on other rosters"
                             list={placedElsewhere}
                             targets={false}
+                            acceptance={null}
                             sendTier={null}
                             onCopy={null}
                             onCsv={null}
@@ -871,6 +920,7 @@ function PositionGroup({
   byKey,
   merging,
   compactHide,
+  forceYear,
   saveStates,
   newKeys,
   movedKeys,
@@ -886,6 +936,7 @@ function PositionGroup({
   byKey: Map<string, RosterAthlete>;
   merging: boolean;
   compactHide: string;
+  forceYear?: boolean;
   saveStates: Record<string, SaveState>;
   newKeys: Set<string>;
   movedKeys: Set<string>;
@@ -915,6 +966,7 @@ function PositionGroup({
             a={a}
             selected={selectedKey === a.key}
             moved={movedKeys.has(a.key)}
+            forceYear={forceYear}
             compactHide={compactHide}
             saveState={saveStates[a.key] ?? null}
             isNew={newKeys.has(a.key)}
@@ -947,6 +999,7 @@ function TeamHeaderRow({
   title,
   list,
   targets,
+  acceptance,
   sendTier,
   onCopy,
   onCsv,
@@ -954,6 +1007,7 @@ function TeamHeaderRow({
   title: string;
   list: RosterAthlete[];
   targets: boolean;
+  acceptance: { sent: number; confirmed: number; declined: number; silent: number } | null;
   sendTier: string | null;
   onCopy: (() => void) | null;
   onCsv: (() => void) | null;
@@ -998,6 +1052,23 @@ function TeamHeaderRow({
                   </span>
                 );
               })}
+            </span>
+          )}
+          {acceptance && (
+            <span
+              className="inline-flex items-center gap-x-2.5 text-[11px] tabular-nums text-[#6B7280]"
+              title="Placement emails for this team: sent · confirmed · declined · no response"
+            >
+              <span>
+                Sent <span className="font-semibold text-[#1A1A1A]">{acceptance.sent}</span>
+              </span>
+              <span className={acceptance.confirmed > 0 ? "text-[#177245] font-semibold" : ""}>
+                {acceptance.confirmed} confirmed
+              </span>
+              <span className={acceptance.declined > 0 ? "text-[#B91C1C] font-semibold" : ""}>
+                {acceptance.declined} declined
+              </span>
+              <span>{acceptance.silent} no reply</span>
             </span>
           )}
           <span className="ml-auto inline-flex items-center gap-1.5 print:hidden">
@@ -1045,6 +1116,7 @@ function AthleteRow({
   selected,
   moved,
   elsewhere,
+  forceYear,
   compactHide,
   saveState,
   isNew,
@@ -1056,6 +1128,7 @@ function AthleteRow({
   selected: boolean;
   moved: boolean;
   elsewhere?: boolean;
+  forceYear?: boolean;
   compactHide: string;
   saveState: SaveState | null;
   isNew: boolean;
@@ -1065,7 +1138,9 @@ function AthleteRow({
 }) {
   const declined = a.placementTier === "declined";
   const playUp =
-    !elsewhere && a.gradYear != null && a.classYear != null && a.gradYear !== a.classYear;
+    !elsewhere &&
+    a.gradYear != null &&
+    (forceYear || (a.classYear != null && a.gradYear !== a.classYear));
 
   return (
     <tr
@@ -1396,12 +1471,8 @@ function PlacementSelect({
         ].join(" ")}
       >
         <option value="pending">Pending</option>
-        {canPlace && cls != null && (
-          <>
-            <option value="elite">{cls} Elite</option>
-            <option value="blue">{cls} Blue</option>
-          </>
-        )}
+        {canPlace && cls != null && <option value="elite">{cls} Elite</option>}
+        {canPlace && isBlueClass(cls) && <option value="blue">{BLUE_TEAM_NAME}</option>}
         <option value="elite_youth">Elite Youth Program</option>
         <option value="elite_training">Elite Training Group</option>
         {upTarget != null && <option value="move_up">Move Up → {upTarget}</option>}
@@ -1519,6 +1590,16 @@ function DetailPanel({
           {a.paidDetail && (
             <div className="text-[11px] text-[#6B7280] text-right">{a.paidDetail}</div>
           )}
+          <div className="flex items-center justify-between">
+            <span className="text-[#6B7280]">Placement email</span>
+            {a.placementEmail ? (
+              <span className="font-semibold tabular-nums">
+                Sent {formatShortDate(a.placementEmail.at.slice(0, 10))}
+              </span>
+            ) : (
+              <span className="text-[#9CA3AF]">Not sent</span>
+            )}
+          </div>
         </div>
 
         {/* Fields */}
@@ -1787,7 +1868,16 @@ const POS_ABBR: Record<string, string> = {
   Defense: "D",
 };
 
-function ShapeStrip({ label, athletes }: { label: string; athletes: RosterAthlete[] }) {
+function ShapeStrip({
+  label,
+  athletes,
+  blueList,
+}: {
+  label: string;
+  athletes: RosterAthlete[];
+  /** The one cross-class Blue team — identical on the 2029 and 2030 tabs. */
+  blueList: RosterAthlete[] | null;
+}) {
   const byTier = (tier: string) => athletes.filter((a) => a.placementTier === tier);
   const pending = athletes.filter((a) => !a.placementTier).length;
   const parked = byTier("no_tryout").length + byTier("no_registration").length;
@@ -1795,7 +1885,7 @@ function ShapeStrip({ label, athletes }: { label: string; athletes: RosterAthlet
   return (
     <div className="mt-1.5 h-8 flex items-center gap-x-6 overflow-x-auto whitespace-nowrap rounded-lg border border-[#E5E8EC] bg-white px-3 text-[12px] scrollbar-hide">
       <TierInline title={`${label} Elite`} list={byTier("elite")} />
-      <TierInline title={`${label} Blue`} list={byTier("blue")} />
+      {blueList && <TierInline title={BLUE_TEAM_NAME} list={blueList} />}
       <span className="inline-flex items-center gap-x-3 text-[#6B7280]">
         <StripCount label="Youth" title="Elite Youth Program" n={byTier("elite_youth").length} />
         <StripCount label="Training" title="Elite Training Group" n={byTier("elite_training").length} />

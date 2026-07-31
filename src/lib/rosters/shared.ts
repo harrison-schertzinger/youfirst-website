@@ -24,13 +24,24 @@ export function isPlacementTier(v: string): v is PlacementTier {
   return (PLACEMENT_TIERS as readonly string[]).includes(v);
 }
 
+/**
+ * The one Blue team. It spans these classes; an athlete from either lands on
+ * the same roster, and its shape is counted across both together.
+ */
+export const BLUE_CLASSES = [2029, 2030] as const;
+export const BLUE_TEAM_NAME = "You First Blue";
+export function isBlueClass(year: number | null): boolean {
+  return year != null && (BLUE_CLASSES as readonly number[]).includes(year);
+}
+
 /** Display labels, exactly per the naming standard. */
 export function tierLabel(tier: string | null, classYear: number | null): string {
   switch (tier) {
     case "elite":
       return classYear != null ? `${classYear} Elite` : "Elite";
     case "blue":
-      return classYear != null ? `${classYear} Blue` : "Blue";
+      // One team across 2029 and 2030 — never "{class} Blue".
+      return BLUE_TEAM_NAME;
     case "elite_youth":
       return "Elite Youth Program";
     case "elite_training":
@@ -125,6 +136,8 @@ export interface RosterAthlete {
   regPaid: boolean;
   /** Future makeup tryout date (ISO) — registered but not yet evaluated. */
   makeupDate: string | null;
+  /** Placement email actually sent (hermes log), with the tier it offered. */
+  placementEmail: { at: string; tier: string | null } | null;
   /**
    * The registration row that carries this athlete's notes: her own row for
    * new athletes, the absorbed registration for returning ones, null when a

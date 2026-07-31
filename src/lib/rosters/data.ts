@@ -30,6 +30,7 @@ import {
   type RosterData,
   type RosterFlag,
 } from "@/lib/rosters/shared";
+import { PLACEMENT_CAMPAIGN, SEND_KINDS } from "@/lib/placement/shared";
 
 export * from "@/lib/rosters/shared";
 
@@ -212,7 +213,8 @@ function buildPaidResolver(
 }
 
 export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
-  const [regs, players, guardians, pg, confs, balances, payments] = await Promise.all([
+  const [regs, players, guardians, pg, confs, balances, payments, sendLog, tokens] =
+    await Promise.all([
     db
       .from("tryout_registrations")
       .select(
@@ -235,8 +237,20 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
       ),
     db.rpc("player_balances"),
     db.from("payments").select("player_id, status, amount_cents"),
+    db
+      .from("hermes_send_log")
+      .select("cycle_key, status, created_at")
+      .eq("kind", SEND_KINDS.placement)
+      .in("status", ["claimed", "sent"])
+      .like("cycle_key", `${PLACEMENT_CAMPAIGN}|%`),
+    db
+      .from("placement_tokens")
+      .select("athlete_table, athlete_id, placement_tier")
+      .eq("campaign", PLACEMENT_CAMPAIGN),
   ]);
 
+  // Send-log/token reads are auxiliary — acceptance counts degrade to zero
+  // rather than taking the roster screen down with them.
   const firstError =
     regs.error ?? players.error ?? guardians.error ?? pg.error ?? confs.error ??
     balances.error ?? payments.error;
@@ -251,6 +265,31 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
     (balances.data ?? []) as BalanceRow[],
     (payments.data ?? []) as PaymentRow[],
   );
+
+  // Placement emails actually sent — cycle_key is "<campaign>|player:<id>" or
+  // "<campaign>|reg:<id>", the same key shape athletes carry. The tier the
+  // email offered comes from the token minted at send time, so a later
+  // decline still attributes to the team that was declined.
+  const tierAtSend = new Map<string, string>();
+  for (const t of (tokens.data ?? []) as {
+    athlete_table: string;
+    athlete_id: string;
+    placement_tier: string | null;
+  }[]) {
+    if (t.placement_tier) {
+      tierAtSend.set(
+        `${t.athlete_table === "players" ? "player" : "reg"}:${t.athlete_id}`,
+        t.placement_tier,
+      );
+    }
+  }
+  const sentByKey = new Map<string, { at: string; tier: string | null }>();
+  for (const row of (sendLog.data ?? []) as { cycle_key: string; created_at: string }[]) {
+    const key = row.cycle_key.slice(PLACEMENT_CAMPAIGN.length + 1);
+    if (!sentByKey.has(key)) {
+      sentByKey.set(key, { at: row.created_at, tier: tierAtSend.get(key) ?? null });
+    }
+  }
 
   const guardianById = new Map<string, GuardianRow>();
   for (const g of guardianRows) guardianById.set(g.id, g);
@@ -359,6 +398,7 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
       registered,
       regPaid: bestReg?.payment_status === "paid",
       makeupDate: makeupReg?.tryout_date ?? null,
+      placementEmail: sentByKey.get(`player:${p.id}`) ?? null,
       regId: bestReg?.id ?? null,
       createdAt: bestReg?.created_at ?? p.created_at,
       flags,
@@ -420,6 +460,7 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
       registered: r.source === "tryout",
       regPaid: r.payment_status === "paid",
       makeupDate: futureMakeup(r) ? r.tryout_date : null,
+      placementEmail: sentByKey.get(`reg:${r.id}`) ?? null,
       regId: r.id,
       createdAt: r.created_at,
       flags,
