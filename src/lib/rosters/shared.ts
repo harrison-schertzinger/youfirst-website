@@ -84,7 +84,9 @@ export type RosterFlag =
   | "no_grad_year"
   | "no_position"
   | "clipboard"
-  | "not_registered";
+  | "not_registered"
+  /** Returning row with no registration, payment, plan, or team on file. */
+  | "no_history";
 
 export interface DupCandidate {
   key: string;
@@ -121,6 +123,8 @@ export interface RosterAthlete {
   registered: boolean;
   /** Registration-backed athletes: the tryout fee actually went through. */
   regPaid: boolean;
+  /** Future makeup tryout date (ISO) — registered but not yet evaluated. */
+  makeupDate: string | null;
   /**
    * The registration row that carries this athlete's notes: her own row for
    * new athletes, the absorbed registration for returning ones, null when a

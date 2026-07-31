@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   Check,
@@ -252,9 +253,9 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
                 <code className="rounded bg-[#92400E]/10 px-1">[[ ]]</code> block, or
                 language Addendum B bans, is blocked at every level: preview, test
                 and live. Edit the copy in{" "}
-                <a href="/admin/templates" className="underline">
+                <Link href="/admin/templates" className="underline">
                   Templates
-                </a>
+                </Link>
                 .
               </p>
               <ul className="mt-3 space-y-1.5 text-[13px] text-[#92400E]">
@@ -430,7 +431,8 @@ function GroupCard({
   const canSend = group.ready.length > 0;
 
   return (
-    <div className={`${CARD} overflow-hidden`}>
+    // The id anchors deep links from /admin/rosters team headers.
+    <div id={group.tier} className={`${CARD} overflow-hidden scroll-mt-24`}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E8EC] px-5 py-4">
         <div>
           <div className="text-[15px] font-bold text-[#0A0A0B]">{group.label}</div>

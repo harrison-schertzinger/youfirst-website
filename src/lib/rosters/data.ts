@@ -69,6 +69,7 @@ interface PlayerRow {
   position: string | null;
   jersey_number: string | null;
   school: string | null;
+  team_name: string | null;
   status: string;
   fallback_email: string | null;
   unverified_phone: string | null;
@@ -153,7 +154,12 @@ function dollars(cents: number): string {
 function buildPaidResolver(
   balances: BalanceRow[],
   payments: PaymentRow[],
-): (playerId: string | null) => { status: PaidStatus; detail: string | null } {
+): (playerId: string | null) => {
+  status: PaidStatus;
+  detail: string | null;
+  /** A plan or a completed payment exists — evidence of club history. */
+  hasHistory: boolean;
+} {
   const balanceByPlayer = new Map<string, BalanceRow>();
   for (const b of balances) balanceByPlayer.set(b.player_id, b);
   const paidByPlayer = new Map<string, number>();
@@ -167,27 +173,41 @@ function buildPaidResolver(
       return {
         status: "unknown",
         detail: "No player link — payments can't be resolved for this athlete yet.",
+        hasHistory: false,
       };
     }
     const b = balanceByPlayer.get(playerId);
     if (b) {
       const season = b.season ? ` · ${b.season}` : "";
       if (b.is_settled || b.remaining_cents <= 0) {
-        return { status: "paid", detail: `${dollars(b.paid_cents)} of ${dollars(b.charged_cents)} paid${season}` };
+        return {
+          status: "paid",
+          detail: `${dollars(b.paid_cents)} of ${dollars(b.charged_cents)} paid${season}`,
+          hasHistory: true,
+        };
       }
       if (b.paid_cents > 0) {
         return {
           status: "partial",
           detail: `${dollars(b.paid_cents)} of ${dollars(b.charged_cents)} paid · ${dollars(b.remaining_cents)} open${season}`,
+          hasHistory: true,
         };
       }
-      return { status: "none", detail: `${dollars(b.charged_cents)} charged, nothing paid${season}` };
+      return {
+        status: "none",
+        detail: `${dollars(b.charged_cents)} charged, nothing paid${season}`,
+        hasHistory: true,
+      };
     }
     const paid = paidByPlayer.get(playerId) ?? 0;
     if (paid > 0) {
-      return { status: "partial", detail: `${dollars(paid)} in payments on file, no payment plan` };
+      return {
+        status: "partial",
+        detail: `${dollars(paid)} in payments on file, no payment plan`,
+        hasHistory: true,
+      };
     }
-    return { status: "none", detail: "No payments on file" };
+    return { status: "none", detail: "No payments on file", hasHistory: false };
   };
 }
 
@@ -202,7 +222,7 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
     db
       .from("players")
       .select(
-        "id, first_name, last_name, graduation_year, placed_team, placement_tier, position, jersey_number, school, status, fallback_email, unverified_phone, created_at",
+        "id, first_name, last_name, graduation_year, placed_team, placement_tier, position, jersey_number, school, team_name, status, fallback_email, unverified_phone, created_at",
       )
       .eq("status", "active")
       .order("last_name", { ascending: true }),
@@ -267,6 +287,11 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
   }
 
   const athletes: RosterAthlete[] = [];
+  const todayET = new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/New_York",
+  });
+  const futureMakeup = (r: { tryout_type: string | null; tryout_date: string | null }) =>
+    r.tryout_type === "makeup" && !!r.tryout_date && r.tryout_date >= todayET;
 
   // ── Returning band: every active player, registration data absorbed ─────
   for (const p of playerRows) {
@@ -303,6 +328,14 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
     if (!registered) flags.push("not_registered");
 
     const paid = resolvePaid(p.id);
+    // RETURNING means evidence of having played — a tryout registration, a
+    // team on file, a payment, a payment plan, or a family that confirmed a
+    // spot. Anything else is a name in a table, flagged quietly for a human
+    // look.
+    if (!registered && !p.team_name && !paid.hasHistory && !conf) {
+      flags.push("no_history");
+    }
+    const makeupReg = linked.find(futureMakeup) ?? null;
     athletes.push({
       key: `player:${p.id}`,
       table: "players",
@@ -325,6 +358,7 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
       source: null,
       registered,
       regPaid: bestReg?.payment_status === "paid",
+      makeupDate: makeupReg?.tryout_date ?? null,
       regId: bestReg?.id ?? null,
       createdAt: bestReg?.created_at ?? p.created_at,
       flags,
@@ -385,6 +419,7 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
       source: r.source === "recruiting" ? "recruiting" : "tryout",
       registered: r.source === "tryout",
       regPaid: r.payment_status === "paid",
+      makeupDate: futureMakeup(r) ? r.tryout_date : null,
       regId: r.id,
       createdAt: r.created_at,
       flags,

@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
+  Copy,
+  FileDown,
   GitMerge,
   Loader2,
   Printer,
   RefreshCw,
+  Send,
   UserMinus,
   X,
 } from "lucide-react";
@@ -62,6 +65,20 @@ const POLL_MS = 30_000;
 // md+; the table header parks directly beneath it on desktop.
 const TH = "py-2.5 font-semibold bg-white xl:sticky xl:top-[92px] xl:z-10 xl:shadow-[inset_0_-1px_0_#E5E8EC]";
 
+// Scarce positions first, unknown last, empty groups skipped.
+function positionGroupsOf(list: RosterAthlete[]): { label: string; athletes: RosterAthlete[] }[] {
+  const out: { label: string; athletes: RosterAthlete[] }[] = [];
+  for (const pos of POSITION_ORDER) {
+    const sub = list.filter((a) => a.position === pos);
+    if (sub.length > 0) out.push({ label: pos, athletes: sub });
+  }
+  const unknown = list.filter(
+    (a) => !a.position || !(POSITION_ORDER as readonly string[]).includes(a.position),
+  );
+  if (unknown.length > 0) out.push({ label: "Position unknown", athletes: unknown });
+  return out;
+}
+
 export default function RostersClient({ initial }: { initial: RosterData }) {
   const [data, setData] = useState<RosterData>(initial);
   const [active, setActive] = useState<string>("");
@@ -70,6 +87,7 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
   const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({});
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [newKeys, setNewKeys] = useState<Set<string>>(new Set());
+  const [movedKeys, setMovedKeys] = useState<Set<string>>(new Set());
   const [merging, setMerging] = useState(false);
 
   const toastSeq = useRef(0);
@@ -77,12 +95,18 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
   const knownKeys = useRef<Set<string>>(new Set(initial.athletes.map((a) => a.key)));
 
   // ── Derived structure ───────────────────────────────────────────────────
+  // A tab exists for every class an athlete plays in OR belongs to by grad
+  // year — a play-up stays visible on both.
   const groups = useMemo(() => {
     const minYear = new Map<string, number>();
+    const note = (y: number | null) => {
+      if (y == null) return;
+      const k = groupKeyForYear(y);
+      minYear.set(k, Math.min(minYear.get(k) ?? 9999, y));
+    };
     for (const a of data.athletes) {
-      if (a.classYear == null) continue;
-      const k = groupKeyForYear(a.classYear);
-      minYear.set(k, Math.min(minYear.get(k) ?? 9999, a.classYear));
+      note(a.classYear);
+      note(a.gradYear);
     }
     return Array.from(minYear.entries())
       .sort((x, y) => x[1] - y[1])
@@ -112,19 +136,44 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
       .sort((a, b) => nameSortKey(a.name).localeCompare(nameSortKey(b.name)));
   }, [data, active, unassigned]);
 
-  // Position groups — scarce positions first, unknown last, empties skipped.
-  const positionGroups = useMemo(() => {
-    const out: { label: string; athletes: RosterAthlete[] }[] = [];
-    for (const pos of POSITION_ORDER) {
-      const list = inClass.filter((a) => a.position === pos);
-      if (list.length > 0) out.push({ label: pos, athletes: list });
-    }
-    const unknown = inClass.filter(
-      (a) => !a.position || !(POSITION_ORDER as readonly string[]).includes(a.position),
-    );
-    if (unknown.length > 0) out.push({ label: "Position unknown", athletes: unknown });
-    return out;
-  }, [inClass]);
+  // Team sections: Elite and Blue always render — he fills both at once.
+  // Programs, Declined and parked states appear once they hold someone.
+  // Unplaced sits below the teams; play-ups listed on their own class tab
+  // come last, marked, and count toward nothing here.
+  const sections = useMemo(() => {
+    const byTier = (t: string) => inClass.filter((a) => a.placementTier === t);
+    const label = active === "unassigned" ? "" : active;
+    return [
+      { key: "elite", title: `${label} Elite`, list: byTier("elite"), always: true, targets: true, controls: true },
+      { key: "blue", title: `${label} Blue`, list: byTier("blue"), always: true, targets: true, controls: true },
+      { key: "elite_youth", title: "Elite Youth Program", list: byTier("elite_youth"), always: false, targets: false, controls: true },
+      { key: "elite_training", title: "Elite Training Group", list: byTier("elite_training"), always: false, targets: false, controls: true },
+      { key: "declined", title: "Declined", list: byTier("declined"), always: false, targets: false, controls: false },
+      {
+        key: "parked",
+        title: "No Tryout / No Registration",
+        list: [...byTier("no_tryout"), ...byTier("no_registration")],
+        always: false,
+        targets: false,
+        controls: false,
+      },
+    ];
+  }, [inClass, active]);
+
+  const unplaced = useMemo(() => inClass.filter((a) => !a.placementTier), [inClass]);
+
+  const placedElsewhere = useMemo(() => {
+    if (active === "unassigned") return [];
+    return data.athletes
+      .filter(
+        (a) =>
+          a.gradYear != null &&
+          groupKeyForYear(a.gradYear) === active &&
+          a.classYear != null &&
+          groupKeyForYear(a.classYear) !== active,
+      )
+      .sort((a, b) => nameSortKey(a.name).localeCompare(nameSortKey(b.name)));
+  }, [data, active]);
 
   const selected = useMemo(
     () => (selectedKey ? (data.athletes.find((a) => a.key === selectedKey) ?? null) : null),
@@ -240,6 +289,15 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
       });
       setData({ ...data, athletes: optimistic });
       setSave(athlete.key, "saving");
+      // She just landed somewhere — flash the row so he sees where she went.
+      setMovedKeys((prev) => new Set(prev).add(athlete.key));
+      window.setTimeout(() => {
+        setMovedKeys((prev) => {
+          const s = new Set(prev);
+          s.delete(athlete.key);
+          return s;
+        });
+      }, 2400);
       inFlight.current += 1;
 
       try {
@@ -426,8 +484,11 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
     });
 
   const groupCount = (k: string) =>
-    data.athletes.filter((a) => a.classYear != null && groupKeyForYear(a.classYear) === k)
-      .length;
+    data.athletes.filter(
+      (a) =>
+        (a.classYear != null && groupKeyForYear(a.classYear) === k) ||
+        (a.gradYear != null && groupKeyForYear(a.gradYear) === k),
+    ).length;
 
   const activeLabel = active === "unassigned" ? "Unassigned" : `Class of ${active}`;
 
@@ -435,6 +496,72 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
   // that hide are all carried by the panel (and grouping already says the
   // position). Placement never leaves the screen.
   const compactHide = selected ? "hidden 2xl:table-cell" : "";
+
+  // ── Team header actions: copy, export, and a LINK to the send screen ────
+  const paidLabel = (s: RosterAthlete["paidStatus"]) =>
+    s === "paid" ? "Paid" : s === "partial" ? "Partial" : s === "none" ? "None" : "Unknown";
+
+  const copyEmails = useCallback(
+    (title: string, list: RosterAthlete[]) => {
+      const withEmail = list.filter((a) => a.parentEmail);
+      const emails = Array.from(new Set(withEmail.map((a) => a.parentEmail!.toLowerCase())));
+      const skipped = list.length - withEmail.length;
+      if (emails.length === 0) {
+        pushToast("error", `No parent emails on file for ${title}.`);
+        return;
+      }
+      navigator.clipboard.writeText(emails.join(", ")).then(
+        () =>
+          pushToast(
+            "success",
+            `Copied ${emails.length} parent email${emails.length === 1 ? "" : "s"} for ${title}${
+              skipped > 0 ? ` — skipped ${skipped} athlete${skipped === 1 ? "" : "s"} with no email on file` : ""
+            }.`,
+          ),
+        () => pushToast("error", "Clipboard copy failed."),
+      );
+    },
+    [pushToast],
+  );
+
+  const exportCsv = useCallback(
+    (title: string, list: RosterAthlete[]) => {
+      const withEmail = list.filter((a) => a.parentEmail);
+      const skipped = list.length - withEmail.length;
+      if (withEmail.length === 0) {
+        pushToast("error", `No exportable athletes for ${title} — none have an email on file.`);
+        return;
+      }
+      const esc = (v: string | null | undefined) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+      const rows = [
+        ["Athlete", "Position", "Jersey #", "Parent", "Parent email", "Parent phone", "Confirmed", "Paid"],
+        ...withEmail.map((a) => [
+          a.name,
+          a.position ?? "",
+          a.jersey ?? "",
+          a.parentName ?? "",
+          a.parentEmail ?? "",
+          a.parentPhone ?? "",
+          a.confirmed ? "Yes" : "No",
+          paidLabel(a.paidStatus),
+        ]),
+      ];
+      const csv = rows.map((r) => r.map(esc).join(",")).join("\r\n");
+      const blobUrl = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      const el = document.createElement("a");
+      el.href = blobUrl;
+      el.download = `yf-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`;
+      el.click();
+      URL.revokeObjectURL(blobUrl);
+      pushToast(
+        "success",
+        `Exported ${withEmail.length} for ${title}${
+          skipped > 0 ? ` — skipped ${skipped} with no email on file` : ""
+        }.`,
+      );
+    },
+    [pushToast],
+  );
 
   // ── Render ──────────────────────────────────────────────────────────────
   return (
@@ -571,34 +698,112 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
                 </tr>
               </thead>
               <tbody>
-                {positionGroups.map((g) => (
-                  <PositionGroup
-                    key={g.label}
-                    label={g.label}
-                    athletes={g.athletes}
-                    selectedKey={selectedKey}
-                    mergeFor={mergeFor}
-                    byKey={byKey}
-                    merging={merging}
-                    compactHide={compactHide}
-                    saveStates={saveStates}
-                    newKeys={newKeys}
-                    onChoice={applyChoice}
-                    onMerge={runMerge}
-                    onMergeOpen={(k) => setMergeFor((cur) => (cur === k ? null : k))}
-                    onSelect={(k) => {
+                {(() => {
+                  const groupProps = {
+                    selectedKey,
+                    mergeFor,
+                    byKey,
+                    merging,
+                    compactHide,
+                    saveStates,
+                    newKeys,
+                    movedKeys,
+                    onChoice: applyChoice,
+                    onMerge: runMerge,
+                    onMergeOpen: (k: string) => setMergeFor((cur) => (cur === k ? null : k)),
+                    onSelect: (k: string) => {
                       setSelectedKey((cur) => (cur === k ? null : k));
                       clearNewKey(k);
-                    }}
-                  />
-                ))}
-                {inClass.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-6 text-[12px] text-[#9CA3AF]">
-                      No athletes in this class yet.
-                    </td>
-                  </tr>
-                )}
+                    },
+                  };
+                  const renderGroups = (list: RosterAthlete[]) =>
+                    positionGroupsOf(list).map((g) => (
+                      <PositionGroup key={g.label} label={g.label} athletes={g.athletes} {...groupProps} />
+                    ));
+
+                  if (active === "unassigned") {
+                    return (
+                      <>
+                        {renderGroups(inClass)}
+                        {inClass.length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="px-4 py-6 text-[12px] text-[#9CA3AF]">
+                              No athletes here.
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  }
+
+                  return (
+                    <>
+                      {sections.map((s) =>
+                        s.always || s.list.length > 0 ? (
+                          <SectionBlock key={s.key}>
+                            <TeamHeaderRow
+                              title={s.title}
+                              list={s.list}
+                              targets={s.targets}
+                              sendTier={s.controls ? s.key : null}
+                              onCopy={s.controls ? () => copyEmails(s.title, s.list) : null}
+                              onCsv={s.controls ? () => exportCsv(s.title, s.list) : null}
+                            />
+                            {s.list.length === 0 ? (
+                              <tr className="border-b border-[#F1F3F6]">
+                                <td colSpan={7} className="px-4 py-3 text-[12px] text-[#9CA3AF]">
+                                  No one placed yet — pick “{s.title}” in a placement dropdown.
+                                </td>
+                              </tr>
+                            ) : (
+                              renderGroups(s.list)
+                            )}
+                          </SectionBlock>
+                        ) : null,
+                      )}
+
+                      <TeamHeaderRow title="Unplaced" list={unplaced} targets={false} sendTier={null} onCopy={null} onCsv={null} />
+                      {unplaced.length === 0 ? (
+                        <tr className="border-b border-[#F1F3F6]">
+                          <td colSpan={7} className="px-4 py-3 text-[12px] text-[#177245]">
+                            Everyone in this class has a decision.
+                          </td>
+                        </tr>
+                      ) : (
+                        renderGroups(unplaced)
+                      )}
+
+                      {placedElsewhere.length > 0 && (
+                        <SectionBlock>
+                          <TeamHeaderRow
+                            title="Placed on other rosters"
+                            list={placedElsewhere}
+                            targets={false}
+                            sendTier={null}
+                            onCopy={null}
+                            onCsv={null}
+                          />
+                          {placedElsewhere.map((a) => (
+                            <AthleteRowGroup key={a.key}>
+                              <AthleteRow
+                                a={a}
+                                elsewhere
+                                selected={selectedKey === a.key}
+                                moved={movedKeys.has(a.key)}
+                                compactHide={compactHide}
+                                saveState={saveStates[a.key] ?? null}
+                                isNew={newKeys.has(a.key)}
+                                onChoice={applyChoice}
+                                onMergeOpen={groupProps.onMergeOpen}
+                                onSelect={groupProps.onSelect}
+                              />
+                            </AthleteRowGroup>
+                          ))}
+                        </SectionBlock>
+                      )}
+                    </>
+                  );
+                })()}
               </tbody>
             </table>
           </div>
@@ -668,6 +873,7 @@ function PositionGroup({
   compactHide,
   saveStates,
   newKeys,
+  movedKeys,
   onChoice,
   onMerge,
   onMergeOpen,
@@ -682,6 +888,7 @@ function PositionGroup({
   compactHide: string;
   saveStates: Record<string, SaveState>;
   newKeys: Set<string>;
+  movedKeys: Set<string>;
   onChoice: (a: RosterAthlete, c: Choice) => void;
   onMerge: (
     dropRegId: string,
@@ -707,6 +914,7 @@ function PositionGroup({
           <AthleteRow
             a={a}
             selected={selectedKey === a.key}
+            moved={movedKeys.has(a.key)}
             compactHide={compactHide}
             saveState={saveStates[a.key] ?? null}
             isNew={newKeys.has(a.key)}
@@ -728,11 +936,115 @@ function AthleteRowGroup({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Fragment wrapper for a team section's header + grouped rows.
+function SectionBlock({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
+// ─── Team section header — count vs shape, and the three controls ────────────
+
+function TeamHeaderRow({
+  title,
+  list,
+  targets,
+  sendTier,
+  onCopy,
+  onCsv,
+}: {
+  title: string;
+  list: RosterAthlete[];
+  targets: boolean;
+  sendTier: string | null;
+  onCopy: (() => void) | null;
+  onCsv: (() => void) | null;
+}) {
+  const total = list.length;
+  // Under target neutral, at target good, over target warning.
+  const tone = (n: number, min: number, max: number) =>
+    n > max ? "text-[#B45309]" : n >= min ? "text-[#177245]" : "text-[#6B7280]";
+  const noEmail = list.filter((a) => !a.parentEmail).length;
+  const btn =
+    "inline-flex items-center gap-1 px-2 py-1 rounded-md border border-[#D6DBE1] bg-white text-[11px] font-semibold text-[#1A1A1A] hover:bg-[#F1F3F6] transition-colors";
+
+  return (
+    <tr className="border-y border-[#E5E8EC] bg-[#EDF0F3]">
+      <td colSpan={7} className="px-4 py-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#0A0A0B]">
+            {title}
+          </span>
+          <span className="text-[12px] font-semibold tabular-nums">
+            {targets ? (
+              <>
+                <span className={tone(total, ROSTER_SIZE_MIN, ROSTER_SIZE_MAX)}>{total}</span>
+                <span className="text-[#9CA3AF] font-normal"> / {ROSTER_SIZE_MIN}–{ROSTER_SIZE_MAX}</span>
+              </>
+            ) : (
+              <span className="text-[#6B7280]">{total}</span>
+            )}
+          </span>
+          {targets && (
+            <span className="inline-flex items-center gap-x-2.5 text-[12px] tabular-nums">
+              {ROSTER_SHAPE.map((t) => {
+                const n = list.filter((a) => a.position === t.position).length;
+                return (
+                  <span
+                    key={t.position}
+                    title={`${t.position}: have ${n}, target ${t.min === t.max ? t.min : `${t.min}–${t.max}`}`}
+                  >
+                    <span className="text-[#9CA3AF]">{POS_ABBR[t.position]}</span>{" "}
+                    <span className={`font-semibold ${tone(n, t.min, t.max)}`}>{n}</span>
+                    <span className="text-[#C6CBD3]">/{t.min === t.max ? t.min : `${t.min}–${t.max}`}</span>
+                  </span>
+                );
+              })}
+            </span>
+          )}
+          <span className="ml-auto inline-flex items-center gap-1.5 print:hidden">
+            {noEmail > 0 && (onCopy || onCsv) && (
+              <span
+                className="text-[10px] font-semibold text-[#B45309]"
+                title="Excluded from Copy emails and Export — no email on file"
+              >
+                {noEmail} no email
+              </span>
+            )}
+            {onCopy && total > 0 && (
+              <button type="button" onClick={onCopy} className={btn} title="Copy all parent emails, comma-separated">
+                <Copy size={11} strokeWidth={2.5} />
+                Copy emails
+              </button>
+            )}
+            {onCsv && total > 0 && (
+              <button type="button" onClick={onCsv} className={btn} title="Download this team as CSV">
+                <FileDown size={11} strokeWidth={2.5} />
+                CSV
+              </button>
+            )}
+            {sendTier && total > 0 && (
+              <a
+                href={`/admin/placements#${sendTier}`}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#0B0E12] text-white text-[11px] font-semibold hover:bg-[#1c2027] transition-colors"
+                title="Opens the send screen for this group — every send safeguard lives there"
+              >
+                <Send size={11} strokeWidth={2.5} />
+                Send placement emails
+              </a>
+            )}
+          </span>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 // ─── One athlete — the whole row is a click target for the panel ─────────────
 
 function AthleteRow({
   a,
   selected,
+  moved,
+  elsewhere,
   compactHide,
   saveState,
   isNew,
@@ -742,6 +1054,8 @@ function AthleteRow({
 }: {
   a: RosterAthlete;
   selected: boolean;
+  moved: boolean;
+  elsewhere?: boolean;
   compactHide: string;
   saveState: SaveState | null;
   isNew: boolean;
@@ -750,6 +1064,8 @@ function AthleteRow({
   onSelect: (key: string) => void;
 }) {
   const declined = a.placementTier === "declined";
+  const playUp =
+    !elsewhere && a.gradYear != null && a.classYear != null && a.gradYear !== a.classYear;
 
   return (
     <tr
@@ -760,6 +1076,7 @@ function AthleteRow({
       className={[
         "border-b border-[#F1F3F6] last:border-0 transition-colors cursor-pointer",
         selected ? "bg-[#EDF5FB]" : isNew ? "bg-[#EDF5FB]/60" : "hover:bg-[#F8F9FA]",
+        moved ? "shadow-[inset_0_0_0_2px_rgba(75,156,211,0.45)]" : "",
         declined ? "text-[#9CA3AF]" : "text-[#1A1A1A]",
       ].join(" ")}
     >
@@ -768,8 +1085,30 @@ function AthleteRow({
       </td>
       <td className="px-3 py-2.5 whitespace-nowrap">
         <span className="font-semibold">{a.name}</span>
+        {playUp && (
+          <span className="ml-1.5 text-[12px] text-[#6B7280] tabular-nums" title={`Class of ${a.gradYear}, playing on the ${a.classYear} roster`}>
+            · {a.gradYear}
+          </span>
+        )}
         <span className="inline-flex items-center gap-1 ml-2 align-middle">
+          {elsewhere && (
+            <Chip
+              tone="blue"
+              title={`Placed on the ${a.classYear} roster${a.placementTier ? ` — ${tierLabel(a.placementTier, a.classYear)}` : ""}`}
+            >
+              → {a.classYear} roster
+            </Chip>
+          )}
+          {a.makeupDate && (
+            <Chip
+              tone="amber"
+              title="Registered for a makeup tryout — not evaluated yet, don't cut unseen"
+            >
+              Makeup {formatShortDate(a.makeupDate)}
+            </Chip>
+          )}
           {a.band === "returning" &&
+            !a.makeupDate &&
             (a.registered ? (
               <Chip tone="blue" title="Returning player who registered for this season's tryouts">
                 Tried out
@@ -783,6 +1122,14 @@ function AthleteRow({
                 Returning
               </Chip>
             ))}
+          {a.flags.includes("no_history") && (
+            <Chip
+              tone="neutral"
+              title="No tryout registration, no payment, no payment plan, no team on file — verify she's real"
+            >
+              No club history
+            </Chip>
+          )}
           {a.flags.includes("clipboard") && (
             <Chip tone="neutral" title="Clipboard name — written down by hand, never registered online">
               Clipboard
@@ -976,7 +1323,7 @@ function Chip({
   title,
   children,
 }: {
-  tone: "red" | "neutral" | "blue";
+  tone: "red" | "neutral" | "blue" | "amber";
   title: string;
   children: React.ReactNode;
 }) {
@@ -989,13 +1336,24 @@ function Chip({
           ? "bg-[#FEE2E2] text-[#B91C1C]"
           : tone === "blue"
             ? "bg-[#EDF5FB] text-[#2E6C9E]"
-            : "bg-[#F1F3F6] text-[#6B7280]",
+            : tone === "amber"
+              ? "bg-[#FEF3C7] text-[#92400E]"
+              : "bg-[#F1F3F6] text-[#6B7280]",
       ].join(" ")}
     >
       {tone === "red" && <AlertTriangle size={10} strokeWidth={2.5} className="mr-1" />}
       {children}
     </span>
   );
+}
+
+function formatShortDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1)).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 // ─── The dropdown — where the decision happens ───────────────────────────────
