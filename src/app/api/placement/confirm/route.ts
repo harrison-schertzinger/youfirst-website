@@ -118,8 +118,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     receiptOk = receipt.ok;
     if (!receipt.ok) {
       console.error("[placement/confirm] receipt failed:", receipt.error);
-    } else if (!receipt.attached) {
-      console.error("[placement/confirm] receipt sent WITHOUT the Club Standard");
     }
   } catch (err) {
     console.error("[placement/confirm] receipt threw:", err);

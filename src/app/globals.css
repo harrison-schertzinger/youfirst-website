@@ -286,3 +286,77 @@ button:focus-visible {
 .bw-site .keep-color img {
   filter: none;
 }
+
+/* ─── The You First Standard (/standard) ───────────────────────────────────
+   Deep navy on screen — the same ground as the placement email, so the page a
+   family lands on feels like the email that sent them.
+
+   ON PAPER IT INVERTS. A parent who hits ⌘P gets ink on white: no navy flood
+   (it drinks a cartridge and greys the text), no nav, no footer, no scroll
+   bar. That print block is why we ship a link instead of an attachment.       */
+
+.standard-doc {
+  background: #0A1A2F;
+  color: #C6D2DF;
+}
+.standard-doc .doc-rule { background: #1E3A56; }
+.standard-doc .doc-panel { background: #102741; }
+.standard-doc .doc-strong { color: #FFFFFF; }
+.standard-doc .doc-muted { color: #8397AC; }
+.standard-doc .doc-accent { color: #4B9CD3; }
+.standard-doc .doc-pillar { border-left: 3px solid #4B9CD3; }
+.standard-doc .doc-th { border-bottom: 1.5px solid #4B9CD3; color: #8397AC; }
+.standard-doc .doc-td { border-bottom: 1px solid #1E3A56; }
+
+@media print {
+  /* Chrome off. */
+  .print-hide { display: none !important; }
+
+  @page { size: Letter; margin: 0.7in 0.75in; }
+
+  html, body { background: #fff !important; }
+
+  .standard-doc,
+  .standard-doc * {
+    background: transparent !important;
+    color: #1A1A1A !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .standard-doc { padding: 0 !important; }
+
+  /* The one colour worth ink: the accent stays, so the document still reads as
+     ours in a folder on a kitchen counter. */
+  .standard-doc .doc-accent,
+  .standard-doc .doc-sec-n { color: #2C6C99 !important; }
+  .standard-doc .doc-muted { color: #6B7280 !important; }
+  .standard-doc .doc-rule { background: #D1D5DB !important; }
+  .standard-doc .doc-pillar { border-left: 3px solid #2C6C99 !important; }
+  .standard-doc .doc-panel {
+    background: #F3F4F6 !important;
+    border-left: 3px solid #2C6C99 !important;
+  }
+  .standard-doc .doc-th { border-bottom: 1.5px solid #1A1A1A !important; }
+  .standard-doc .doc-td { border-bottom: 1px solid #D1D5DB !important; }
+
+  /* A section should not be split across a page break mid-heading. The section
+     NUMBER counts as part of its heading — without this the "05" strands at the
+     foot of one page and its title opens the next. */
+  .standard-doc .doc-section { break-inside: auto; page-break-inside: auto; }
+  .standard-doc .doc-sec-n { break-after: avoid; page-break-after: avoid; }
+  .standard-doc h2 { break-after: avoid; page-break-after: avoid; }
+  .standard-doc h3 { break-after: avoid; page-break-after: avoid; }
+  /* Keep a heading with the first thing it introduces. */
+  .standard-doc h2 + *, .standard-doc h3 + * { break-before: avoid; page-break-before: avoid; }
+  .standard-doc table, .standard-doc .doc-pillar {
+    break-inside: avoid; page-break-inside: avoid;
+  }
+
+  /* Print sizing — screen sizes are tuned for a phone, not for paper. */
+  .standard-doc .doc-title { font-size: 30pt !important; }
+  .standard-doc h2 { font-size: 19pt !important; }
+  .standard-doc p, .standard-doc li { font-size: 10.5pt !important; line-height: 1.55 !important; }
+
+  /* Reveal the destination of the one link we keep. */
+  .standard-doc a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 9pt; }
+}

@@ -26,6 +26,8 @@ import {
   EMAIL_FOOTER,
   HERO_ALT,
   HERO_URL,
+  STANDARD_LINK_LABEL,
+  STANDARD_URL,
 } from "@/lib/placement/config";
 import {
   bannedLanguageIn,
@@ -229,6 +231,10 @@ export function renderEmail(
     headline: tierLabel(athlete.tier, athlete.classYear),
     subhead: athlete.name,
     actionUrl,
+    // On the receipt the button already IS the Standard, so the shell drops the
+    // secondary link rather than pointing twice at the same URL.
+    standardUrl: STANDARD_URL,
+    standardLabel: STANDARD_LINK_LABEL,
     heroUrl: HERO_URL,
     heroAlt: HERO_ALT,
     footer: EMAIL_FOOTER,

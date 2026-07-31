@@ -30,14 +30,17 @@ import {
 } from "@/lib/placement/regions";
 import { type EmailShape } from "@/lib/placement/shared";
 
-// ── Tokens, from the site's own palette (src/app/globals.css) ─────────────
-const INK = "#0A0A0B"; // --color-dark
+// ── Tokens ────────────────────────────────────────────────────────────────
+// Deep navy, not near-black: the point is to sit against a white inbox as an
+// obviously designed object. ACCENT is the site's own Carolina
+// (--color-accent-blue); the rest are the navy ramp built around it.
+const INK = "#0A1A2F"; // page ground
 const ACCENT = "#4B9CD3"; // --color-accent-blue
 const WHITE = "#FFFFFF";
-const PROSE = "#C9CDD3"; // body copy on dark
-const MUTED = "#8A9099"; // labels, footer
-const RULE = "#26272B"; // hairlines on dark
-const PANEL = "#141417"; // inset panels
+const PROSE = "#C6D2DF"; // body copy on navy — ~11:1 on INK
+const MUTED = "#8397AC"; // labels, footer
+const RULE = "#1E3A56"; // hairlines on navy
+const PANEL = "#102741"; // inset panels
 
 const FONT =
   "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
@@ -73,8 +76,15 @@ export interface EmailChrome {
   headline: string;
   /** Her name, under the headline. */
   subhead: string;
-  /** Absolute https URL. The single action in the email. */
+  /** Absolute https URL. The primary action. */
   actionUrl: string;
+  /**
+   * The ONE secondary link, under the button — The You First Standard.
+   * Text, never a second button: two buttons is two primary actions, and
+   * confirming has to win.
+   */
+  standardUrl: string;
+  standardLabel: string;
   /** Absolute https URL of the hero photograph. */
   heroUrl: string;
   heroAlt: string;
@@ -169,6 +179,17 @@ function button(label: string, url: string): string {
   </td></tr>`;
 }
 
+/**
+ * The one secondary action, as text. Centred under the button, deliberately
+ * quieter — smaller, muted, underlined — so it reads as "and also" rather than
+ * as a competing choice.
+ */
+function secondaryLink(label: string, url: string): string {
+  return `<tr><td align="center" style="padding:0 40px">
+    <a href="${escapeHtml(url)}" style="font-family:${FONT};font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:${MUTED};text-decoration:underline">${escapeHtml(label)}</a>
+  </td></tr>`;
+}
+
 // ── The document ──────────────────────────────────────────────────────────
 
 export function buildHtml(chrome: EmailChrome, regions: Regions): string {
@@ -245,6 +266,11 @@ export function buildHtml(chrome: EmailChrome, regions: Regions): string {
     ...(regions.deadline?.trim() ? [spacer(28)] : []),
 
     button(regions.button_label?.trim() || "Confirm", chrome.actionUrl),
+    // Suppressed when the button already points there — the receipt's primary
+    // action IS the Standard, and a link that repeats the button is noise.
+    ...(chrome.standardUrl !== chrome.actionUrl
+      ? [spacer(18), secondaryLink(chrome.standardLabel, chrome.standardUrl)]
+      : []),
     spacer(34),
     rule(),
     spacer(26),
@@ -342,6 +368,10 @@ export function buildText(chrome: EmailChrome, regions: Regions): string {
 
   push(`${stripEmphasis(regions.button_label?.trim() || "Confirm")}: ${chrome.actionUrl}`);
   push();
+  if (chrome.standardUrl !== chrome.actionUrl) {
+    push(`${chrome.standardLabel}: ${chrome.standardUrl}`);
+    push();
+  }
 
   for (const p of paragraphsOf(regions.signature)) {
     push(stripEmphasis(p));

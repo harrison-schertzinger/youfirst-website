@@ -67,10 +67,17 @@ export default function ConfirmClient({
         </div>
         <p className="mt-4 text-[16px] leading-relaxed text-[#C9CDD3]">
           She is on <span className="text-white">{placement}</span> for the{" "}
-          {season} season. The Club Standard is on its way to{" "}
+          {season} season. The You First Standard is on its way to{" "}
           <span className="text-white">{email}</span> — the season, the
-          structure, the staff, and what is expected, in one document.
+          structure, the staff, and what is expected.
         </p>
+        <a
+          href="/standard"
+          style={{ color: ACCENT }}
+          className="mt-5 inline-block text-[16px] underline"
+        >
+          Read The You First Standard
+        </a>
       </div>
     );
   }
@@ -93,9 +100,9 @@ export default function ConfirmClient({
           <span className="text-white">{placement}</span> for the {season} season.
         </p>
         <p>
-          The Club Standard comes to{" "}
+          The You First Standard comes to{" "}
           <span className="text-white">{email}</span> straight away — the season,
-          the structure, the staff, and what is expected, in one document.
+          the structure, the staff, and what is expected.
         </p>
         {deadline && (
           <p>

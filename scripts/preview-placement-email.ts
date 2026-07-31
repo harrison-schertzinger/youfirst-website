@@ -19,7 +19,11 @@ config({ path: ".env.local" });
 
 import fs from "node:fs";
 import path from "node:path";
-import { buildHtml, buildText } from "../src/lib/placement/email-shell";
+import {
+  buildHtml,
+  buildText,
+  type EmailChrome,
+} from "../src/lib/placement/email-shell";
 import { parseRegions } from "../src/lib/placement/regions";
 import { renderTemplate } from "../src/lib/template-render";
 import { getServiceClient } from "../src/lib/placement/config";
@@ -103,12 +107,16 @@ async function main() {
 
     const rendered = renderTemplate(source, ctx, {});
     const regions = parseRegions(rendered.body);
-    const chrome = {
-      shape: "placement" as const,
+    // Annotated, so a field added to EmailChrome fails the typecheck here
+    // instead of rendering "undefined: undefined" into a preview.
+    const chrome: EmailChrome = {
+      shape: "placement",
       eyebrow: `Placement · ${PLACEMENT_SEASON} season`,
       headline: tierLabel(tier, athlete.classYear),
       subhead: athlete.name,
       actionUrl: athlete.confirmUrl,
+      standardUrl: "https://www.youfirstlacrosse.com/standard",
+      standardLabel: "Read The You First Standard",
       // Absolute in production; the local file renders against the live site.
       heroUrl: "https://www.youfirstlacrosse.com/images/email/placement-hero.jpg",
       heroAlt: "YOU. FIRST athletes on the field at sunrise.",

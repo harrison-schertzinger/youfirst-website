@@ -28,23 +28,17 @@ export const HERO_ALT =
 export const EMAIL_FOOTER =
   "YOU. FIRST Elite Lacrosse Club · Cincinnati, Ohio";
 
-/** The two Club Standard variants, served from public/documents. */
-export const CLUB_STANDARD = {
-  tournament: {
-    file: "club-standard-tournament.pdf",
-    label: "The Club Standard — Tournament Rosters",
-  },
-  elite_youth: {
-    file: "club-standard-elite-youth.pdf",
-    label: "The Club Standard — Elite Youth Program",
-  },
-} as const;
-
-export type ClubStandardVariant = keyof typeof CLUB_STANDARD;
-
-export function clubStandardUrl(variant: ClubStandardVariant): string {
-  return `${SITE_URL}/documents/${CLUB_STANDARD[variant].file}`;
-}
+/**
+ * The You First Standard — a PAGE, never an attachment.
+ *
+ * An attached PDF hurts deliverability and competes with the confirm button
+ * for the one decision the email is asking for. /standard carries a print
+ * stylesheet, so a family who wants a file makes one in two taps and we ship
+ * nothing heavier than a link.
+ */
+export const STANDARD_URL = `${SITE_URL}/standard`;
+export const STANDARD_NAME = "The You First Standard";
+export const STANDARD_LINK_LABEL = "Read The You First Standard";
 
 /**
  * Confirmation links expire. Configurable via PLACEMENT_CONFIRM_DEADLINE as an
@@ -93,18 +87,16 @@ export function resendConfig():
   return { ok: true, apiKey, from: `YOU. FIRST Lacrosse <${bare}>` };
 }
 
-export interface Attachment {
-  filename: string;
-  /** base64, no data: prefix — what Resend expects. */
-  content: string;
-}
-
+/**
+ * No attachment parameter, by design. Nothing in the placement path may attach
+ * a file: the Standard is a link. Removing the capability is stronger than
+ * remembering not to use it.
+ */
 export async function sendViaResend(input: {
   to: string;
   subject: string;
   html: string;
   text: string;
-  attachments?: Attachment[];
 }): Promise<{ ok: boolean; id?: string; error?: string }> {
   const cfg = resendConfig();
   if (!cfg.ok) return { ok: false, error: cfg.reason };
@@ -123,9 +115,6 @@ export async function sendViaResend(input: {
         html: input.html,
         text: input.text,
         reply_to: REPLY_TO,
-        ...(input.attachments?.length
-          ? { attachments: input.attachments }
-          : {}),
       }),
     });
     if (!res.ok) {

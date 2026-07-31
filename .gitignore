@@ -54,11 +54,6 @@ parent-emails.csv
 # Local dry-run renders — contain guardian emails and balances. Never commit.
 tmp/
 
-# Generated from documents/club-standard/content.mjs by
-# scripts/build-club-standard.mjs. The PDFs in public/documents/ ARE tracked —
-# they get attached to receipts — but the intermediate HTML is not.
-/documents/club-standard/build/
-
 # Output of scripts/preview-placement-email.ts. Renders a real athlete's merge
 # values when run with --live, so it stays local.
 /documents/placement-preview/

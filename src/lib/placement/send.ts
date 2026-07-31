@@ -28,12 +28,9 @@ import { type SupabaseClient } from "@supabase/supabase-js";
 import { sendAdminNotification, adminSubject } from "@/lib/admin-notify";
 import {
   ADMIN_NOTIFY,
-  CLUB_STANDARD,
-  clubStandardUrl,
   SITE_URL,
+  STANDARD_URL,
   sendViaResend,
-  type Attachment,
-  type ClubStandardVariant,
 } from "@/lib/placement/config";
 import {
   buildAudience,
@@ -42,11 +39,7 @@ import {
   usableEmail,
 } from "@/lib/placement/audience";
 import { buildRosterData } from "@/lib/rosters/data";
-import {
-  loadTemplates,
-  renderEmail,
-  type TemplateBundle,
-} from "@/lib/placement/templates";
+import { loadTemplates, renderEmail } from "@/lib/placement/templates";
 import { issueToken, type TokenRow } from "@/lib/placement/tokens";
 import {
   approvalPhrase,
@@ -370,7 +363,6 @@ interface DeliverInput {
   html: string;
   text: string;
   detail: Record<string, unknown>;
-  attachments?: Attachment[];
 }
 
 type DeliverOutcome =
@@ -453,7 +445,6 @@ async function deliverOne(
     subject,
     html,
     text,
-    attachments: input.attachments,
   });
 
   // Resolve the claim. A failure resolves to 'failed', which falls outside the
@@ -497,47 +488,16 @@ async function deliverOne(
 
 // ── The receipt, fired on confirmation ────────────────────────────────────
 
-export function clubStandardVariantFor(tier: SendableTier): ClubStandardVariant {
-  return tier === "elite_youth" ? "elite_youth" : "tournament";
-}
-
 /**
- * The Club Standard, base64 for Resend. Fetched over https from the site's own
- * origin rather than read off disk, so the serverless bundle does not have to
- * carry it. Returns null on any failure — a missing attachment must degrade the
- * receipt, never cancel it.
+ * The receipt. Its primary action IS the Standard — that page is the thing
+ * that arrives after confirming, and it arrives as a link, never a file.
+ * Nothing on this path can attach: sendViaResend has no attachment parameter.
  */
-async function loadClubStandard(
-  variant: ClubStandardVariant,
-): Promise<Attachment | null> {
-  try {
-    const res = await fetch(clubStandardUrl(variant));
-    if (!res.ok) {
-      console.error(`[placement] club standard ${variant}: HTTP ${res.status}`);
-      return null;
-    }
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.byteLength < 1000) {
-      console.error(`[placement] club standard ${variant}: implausibly small`);
-      return null;
-    }
-    return {
-      filename: CLUB_STANDARD[variant].file,
-      content: buf.toString("base64"),
-    };
-  } catch (err) {
-    console.error("[placement] club standard fetch threw:", err);
-    return null;
-  }
-}
-
 export async function sendReceipt(
   db: SupabaseClient,
   token: TokenRow,
-): Promise<{ ok: boolean; attached: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string }> {
   const bundle = await loadTemplates(db);
-  const variant = clubStandardVariantFor(token.placement_tier);
-  const docUrl = clubStandardUrl(variant);
 
   const rendered = renderEmail(
     bundle,
@@ -547,15 +507,11 @@ export async function sendReceipt(
       classYear: token.class_year,
       tier: token.placement_tier,
       parentName: token.parent_name,
-      confirmUrl: docUrl,
+      confirmUrl: STANDARD_URL,
     },
-    docUrl,
+    STANDARD_URL,
   );
-  if (!rendered.ok) {
-    return { ok: false, attached: false, error: rendered.detail };
-  }
-
-  const attachment = await loadClubStandard(variant);
+  if (!rendered.ok) return { ok: false, error: rendered.detail };
 
   const outcome = await deliverOne(db, {
     mode: "live",
@@ -574,10 +530,8 @@ export async function sendReceipt(
       athlete_table: token.athlete_table,
       athlete_id: token.athlete_id,
       athlete_name: token.athlete_name,
-      club_standard: variant,
-      attached: attachment !== null,
+      standard_url: STANDARD_URL,
     },
-    attachments: attachment ? [attachment] : undefined,
   });
 
   if (outcome.status === "ok") {
@@ -589,7 +543,6 @@ export async function sendReceipt(
 
   return {
     ok: outcome.status === "ok",
-    attached: attachment !== null,
     error: outcome.status === "ok" ? undefined : outcome.detail,
   };
 }
@@ -789,8 +742,8 @@ export async function notifyConfirmation(token: TokenRow, receiptOk: boolean) {
     ],
     paragraphs: [
       receiptOk
-        ? "She is in. The receipt and the Club Standard are on their way to the family."
-        : "She is in — but the receipt email did NOT go out. Send the Club Standard by hand and check the logs.",
+        ? "She is in. The receipt is on its way, pointing the family at The You First Standard."
+        : "She is in — but the receipt email did NOT go out. Send her the Standard link by hand and check the logs.",
     ],
     button: { label: "Open the roster", url: `${SITE_URL}/admin/rosters` },
     to: ADMIN_NOTIFY,
