@@ -53,43 +53,68 @@ const FALLBACK = [
   "public/images/new-photos/IMG_1947.jpg",
 ];
 
+/**
+ * THREE TREATMENTS THAT ARE ACTUALLY THREE THINGS.
+ *
+ * A first pass produced three near-identical bands: same crop, same wordmark
+ * corner, same scrim, and aurora ribbons positioned mostly outside the visible
+ * area so the colour barely showed. If the differences need pointing out, they
+ * are not treatments. Each of these differs in STRUCTURE — where the wordmark
+ * sits, whether the photo is full-bleed, how colour is applied — not in
+ * exposure.
+ */
 const TREATMENTS = {
-  // Carolina ribbons sweeping across the band — the most "aurora" of the three.
+  // A · AURORA — colour-forward. Bright Carolina ribbons sweep the full band,
+  // blurred and screened so they read as light, not as a filter. Wordmark
+  // centred and large. This one should look designed from across the room.
   aurora: {
     label: "Aurora",
-    // Ribbons kept off the centre so the athlete still reads through them —
-    // the photograph is the subject, the wash is the light falling on it.
+    photo: "grayscale(1) contrast(1.05) brightness(1.02)",
     layers: `
+      <div class="l ribbons" style="background:
+        radial-gradient(46% 120% at 22% 78%, ${CAROLINA}f2 0%, ${CAROLINA}80 42%, transparent 74%),
+        radial-gradient(38% 105% at 58% 12%, ${LIGHT}e6 0%, ${LIGHT}66 44%, transparent 76%),
+        radial-gradient(52% 130% at 88% 88%, ${MID}f2 0%, ${MID}73 46%, transparent 78%);
+        mix-blend-mode:screen;filter:blur(46px)"></div>
       <div class="l" style="background:
-        radial-gradient(105% 165% at 6% 120%, ${CAROLINA}a6 0%, ${MID}59 30%, transparent 62%),
-        radial-gradient(80% 135% at 92% -30%, ${LIGHT}80 0%, ${CAROLINA}40 36%, transparent 66%);
-        mix-blend-mode:screen"></div>
-      <div class="l" style="background:
-        linear-gradient(104deg, ${INK}e6 0%, ${INK}40 30%, transparent 56%, ${MID}4d 82%, ${CAROLINA}66 100%);
-        mix-blend-mode:overlay"></div>`,
-    wordmark: "left",
+        linear-gradient(180deg, ${INK}59 0%, transparent 30%, ${INK}b3 100%)"></div>`,
+    wordmark: "center",
+    scrim: false,
   },
-  // Heavier ground, one Carolina sweep out of the lower left. Most restrained.
-  deep: {
-    label: "Deep",
+
+  // B · SPLIT — a solid navy panel carries the wordmark, the photograph owns
+  // the rest, and a Carolina edge-light marks the seam. Structurally the most
+  // different of the three: the type never sits on the picture.
+  split: {
+    label: "Split",
+    photo: "grayscale(1) contrast(1.16) brightness(.92)",
+    frame: "right",
     layers: `
       <div class="l" style="background:
-        radial-gradient(150% 200% at 0% 130%, ${CAROLINA}b3 0%, ${MID}66 38%, transparent 70%);
-        mix-blend-mode:screen"></div>
-      <div class="l" style="background:
-        linear-gradient(180deg, ${INK}b3 0%, ${INK}40 42%, ${INK}f7 100%)"></div>`,
-    wordmark: "left",
+        linear-gradient(90deg, transparent 0%, transparent 34%, ${INK}40 40%, transparent 62%)"></div>
+      <div class="panel"></div>
+      <div class="seam"></div>`,
+    wordmark: "panel",
+    scrim: false,
   },
-  // Photo stays most visible; Carolina reads as a rim-light along the top edge.
-  edge: {
-    label: "Edge",
+
+  // C · DUOTONE — the photograph stops being a photograph. Luminance kept,
+  // hue mapped navy → Carolina across the frame, so it reads as a graphic.
+  // Wordmark small and bottom-left under a Carolina rule.
+  duotone: {
+    label: "Duotone",
+    photo: "grayscale(1) contrast(1.34) brightness(1.06)",
     layers: `
       <div class="l" style="background:
-        linear-gradient(180deg, ${CAROLINA}d9 0%, ${CAROLINA}40 9%, transparent 26%);
-        mix-blend-mode:screen"></div>
+        linear-gradient(118deg, ${INK} 0%, ${MID} 52%, ${CAROLINA} 100%);
+        mix-blend-mode:color"></div>
       <div class="l" style="background:
-        linear-gradient(180deg, ${INK}59 0%, transparent 34%, ${INK}e6 100%)"></div>`,
-    wordmark: "left",
+        linear-gradient(118deg, ${INK}b3 0%, transparent 46%, ${CAROLINA}33 100%);
+        mix-blend-mode:multiply"></div>
+      <div class="l" style="background:
+        linear-gradient(180deg, transparent 46%, ${INK}e6 100%)"></div>`,
+    wordmark: "rule",
+    scrim: false,
   },
 };
 
@@ -105,43 +130,54 @@ function findChrome() {
 }
 
 function page(photoUrl, t) {
-  const pos =
-    t.wordmark === "center"
-      ? "align-items:center;justify-content:center;text-align:center"
-      : "align-items:flex-end;justify-content:flex-start;padding:0 0 46px 54px";
+  const centred = t.wordmark === "center";
+  const panel = t.wordmark === "panel";
+  const PANEL_W = 40; // % of the band the navy panel occupies in SPLIT
+
+  const markBox = centred
+    ? `left:0;right:0;top:0;bottom:0;align-items:center;justify-content:center;text-align:center`
+    : panel
+      ? `left:0;top:0;bottom:0;width:${PANEL_W}%;align-items:center;justify-content:center;padding:0 34px;text-align:left`
+      : `left:0;right:0;top:0;bottom:0;align-items:flex-end;justify-content:flex-start;padding:0 0 44px 54px`;
+
   return `<!doctype html><meta charset="utf-8"><style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{width:${W}px;height:${H}px;background:${INK};overflow:hidden}
   .band{position:relative;width:${W}px;height:${H}px;isolation:isolate;background:${INK}}
-  /* Grayscale + a touch of contrast: the photo carries form, the wash carries colour. */
-  /* Already cropped to the band by sharp's saliency pass, so no object-fit
-     guesswork here — a blind centre crop cut the athletes' faces off. */
-  .ph{position:absolute;inset:0;width:100%;height:100%;
-      filter:grayscale(1) contrast(1.14) brightness(.86)}
+  /* Cropped to the band by sharp's saliency pass, so no object-fit guesswork:
+     a blind centre crop cut the athletes' faces off. */
+  .ph{position:absolute;top:0;bottom:0;width:${t.frame === "right" ? 100 - PANEL_W : 100}%;
+      ${t.frame === "right" ? `right:0;` : `left:0;`}
+      height:100%;object-fit:cover;object-position:center;
+      filter:${t.photo}}
   .l{position:absolute;inset:0}
+  /* SPLIT: the solid panel the wordmark lives on, and the Carolina seam. */
+  .panel{position:absolute;left:0;top:0;bottom:0;width:${PANEL_W}%;background:${INK}}
+  .seam{position:absolute;left:${PANEL_W}%;top:0;bottom:0;width:3px;
+        background:linear-gradient(180deg,${CAROLINA}00 0%,${CAROLINA} 38%,${LIGHT} 62%,${CAROLINA}00 100%)}
   /* The bottom edge dissolves into the email's ground so the band is not a
-     pasted rectangle sitting on navy. */
-  .melt{position:absolute;left:0;right:0;bottom:0;height:34%;
+     rectangle pasted on navy. */
+  .melt{position:absolute;left:0;right:0;bottom:0;height:26%;
         background:linear-gradient(180deg,transparent 0%,${INK} 100%)}
-  /* A soft scrim under the wordmark corner so "ELITE LACROSSE" survives a
-     busy frame. Sized to the type, not the band — it must not read as a bar. */
-  .scrim{position:absolute;left:0;bottom:0;width:62%;height:58%;
-         background:radial-gradient(90% 120% at 12% 92%, ${INK}d9 0%, ${INK}8c 42%, transparent 76%)}
-  .mark{position:absolute;inset:0;display:flex;${pos}}
+  .mark{position:absolute;display:flex;${markBox}}
   .wm{font-family:-apple-system,'Helvetica Neue',Helvetica,Arial,sans-serif;
-      font-weight:800;font-size:64px;letter-spacing:-.02em;line-height:1;color:#fff;
-      text-shadow:0 2px 26px rgba(10,26,47,.62)}
+      font-weight:800;letter-spacing:-.02em;line-height:1;color:#fff;
+      font-size:${centred ? 76 : panel ? 50 : 52}px;
+      text-shadow:0 2px 30px rgba(10,26,47,.55)}
   .wm .dot{color:${CAROLINA}}
   .sub{font-family:-apple-system,'Helvetica Neue',Helvetica,Arial,sans-serif;
-       font-weight:700;font-size:15px;letter-spacing:.30em;text-transform:uppercase;
-       color:rgba(255,255,255,.82);margin-top:14px;text-shadow:0 1px 14px rgba(10,26,47,.7)}
+       font-weight:700;font-size:${panel ? 12 : 14}px;letter-spacing:.30em;
+       text-transform:uppercase;color:rgba(255,255,255,.86);margin-top:13px;
+       text-shadow:0 1px 14px rgba(10,26,47,.7)}
+  /* DUOTONE: a Carolina rule above the wordmark instead of a scrim. */
+  .rule{width:74px;height:4px;background:${CAROLINA};margin-bottom:20px}
 </style>
 <div class="band">
   <img class="ph" src="${photoUrl}">
   ${t.layers}
   <div class="melt"></div>
-  ${t.wordmark === "left" ? '<div class="scrim"></div>' : ""}
   <div class="mark"><div>
+    ${t.wordmark === "rule" ? '<div class="rule"></div>' : ""}
     <div class="wm">YOU<span class="dot">.</span> FIRST</div>
     <div class="sub">Elite Lacrosse</div>
   </div></div>

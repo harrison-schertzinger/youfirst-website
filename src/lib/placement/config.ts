@@ -31,12 +31,15 @@ export const ADMIN_NOTIFY = [
  * reach.
  */
 export const HEADER_VARIANTS: Record<string, string> = {
+  /** Centred wordmark, Carolina light washing the whole band. */
   aurora: "header-img-1947-aurora.jpg",
-  deep: "header-img-1947-deep.jpg",
-  edge: "header-img-1947-edge.jpg",
+  /** Navy panel carries the type; the photograph owns the rest. */
+  split: "header-img-1947-split.jpg",
+  /** The photograph mapped navy → Carolina. Reads as a graphic. */
+  duotone: "header-img-1947-duotone.jpg",
 };
 
-export const HEADER_DEFAULT = "deep";
+export const HEADER_DEFAULT = "split";
 
 export function heroUrl(variant?: string | null): string {
   const file =
