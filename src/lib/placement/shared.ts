@@ -80,7 +80,9 @@ export const EXCLUDED_CLASSES: readonly string[] = ["2028"];
  * listed anyway: if her tier ever changes, the hold still stands.
  */
 export const HELD_ATHLETES: Record<string, string> = {
-  "reg:ffb64ea4-1fb9-466b-81ac-8d0dd5297888": "Kelsey Lorenzen",
+  // Kelsey Lorenzen released 2026-07-30 — she gets the 2029 Elite email like
+  // everyone else. Her address was never the problem: alorenzen@zoomtown.com,
+  // from the roster confirmation her family filed on 23 July.
   "player:36e8db08-366e-4806-9b4e-01992f113426": "Grace Lanzillotta",
 };
 
