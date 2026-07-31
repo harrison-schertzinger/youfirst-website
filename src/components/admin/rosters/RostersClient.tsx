@@ -63,6 +63,9 @@ interface Toast {
 
 const POLL_MS = 30_000;
 
+/** Tab key for the one cross-class Blue team. */
+const BLUE_TAB = "blue";
+
 // Sticky offsets: the pinned block (tabs row + shape strip) is ~92px tall on
 // md+; the table header parks directly beneath it on desktop.
 const TH = "py-2.5 font-semibold bg-white xl:sticky xl:top-[92px] xl:z-10 xl:shadow-[inset_0_-1px_0_#E5E8EC]";
@@ -121,7 +124,11 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
   );
 
   useEffect(() => {
-    if ((!active || (active !== "unassigned" && !groups.includes(active))) && groups.length > 0) {
+    if (
+      (!active ||
+        (active !== "unassigned" && active !== BLUE_TAB && !groups.includes(active))) &&
+      groups.length > 0
+    ) {
       setActive(groups[0]);
     }
   }, [active, groups]);
@@ -138,9 +145,9 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
       .sort((a, b) => nameSortKey(a.name).localeCompare(nameSortKey(b.name)));
   }, [data, active, unassigned]);
 
-  // You First Blue is ONE team across 2029 and 2030 — the same union list
-  // renders on both tabs, and its shape is counted across both together.
-  const isBlueTab = active === "2029" || active === "2030";
+  // You First Blue is ONE team across 2029 and 2030 with its OWN tab — one
+  // roster, one place. The class strips still show its shared count.
+  const isBlueClassTab = active === "2029" || active === "2030";
   const allBlue = useMemo(
     () =>
       data.athletes
@@ -149,19 +156,14 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
     [data],
   );
 
-  // Team sections: Elite always renders, and on 2029/2030 so does the one
-  // Blue team — he fills both at once. Programs, Declined and parked states
-  // appear once they hold someone. Unplaced sits below the teams; play-ups
-  // listed on their own class tab come last, marked, counting toward nothing.
+  // Team sections: Elite always renders; programs, Declined and parked
+  // states appear once they hold someone. Blue lives on its own tab — a
+  // class tab lists its Blue athletes in a trace section below Unplaced.
   const sections = useMemo(() => {
     const byTier = (t: string) => inClass.filter((a) => a.placementTier === t);
     const label = active === "unassigned" ? "" : active;
-    const showBlue = isBlueTab || inClass.some((a) => a.placementTier === "blue");
     return [
       { key: "elite", title: `${label} Elite`, list: byTier("elite"), always: true, targets: true, controls: true, forceYear: false },
-      ...(showBlue
-        ? [{ key: "blue", title: BLUE_TEAM_NAME, list: allBlue, always: true, targets: true, controls: true, forceYear: true }]
-        : []),
       { key: "elite_youth", title: "Elite Youth Program", list: byTier("elite_youth"), always: false, targets: false, controls: true, forceYear: false },
       { key: "elite_training", title: "Elite Training Group", list: byTier("elite_training"), always: false, targets: false, controls: true, forceYear: false },
       { key: "declined", title: "Declined", list: byTier("declined"), always: false, targets: false, controls: false, forceYear: false },
@@ -175,7 +177,13 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
         forceYear: false,
       },
     ];
-  }, [inClass, active, isBlueTab, allBlue]);
+  }, [inClass, active]);
+
+  // Her class tab keeps a trace of every athlete it sent to Blue.
+  const placedOnBlue = useMemo(
+    () => inClass.filter((a) => a.placementTier === "blue"),
+    [inClass],
+  );
 
   // Acceptance per team: over everyone whose placement email OFFERED this
   // tier (token at send time), classified by where she stands now — so a
@@ -531,7 +539,12 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
         (a.gradYear != null && groupKeyForYear(a.gradYear) === k),
     ).length;
 
-  const activeLabel = active === "unassigned" ? "Unassigned" : `Class of ${active}`;
+  const activeLabel =
+    active === "unassigned"
+      ? "Unassigned"
+      : active === BLUE_TAB
+        ? BLUE_TEAM_NAME
+        : `Class of ${active}`;
 
   // With the panel open there isn't room for every column until 2xl; the ones
   // that hide are all carried by the panel (and grouping already says the
@@ -662,7 +675,8 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
         <div className="flex flex-wrap items-center gap-1.5">
           {groups.map((k) => {
             const isActive = active === k;
-            return (
+            const blueAfter = k === "2030" || (k === "2029" && !groups.includes("2030"));
+            const classTab = (
               <button
                 key={k}
                 type="button"
@@ -684,6 +698,33 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
                   {groupCount(k)}
                 </span>
               </button>
+            );
+            if (!blueAfter) return classTab;
+            // The one Blue team sits beside the classes it draws from.
+            return (
+              <SectionBlock key={k}>
+                {classTab}
+                <button
+                  type="button"
+                  onClick={() => setActive(BLUE_TAB)}
+                  className={[
+                    "inline-flex items-baseline gap-1.5 px-3.5 py-2 rounded-lg text-[13px] font-semibold transition-colors",
+                    active === BLUE_TAB
+                      ? "bg-[#0B0E12] text-white"
+                      : "bg-white border border-[#4B9CD3]/50 text-[#2E6C9E] hover:bg-[#EDF5FB]",
+                  ].join(" ")}
+                >
+                  {BLUE_TEAM_NAME}
+                  <span
+                    className={[
+                      "text-[11px] font-semibold tabular-nums",
+                      active === BLUE_TAB ? "text-white/60" : "text-[#2E6C9E]/70",
+                    ].join(" ")}
+                  >
+                    {allBlue.length}
+                  </span>
+                </button>
+              </SectionBlock>
             );
           })}
           {unassigned.length > 0 && (
@@ -710,8 +751,18 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
           )}
         </div>
         {/* Shape strip — the roster he's building, pinned under the tabs */}
-        {active !== "unassigned" && (
-          <ShapeStrip label={active} athletes={inClass} blueList={isBlueTab ? allBlue : null} />
+        {active === BLUE_TAB ? (
+          <div className="mt-1.5 h-8 flex items-center gap-x-6 overflow-x-auto whitespace-nowrap rounded-lg border border-[#E5E8EC] bg-white px-3 text-[12px] scrollbar-hide">
+            <TierInline title={BLUE_TEAM_NAME} list={allBlue} />
+          </div>
+        ) : (
+          active !== "unassigned" && (
+            <ShapeStrip
+              label={active}
+              athletes={inClass}
+              blueList={isBlueClassTab ? allBlue : null}
+            />
+          )
         )}
       </div>
 
@@ -783,6 +834,33 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
                     );
                   }
 
+                  // The Blue tab IS the roster — one team, one place.
+                  if (active === BLUE_TAB) {
+                    return (
+                      <>
+                        <TeamHeaderRow
+                          title={BLUE_TEAM_NAME}
+                          list={allBlue}
+                          targets
+                          acceptance={acceptanceFor("blue")}
+                          sendTier="blue"
+                          onCopy={() => copyEmails(BLUE_TEAM_NAME, allBlue)}
+                          onCsv={() => exportCsv(BLUE_TEAM_NAME, allBlue)}
+                        />
+                        {allBlue.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="px-4 py-6 text-[12px] text-[#9CA3AF]">
+                              No one on the roster yet — pick “{BLUE_TEAM_NAME}” in a
+                              placement dropdown on the 2029 or 2030 tab.
+                            </td>
+                          </tr>
+                        ) : (
+                          renderGroups(allBlue, true)
+                        )}
+                      </>
+                    );
+                  }
+
                   return (
                     <>
                       {sections.map((s) =>
@@ -821,6 +899,39 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
                         renderGroups(unplaced)
                       )}
 
+                      {placedOnBlue.length > 0 && (
+                        <SectionBlock>
+                          <TeamHeaderRow
+                            title={`Placed on ${BLUE_TEAM_NAME}`}
+                            list={placedOnBlue}
+                            targets={false}
+                            acceptance={null}
+                            sendTier={null}
+                            onCopy={null}
+                            onCsv={null}
+                          />
+                          {placedOnBlue.map((a) => (
+                            <AthleteRowGroup key={a.key}>
+                              <AthleteRow
+                                a={a}
+                                jump={{
+                                  label: `→ ${BLUE_TEAM_NAME}`,
+                                  onClick: () => setActive(BLUE_TAB),
+                                }}
+                                selected={selectedKey === a.key}
+                                moved={movedKeys.has(a.key)}
+                                compactHide={compactHide}
+                                saveState={saveStates[a.key] ?? null}
+                                isNew={newKeys.has(a.key)}
+                                onChoice={applyChoice}
+                                onMergeOpen={groupProps.onMergeOpen}
+                                onSelect={groupProps.onSelect}
+                              />
+                            </AthleteRowGroup>
+                          ))}
+                        </SectionBlock>
+                      )}
+
                       {placedElsewhere.length > 0 && (
                         <SectionBlock>
                           <TeamHeaderRow
@@ -836,7 +947,12 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
                             <AthleteRowGroup key={a.key}>
                               <AthleteRow
                                 a={a}
-                                elsewhere
+                                jump={{
+                                  label: `→ ${a.classYear} roster`,
+                                  onClick: () =>
+                                    a.classYear != null &&
+                                    setActive(groupKeyForYear(a.classYear)),
+                                }}
                                 selected={selectedKey === a.key}
                                 moved={movedKeys.has(a.key)}
                                 compactHide={compactHide}
@@ -1115,7 +1231,7 @@ function AthleteRow({
   a,
   selected,
   moved,
-  elsewhere,
+  jump,
   forceYear,
   compactHide,
   saveState,
@@ -1127,7 +1243,8 @@ function AthleteRow({
   a: RosterAthlete;
   selected: boolean;
   moved: boolean;
-  elsewhere?: boolean;
+  /** Trace rows: a chip that jumps to the roster she actually sits on. */
+  jump?: { label: string; onClick: () => void };
   forceYear?: boolean;
   compactHide: string;
   saveState: SaveState | null;
@@ -1138,7 +1255,7 @@ function AthleteRow({
 }) {
   const declined = a.placementTier === "declined";
   const playUp =
-    !elsewhere &&
+    !jump &&
     a.gradYear != null &&
     (forceYear || (a.classYear != null && a.gradYear !== a.classYear));
 
@@ -1166,13 +1283,15 @@ function AthleteRow({
           </span>
         )}
         <span className="inline-flex items-center gap-1 ml-2 align-middle">
-          {elsewhere && (
-            <Chip
-              tone="blue"
-              title={`Placed on the ${a.classYear} roster${a.placementTier ? ` — ${tierLabel(a.placementTier, a.classYear)}` : ""}`}
+          {jump && (
+            <button
+              type="button"
+              onClick={jump.onClick}
+              title={`Placed ${a.placementTier ? `— ${tierLabel(a.placementTier, a.classYear)}` : "on another roster"} · click to open`}
+              className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-[#EDF5FB] text-[#2E6C9E] text-[10px] font-semibold hover:bg-[#D6E9F7] transition-colors print:hidden"
             >
-              → {a.classYear} roster
-            </Chip>
+              {jump.label}
+            </button>
           )}
           {a.makeupDate && (
             <Chip
