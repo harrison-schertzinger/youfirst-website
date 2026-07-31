@@ -351,6 +351,7 @@ export async function sendGroup(
         athlete_name: athlete.name,
         actor,
       },
+      testLabel: mode === "test" ? (input.headerVariant ?? undefined) : undefined,
     });
 
     if (outcome.status === "skipped") {
@@ -394,6 +395,8 @@ interface DeliverInput {
   html: string;
   text: string;
   detail: Record<string, unknown>;
+  /** Test sends only — named in the subject so a dozen tests are tellable apart. */
+  testLabel?: string;
 }
 
 type DeliverOutcome =
@@ -407,7 +410,7 @@ async function deliverOne(
 ): Promise<DeliverOutcome> {
   const isTestRedirect = input.mode === "test";
   const subject = isTestRedirect
-    ? `[TEST → ${input.realRecipient}] ${input.subject}`
+    ? `[TEST${input.testLabel ? ` · ${input.testLabel}` : ""} → ${input.realRecipient}] ${input.subject}`
     : input.subject;
   const testBanner = `*** TEST SEND — the real recipient would be ${input.realRecipient} ***`;
   const html = isTestRedirect
