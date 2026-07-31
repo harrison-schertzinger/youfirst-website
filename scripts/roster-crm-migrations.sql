@@ -8,8 +8,10 @@
 -- Placement is two fields written together: placed_team (the age-group class
 -- team; its existing CHECK is the rail that makes Move Up / Move Down work,
 -- untouched) and placement_tier (which roster within the class). Naming
--- standard: no 'development' value — younger classes are the Elite Youth
--- Program, unrostered training athletes are the Elite Training Group.
+-- standard: no 'development' value in the column — younger classes are the
+-- elite_youth tier, unrostered training athletes are the Elite Training Group.
+-- (The elite_youth DISPLAY name was later changed to "Elite Development
+-- Program"; the stored value is unchanged. See ELITE_DEV_PROGRAM.)
 
 alter table public.tryout_registrations
   add column if not exists placement_tier text
