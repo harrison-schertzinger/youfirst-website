@@ -141,6 +141,28 @@ export async function issueToken(
   return { row, url: confirmUrl(row.token) };
 }
 
+/**
+ * This athlete's existing link for this campaign, or null if she has none.
+ *
+ * A READ, unlike issueToken — the resend path needs the token's id before it
+ * corrects an address, and must not mint or re-stamp anything to get it.
+ */
+export async function findTokenForAthlete(
+  db: SupabaseClient,
+  table: "players" | "tryout_registrations",
+  id: string,
+): Promise<TokenRow | null> {
+  const { data, error } = await db
+    .from("placement_tokens")
+    .select(TOKEN_COLUMNS)
+    .eq("campaign", PLACEMENT_CAMPAIGN)
+    .eq("athlete_table", table)
+    .eq("athlete_id", id)
+    .maybeSingle();
+  if (error) throw new Error(`Token lookup failed: ${error.message}`);
+  return (data as TokenRow | null) ?? null;
+}
+
 export async function findToken(
   db: SupabaseClient,
   token: string,

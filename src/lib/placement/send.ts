@@ -34,17 +34,25 @@ import {
 } from "@/lib/placement/config";
 import {
   buildAudience,
+  loadSendHistory,
   loadSendState,
+  resendBlockReason,
   sendableAthletes,
   usableEmail,
 } from "@/lib/placement/audience";
+import { correctAddress, type AddressCorrection } from "@/lib/placement/address";
 import { buildRosterData } from "@/lib/rosters/data";
 import { loadTemplates, renderEmail } from "@/lib/placement/templates";
 import { standardIsWritten } from "@/content/standard";
-import { issueToken, type TokenRow } from "@/lib/placement/tokens";
+import {
+  findTokenForAthlete,
+  issueToken,
+  type TokenRow,
+} from "@/lib/placement/tokens";
 import {
   approvalPhrase,
   cycleKeyFor,
+  EMPTY_HISTORY,
   EXCLUDED_CLASSES,
   HELD_ATHLETES,
   greetingFor,
@@ -52,12 +60,15 @@ import {
   isSendableTier,
   NUDGE_DAYS,
   PLACEMENT_CAMPAIGN,
+  RESEND_BLOCK_LABEL,
+  RESEND_COOLDOWN_SECONDS,
   SEND_KINDS,
   SKIP_REASON_LABEL,
   TIER_GROUP_LABEL,
   tierLabel,
   type EmailShape,
   type NudgeDay,
+  type ResendBlock,
   type SendableTier,
   type SkipReason,
 } from "@/lib/placement/shared";
@@ -555,6 +566,275 @@ async function deliverOne(
   return result.ok
     ? { status: "ok", to: input.to }
     : { status: "failed", to: input.to, detail: result.error ?? "unknown" };
+}
+
+// ── Sending it again, to the right place ──────────────────────────────────
+
+export interface ResendInput {
+  athleteKey: string;
+  /** 'test' delivers to the signed-in admin. 'live' reaches the family. */
+  mode: "test" | "live";
+  /**
+   * A corrected address. When it differs from what is on file, it is SAVED to
+   * the record the audience reads before anything is sent — see address.ts.
+   * Omitted or unchanged, the resend goes where the roster already points.
+   */
+  email?: string | null;
+  /** Required for 'test' — taken from the session, never from the request. */
+  testTo?: string;
+  actor: string;
+}
+
+export interface ResendResult {
+  ok: boolean;
+  /** Set when nothing was sent, with the reason in plain words. */
+  refusal?: string;
+  refusalCode?: ResendBlock | "not_found" | "blocked" | "failed";
+  /** Seconds left on the cooldown, when that is what refused. */
+  cooldownRemaining?: number;
+  name?: string;
+  /** Where this copy actually went. */
+  to?: string;
+  /** Present when the operator corrected the address on the way through. */
+  correction?: AddressCorrection;
+  /** 1 for the first resend, 2 for the second… */
+  attempt?: number;
+}
+
+/**
+ * Send one athlete's placement email again.
+ *
+ * THE GUARDS, in the order they fire — every one of them re-checked here even
+ * when the screen has already checked it, because the screen is a convenience
+ * and this is the gate:
+ *
+ *   1. She must be in the placed audience, derived from the database. The
+ *      client posts a key, never a recipient.
+ *   2. CONFIRMED IS ABSOLUTE. A family who has said yes is never asked again,
+ *      and this is checked against placement_tokens.confirmed_at at the moment
+ *      of the click, not against what the browser last saw.
+ *   3. Held athletes stay held.
+ *   4. She must already have received the original. A "resend" to someone who
+ *      never got one is an unapproved original send — that belongs to the
+ *      class-approval flow, with its typed phrase, and cannot be reached from
+ *      here.
+ *   5. COOLDOWN. A second live resend inside RESEND_COOLDOWN_SECONDS is refused
+ *      outright — the impatient click cannot produce two emails.
+ *   6. The claim. The attempt ordinal is part of the cycle_key and the partial
+ *      unique index makes the insert atomic, so two requests that race past the
+ *      cooldown together still produce exactly one email.
+ *   7. Unwritten copy and banned language block a resend exactly as they block
+ *      an original send — it is the same renderer, not a relaxed one.
+ */
+export async function resendPlacement(
+  db: SupabaseClient,
+  input: ResendInput,
+): Promise<ResendResult> {
+  const { mode, actor } = input;
+
+  const [roster, bundle, state, histories] = await Promise.all([
+    buildRosterData(db),
+    loadTemplates(db),
+    loadSendState(db),
+    loadSendHistory(db),
+  ]);
+
+  const athlete = sendableAthletes(roster.athletes).find(
+    (a) => a.key === input.athleteKey,
+  );
+  if (!athlete) {
+    return {
+      ok: false,
+      refusalCode: "not_found",
+      refusal: "That athlete is not in the placed audience.",
+    };
+  }
+
+  const cycleKey = cycleKeyFor(athlete.table, athlete.id);
+  const history = histories.get(cycleKey) ?? EMPTY_HISTORY;
+
+  // Guards 2–4, from the same function the screen used to decide whether to
+  // offer the button at all.
+  const blocked = resendBlockReason(athlete, state, history);
+  if (blocked) {
+    return {
+      ok: false,
+      refusalCode: blocked,
+      refusal: RESEND_BLOCK_LABEL[blocked],
+      name: athlete.name,
+    };
+  }
+
+  const token = await findTokenForAthlete(db, athlete.table, athlete.id);
+  if (!token) {
+    return {
+      ok: false,
+      refusalCode: "not_found",
+      refusal: "She has no confirmation link on file — nothing to send again.",
+      name: athlete.name,
+    };
+  }
+  // Belt and braces: the token carries confirmation too, and it is the row the
+  // family's tap actually writes. If the two ever disagree, the stricter wins.
+  if (token.confirmed_at) {
+    return {
+      ok: false,
+      refusalCode: "confirmed",
+      refusal: RESEND_BLOCK_LABEL.confirmed,
+      name: athlete.name,
+    };
+  }
+
+  // ── The address ────────────────────────────────────────────────────────
+  const requested = input.email ? usableEmail(input.email) : null;
+  if (input.email && !requested) {
+    return {
+      ok: false,
+      refusalCode: "blocked",
+      refusal: "That is not a valid email address.",
+      name: athlete.name,
+    };
+  }
+  const target = requested ?? athlete.email ?? history.lastSentTo;
+  if (!target) {
+    return {
+      ok: false,
+      refusalCode: "no_email",
+      refusal: RESEND_BLOCK_LABEL.no_email,
+      name: athlete.name,
+    };
+  }
+
+  // ── Guard 5: the cooldown ──────────────────────────────────────────────
+  // Read from the log, not from memory — a second browser tab is still the
+  // same impatient click.
+  const priorResends = history.resends.filter((r) => r.status !== "failed");
+  if (mode === "live") {
+    const last = priorResends[priorResends.length - 1];
+    if (last) {
+      const elapsed = (Date.now() - new Date(last.at).getTime()) / 1000;
+      if (elapsed < RESEND_COOLDOWN_SECONDS) {
+        return {
+          ok: false,
+          refusalCode: "cooling_down",
+          refusal: RESEND_BLOCK_LABEL.cooling_down,
+          cooldownRemaining: Math.ceil(RESEND_COOLDOWN_SECONDS - elapsed),
+          name: athlete.name,
+        };
+      }
+    }
+  }
+
+  // The correction is saved BEFORE the send, so an email that goes to a new
+  // address is never reported against a record still holding the old one.
+  let correction: AddressCorrection | undefined;
+  if (requested && requested !== athlete.email) {
+    correction = await correctAddress(db, athlete, token.id, requested);
+  }
+
+  // Re-issue with the FINAL address so the token agrees with what was just
+  // saved, and so the link in this email is the link she already has.
+  const { url } = await issueToken(db, {
+    table: athlete.table,
+    id: athlete.id,
+    name: athlete.name,
+    classYear: athlete.classYear,
+    tier: athlete.tier,
+    email: target,
+    parentName: athlete.parentName,
+  });
+
+  const rendered = renderEmail(
+    bundle,
+    "placement",
+    {
+      name: athlete.name,
+      classYear: athlete.classYear,
+      tier: athlete.tier,
+      parentName: athlete.parentName,
+      confirmUrl: url,
+    },
+    url,
+  );
+  if (!rendered.ok) {
+    return {
+      ok: false,
+      refusalCode: "blocked",
+      refusal: rendered.detail,
+      name: athlete.name,
+      correction,
+    };
+  }
+
+  const attempt = priorResends.length + 1;
+
+  const outcome = await deliverOne(db, {
+    mode,
+    kind: mode === "test" ? SEND_KINDS.test : SEND_KINDS.resend,
+    // Guard 6. In live the ordinal makes the key unique per attempt and the
+    // partial index makes the claim atomic; in test it is timestamped, outside
+    // the index, so Harrison can rehearse as often as he likes.
+    cycleKey:
+      mode === "test"
+        ? `${cycleKey}|resend-test-${Date.now()}`
+        : `${cycleKey}|resend-${attempt}`,
+    playerId: athlete.table === "players" ? athlete.id : null,
+    athleteName: athlete.name,
+    realRecipient: target,
+    to: mode === "test" ? (input.testTo ?? "") : target,
+    subject: rendered.email.subject,
+    html: rendered.email.html,
+    text: rendered.email.text,
+    detail: {
+      campaign: PLACEMENT_CAMPAIGN,
+      tier: athlete.tier,
+      athlete_table: athlete.table,
+      athlete_id: athlete.id,
+      athlete_name: athlete.name,
+      actor,
+      // Why this row exists at all, so the history reads without archaeology.
+      resend: true,
+      resend_attempt: attempt,
+      resend_of: history.original?.at ?? null,
+      previous_recipient: history.lastSentTo,
+      ...(correction
+        ? {
+            address_corrected_from: correction.from,
+            address_corrected_to: correction.to,
+            address_record: correction.label,
+          }
+        : {}),
+    },
+    testLabel: mode === "test" ? `resend #${attempt}` : undefined,
+  });
+
+  if (outcome.status === "ok") {
+    return {
+      ok: true,
+      name: athlete.name,
+      to: outcome.to,
+      correction,
+      attempt,
+    };
+  }
+  if (outcome.status === "skipped") {
+    // Lost the atomic claim to a concurrent request — the other one sent it.
+    return {
+      ok: false,
+      refusalCode: "cooling_down",
+      refusal: "That resend was already sent a moment ago — not sent twice.",
+      cooldownRemaining: RESEND_COOLDOWN_SECONDS,
+      name: athlete.name,
+      correction,
+    };
+  }
+  return {
+    ok: false,
+    refusalCode: "failed",
+    refusal: outcome.detail,
+    name: athlete.name,
+    correction,
+  };
 }
 
 // ── The receipt, fired on confirmation ────────────────────────────────────

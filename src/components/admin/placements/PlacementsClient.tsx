@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -9,17 +9,22 @@ import {
   Loader2,
   Mail,
   RefreshCw,
+  RotateCw,
   Send,
   ShieldAlert,
   X,
 } from "lucide-react";
 import {
   approvalPhrase,
+  deliveryLabel,
   NUDGE_APPROVAL,
   NUDGE_DAYS,
+  RESEND_BLOCK_LABEL,
+  RESEND_COOLDOWN_SECONDS,
   SKIP_REASON_LABEL,
   type SendAudience,
   type SendCandidate,
+  type SendEvent,
   type SendGroup,
   type SendableTier,
 } from "@/lib/placement/shared";
@@ -67,6 +72,22 @@ interface Preview {
   blocked?: { reason: string; detail: string };
 }
 
+/** What a resend attempt came back with. */
+interface ResendResult {
+  ok: boolean;
+  error?: string;
+  name?: string;
+  to?: string;
+  attempt?: number;
+  cooldownRemaining?: number;
+  correction?: {
+    from: string | null;
+    to: string;
+    label: string;
+    alsoAffects: string[];
+  };
+}
+
 const CARD = "rounded-2xl border border-[#E5E8EC] bg-white";
 const BTN =
   "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed";
@@ -79,6 +100,26 @@ function fmtDate(iso: string | null): string {
   });
 }
 
+function fmtDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/** Every athlete on the screen, whatever bucket she is sitting in. */
+function allCandidates(data: SendAudience): SendCandidate[] {
+  const out: SendCandidate[] = [];
+  for (const g of data.groups) {
+    out.push(...g.ready, ...g.alreadySent, ...g.cannotContact);
+  }
+  out.push(...data.noClassYear);
+  return out;
+}
+
 export default function PlacementsClient({ initial }: { initial: SendAudience }) {
   const [data, setData] = useState<SendAudience>(initial);
   const [refreshing, setRefreshing] = useState(false);
@@ -89,8 +130,12 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
   const [typed, setTyped] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [sentToMe, setSentToMe] = useState<string | null>(null);
+  const [resendFor, setResendFor] = useState<SendCandidate | null>(null);
+  const [resendResult, setResendResult] = useState<ResendResult | null>(null);
+  /** athlete key → epoch ms the cooldown expires. Survives closing the modal. */
+  const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<SendAudience | null> => {
     setRefreshing(true);
     setError(null);
     try {
@@ -98,8 +143,10 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Refresh failed.");
       setData(json as SendAudience);
+      return json as SendAudience;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Refresh failed.");
+      return null;
     } finally {
       setRefreshing(false);
     }
@@ -154,6 +201,69 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
     } finally {
       setBusy(null);
     }
+  }, []);
+
+  /**
+   * Send one family her placement email again, optionally to a corrected
+   * address.
+   *
+   * THE DOUBLE-FIRE DEFENCE IS THREE-DEEP, and only the last one is real:
+   * the in-flight lock below, a cooldown the button honours, and the server's
+   * atomic claim against hermes_send_log. A browser that is refreshed mid-send
+   * defeats the first two and never the third.
+   */
+  const runResend = useCallback(
+    async (athlete: SendCandidate, mode: "test" | "live", email: string) => {
+      const busyKey = `resend:${athlete.key}:${mode}`;
+      setBusy(busyKey);
+      setError(null);
+      setResendResult(null);
+      try {
+        const res = await fetch("/api/admin/placements/resend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ athleteKey: athlete.key, mode, email }),
+        });
+        const json = (await res.json()) as ResendResult;
+        setResendResult({ ...json, ok: res.ok && json.ok });
+
+        if (res.status === 429 && json.cooldownRemaining) {
+          setCooldowns((c) => ({
+            ...c,
+            [athlete.key]: Date.now() + json.cooldownRemaining! * 1000,
+          }));
+          return;
+        }
+        if (!res.ok || !json.ok) return;
+
+        if (mode === "live") {
+          setCooldowns((c) => ({
+            ...c,
+            [athlete.key]: Date.now() + RESEND_COOLDOWN_SECONDS * 1000,
+          }));
+          // Pull the history back down so the timeline in front of the operator
+          // is the one in the database, not the one from before the click.
+          const fresh = await refresh();
+          if (fresh) {
+            const updated = allCandidates(fresh).find((c) => c.key === athlete.key);
+            if (updated) setResendFor(updated);
+          }
+        }
+      } catch (e) {
+        setResendResult({
+          ok: false,
+          error: e instanceof Error ? e.message : "Resend failed.",
+        });
+      } finally {
+        setBusy(null);
+      }
+    },
+    [refresh],
+  );
+
+  const openResend = useCallback((athlete: SendCandidate) => {
+    setResendResult(null);
+    setResendFor(athlete);
   }, []);
 
   const runSend = useCallback(
@@ -383,6 +493,7 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
               onSend={(mode) => runSend(group, mode)}
               onPreview={openPreview}
               previewLoading={previewLoading}
+              onResend={openResend}
             />
           </div>
         );
@@ -484,6 +595,20 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
           sent={sentToMe === preview.athleteKey}
         />
       )}
+
+      {resendFor && (
+        <ResendModal
+          athlete={resendFor}
+          result={resendResult}
+          busy={busy}
+          cooldownUntil={cooldowns[resendFor.key] ?? 0}
+          onSend={(mode, email) => runResend(resendFor, mode, email)}
+          onClose={() => {
+            setResendFor(null);
+            setResendResult(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -500,6 +625,7 @@ function GroupCard({
   onSend,
   onPreview,
   previewLoading,
+  onResend,
 }: {
   group: SendGroup;
   firstOfTier: boolean;
@@ -510,6 +636,7 @@ function GroupCard({
   onSend: (mode: Mode) => void;
   onPreview: (key: string, tier: SendableTier) => void;
   previewLoading: string | null;
+  onResend: (athlete: SendCandidate) => void;
 }) {
   const phrase = approvalPhrase(group.tier, group.classKey);
   const canSend = group.ready.length > 0;
@@ -585,6 +712,7 @@ function GroupCard({
           empty="Nobody in this group is ready to send."
           onPreview={onPreview}
           previewLoading={previewLoading}
+          onResend={onResend}
         />
         {group.cannotContact.length > 0 && (
           <Bucket
@@ -593,6 +721,7 @@ function GroupCard({
             rows={group.cannotContact}
             onPreview={onPreview}
             previewLoading={previewLoading}
+            onResend={onResend}
           />
         )}
         {group.alreadySent.length > 0 && (
@@ -602,6 +731,7 @@ function GroupCard({
             rows={group.alreadySent}
             onPreview={onPreview}
             previewLoading={previewLoading}
+            onResend={onResend}
           />
         )}
       </div>
@@ -622,6 +752,7 @@ function Bucket({
   empty,
   onPreview,
   previewLoading,
+  onResend,
 }: {
   title: string;
   tone: "ready" | "blocked" | "sent";
@@ -629,6 +760,7 @@ function Bucket({
   empty?: string;
   onPreview: (key: string, tier: SendableTier) => void;
   previewLoading: string | null;
+  onResend: (athlete: SendCandidate) => void;
 }) {
   const dot =
     tone === "ready" ? "#4B9CD3" : tone === "blocked" ? "#F59E0B" : "#9CA3AF";
@@ -662,16 +794,21 @@ function Bucket({
                       no email on file
                     </span>
                   )}
+                  {/* Where the email ACTUALLY went, when that is not the
+                      address on file. This is Elizabeth Woll's whole story in
+                      one line, and it was invisible before. */}
+                  {r.history.lastSentTo &&
+                    r.history.lastSentTo !== r.email && (
+                      <div className="mt-0.5 text-[11px] text-[#B45309]">
+                        went to {r.history.lastSentTo}
+                      </div>
+                    )}
                 </td>
                 <td className="py-2 pr-3 text-[#6B7280]">
                   {tone === "blocked" && r.blockedBy ? (
                     SKIP_REASON_LABEL[r.blockedBy]
                   ) : tone === "sent" ? (
-                    r.confirmedAt ? (
-                      `Confirmed ${fmtDate(r.confirmedAt)}`
-                    ) : (
-                      `Sent ${fmtDate(r.sentAt)} · unconfirmed`
-                    )
+                    <SentStatus row={r} />
                   ) : r.greeting ? (
                     // How her email actually opens. A surname typo is visible
                     // here, before the send, instead of in her inbox.
@@ -690,24 +827,91 @@ function Bucket({
                   )}
                 </td>
                 <td className="py-2 text-right">
-                  <button
-                    onClick={() => onPreview(r.key, r.tier)}
-                    disabled={previewLoading !== null}
-                    className="inline-flex items-center gap-1 rounded-md border border-[#E5E8EC] px-2 py-1 text-[12px] font-semibold text-[#374151] transition hover:bg-[#F8F9FA] disabled:opacity-40"
-                  >
-                    {previewLoading === r.key ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button
+                      onClick={() => onPreview(r.key, r.tier)}
+                      disabled={previewLoading !== null}
+                      className="inline-flex items-center gap-1 rounded-md border border-[#E5E8EC] px-2 py-1 text-[12px] font-semibold text-[#374151] transition hover:bg-[#F8F9FA] disabled:opacity-40"
+                    >
+                      {previewLoading === r.key ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5" />
+                      )}
+                      Preview
+                    </button>
+                    {/* The affordance is SERVER-DECIDED. A family who has
+                        confirmed has no resend button — not a disabled one. */}
+                    {r.canResend ? (
+                      <button
+                        onClick={() => onResend(r)}
+                        className="inline-flex items-center gap-1 rounded-md border border-[#4B9CD3]/40 bg-[#4B9CD3]/5 px-2 py-1 text-[12px] font-semibold text-[#1F6FA8] transition hover:bg-[#4B9CD3]/10"
+                      >
+                        <RotateCw className="h-3.5 w-3.5" />
+                        Resend
+                      </button>
                     ) : (
-                      <Eye className="h-3.5 w-3.5" />
+                      // Why there is no button here, rather than a mystery gap.
+                      r.sentAt &&
+                      r.resendBlockedBy && (
+                        <span
+                          className="text-[11px] text-[#9CA3AF]"
+                          title={RESEND_BLOCK_LABEL[r.resendBlockedBy]}
+                        >
+                          {r.resendBlockedBy === "confirmed"
+                            ? "no resend — confirmed"
+                            : "no resend"}
+                        </span>
+                      )
                     )}
-                    Preview
-                  </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
+    </div>
+  );
+}
+
+/**
+ * What became of the email she was sent.
+ *
+ * 'sent' is reported as ACCEPTED, never as delivered. Resend returns a 2xx the
+ * moment it takes the message; delivery is a separate event that arrives
+ * minutes later on the webhook. Claiming delivery we have not been told about
+ * is how a placement email that landed in a fifteen-year-old's inbox looked
+ * fine for four days.
+ */
+function SentStatus({ row }: { row: SendCandidate }) {
+  const { history } = row;
+  const latest = history.resends[history.resends.length - 1] ?? history.original;
+  const delivery = latest?.delivery ?? null;
+  const tone =
+    delivery?.status === "bounced" || delivery?.status === "complained"
+      ? "text-[#B91C1C]"
+      : delivery?.status === "delivered"
+        ? "text-[#047857]"
+        : "text-[#9CA3AF]";
+
+  return (
+    <div className="space-y-0.5">
+      <div>
+        {row.confirmedAt
+          ? `Confirmed ${fmtDate(row.confirmedAt)}`
+          : `Sent ${fmtDate(row.sentAt)} · unconfirmed`}
+      </div>
+      {history.resends.length > 0 && (
+        <div className="text-[11px] font-semibold text-[#1F6FA8]">
+          Resent{" "}
+          {history.resends.length === 1
+            ? "once"
+            : `${history.resends.length} times`}{" "}
+          · {fmtDate(history.lastSentAt)}
+        </div>
+      )}
+      <div className={`text-[11px] ${tone}`}>{deliveryLabel(delivery)}</div>
     </div>
   );
 }
@@ -763,6 +967,249 @@ function ReportBlock({ report }: { report: SendReport }) {
           report.skipped.length === 0 && (
             <div className="text-[#6B7280]">Nobody matched this run.</div>
           )}
+      </div>
+    </div>
+  );
+}
+
+// ── Send it again, to the right place ─────────────────────────────────────
+
+/**
+ * One family, one email, one screen.
+ *
+ * The address lives in the same motion as the send because the address is
+ * almost always what was wrong — asking the operator to go and fix a record on
+ * another screen first is how a resend does not get sent.
+ */
+function ResendModal({
+  athlete,
+  result,
+  busy,
+  cooldownUntil,
+  onSend,
+  onClose,
+}: {
+  athlete: SendCandidate;
+  result: ResendResult | null;
+  busy: string | null;
+  cooldownUntil: number;
+  onSend: (mode: "test" | "live", email: string) => void;
+  onClose: () => void;
+}) {
+  const onFile = athlete.email ?? athlete.history.lastSentTo ?? "";
+  const [email, setEmail] = useState(onFile);
+  const [armed, setArmed] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  // Tick only while a cooldown is actually running.
+  useEffect(() => {
+    if (cooldownUntil <= Date.now()) return;
+    const t = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, [cooldownUntil]);
+
+  const cooling = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
+  const trimmed = email.trim();
+  const corrected = trimmed.toLowerCase() !== onFile.toLowerCase();
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+  const testing = busy === `resend:${athlete.key}:test`;
+  const sending = busy === `resend:${athlete.key}:live`;
+  const locked = busy !== null || cooling > 0;
+
+  const events: SendEvent[] = [
+    ...(athlete.history.original ? [athlete.history.original] : []),
+    ...athlete.history.resends,
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 md:p-8"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[560px] rounded-2xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-[#E5E8EC] px-5 py-4">
+          <div className="min-w-0">
+            <div className="text-[15px] font-bold text-[#0A0A0B]">
+              Resend to {athlete.name}&apos;s family
+            </div>
+            <div className="mt-0.5 truncate text-[12px] text-[#6B7280]">
+              {athlete.placementLabel}
+              {athlete.parentName ? ` · ${athlete.parentName}` : ""}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-[#6B7280] transition hover:bg-[#F8F9FA]"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* ── What has already gone out ───────────────────────────────── */}
+        <div className="border-b border-[#E5E8EC] px-5 py-4">
+          <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#9CA3AF]">
+            History
+          </div>
+          <ol className="mt-3 space-y-2.5">
+            {events.length === 0 && (
+              <li className="text-[13px] text-[#9CA3AF]">
+                No placement email on record.
+              </li>
+            )}
+            {events.map((e, i) => (
+              <li key={`${e.at}-${i}`} className="flex gap-2.5 text-[13px]">
+                <span
+                  className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: e.kind === "resend" ? "#4B9CD3" : "#9CA3AF" }}
+                  aria-hidden
+                />
+                <div className="min-w-0">
+                  <div className="text-[#0A0A0B]">
+                    <span className="font-semibold">
+                      {e.kind === "resend" ? "Resent" : "Sent"}
+                    </span>{" "}
+                    {fmtDateTime(e.at)} → <span className="break-all">{e.to}</span>
+                  </div>
+                  <div className="text-[12px] text-[#6B7280]">
+                    {deliveryLabel(e.delivery)}
+                    {e.status === "failed" && " · send failed"}
+                    {e.status === "claimed" && " · never resolved — check the log"}
+                    {e.by ? ` · by ${e.by}` : ""}
+                  </div>
+                  {e.delivery?.bounceMessage && (
+                    <div className="mt-0.5 text-[12px] text-[#B91C1C]">
+                      {e.delivery.bounceMessage}
+                    </div>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        {/* ── Where it goes this time ─────────────────────────────────── */}
+        <div className="px-5 py-4">
+          <label
+            htmlFor="resend-to"
+            className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#9CA3AF]"
+          >
+            Send to
+          </label>
+          <input
+            id="resend-to"
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setArmed(false);
+            }}
+            spellCheck={false}
+            autoComplete="off"
+            className="mt-2 w-full rounded-lg border border-[#E5E8EC] px-3 py-2.5 text-[14px] outline-none focus:border-[#4B9CD3]"
+          />
+          {corrected && valid && (
+            <p className="mt-2 text-[12px] leading-relaxed text-[#1F6FA8]">
+              This also corrects her address on file, so the reminder and every
+              later email go here too — not just this one.
+            </p>
+          )}
+          {trimmed && !valid && (
+            <p className="mt-2 text-[12px] text-[#B91C1C]">
+              That is not a valid email address.
+            </p>
+          )}
+        </div>
+
+        {/* ── The two ways to send ────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E8EC] px-5 py-4">
+          <button
+            onClick={() => onSend("test", trimmed)}
+            disabled={!valid || busy !== null}
+            className={`${BTN} border border-[#E5E8EC] text-[#374151] hover:bg-[#F8F9FA]`}
+            title="Sends exactly this email to your own address"
+          >
+            {testing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Mail className="h-4 w-4" />
+            )}
+            Send this to me
+          </button>
+
+          {/* Two steps, and the confirm button is not where the first one was —
+              a stray double-click arms and then lands on empty space. */}
+          {!armed ? (
+            <button
+              onClick={() => setArmed(true)}
+              disabled={!valid || locked}
+              className={`${BTN} bg-[#0A0A0B] text-white hover:bg-[#26272B]`}
+            >
+              <Send className="h-4 w-4" />
+              {cooling > 0 ? `Wait ${cooling}s` : "Resend to the family"}
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setArmed(false);
+                  onSend("live", trimmed);
+                }}
+                disabled={locked}
+                className={`${BTN} bg-[#B91C1C] text-white hover:bg-[#991B1B]`}
+              >
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Send to {trimmed}
+              </button>
+              <button
+                onClick={() => setArmed(false)}
+                disabled={busy !== null}
+                className={`${BTN} border border-[#E5E8EC] text-[#374151] hover:bg-[#F8F9FA]`}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+
+        {result && (
+          <div className="border-t border-[#E5E8EC] px-5 py-4">
+            {result.ok ? (
+              <div className="flex gap-2 text-[13px]">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
+                <div className="text-[#374151]">
+                  <div>
+                    Sent to <span className="font-semibold">{result.to}</span>
+                    {result.attempt ? ` · resend #${result.attempt}` : ""}
+                  </div>
+                  {result.correction && (
+                    <div className="mt-1 text-[12px] text-[#6B7280]">
+                      Address updated on {result.correction.label}
+                      {result.correction.alsoAffects.length > 0 && (
+                        <> — this also changes it for {result.correction.alsoAffects.join(", ")}</>
+                      )}
+                      .
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-2 text-[13px]">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#F59E0B]" />
+                <div className="text-[#92400E]">
+                  {result.error ?? "Nothing was sent."}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

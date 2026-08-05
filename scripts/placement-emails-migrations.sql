@@ -8,6 +8,7 @@
 --    4. placement_templates_addendum_b_guidance
 --    5. placement_elite_development_program_rename
 --    6. placement_seed_fixed_deadline
+--    7. placement_resend_claim_uniq            (2026-08-05)
 --
 --  Applied via apply_migration; this file exists so the repo describes its own
 --  schema, matching scripts/roster-crm-migrations.sql. Re-running it is NOT
@@ -193,3 +194,22 @@ set body = regexp_replace(
 where type = 'placement' and body like '%--- deadline ---%';
 
 notify pgrst, 'reload schema';
+
+
+-- ─── 7. placement_resend_claim_uniq (2026-08-05) ───────────────────────────
+--
+--  A resend is claimed before it sends, exactly like an original send.
+--
+--  Deliberately a SEPARATE index rather than an ALTER of
+--  hermes_send_log_placement_claim_uniq: dropping and recreating that one would
+--  leave a window, however brief, in which the 79 already-sent placement emails
+--  were not protected from a duplicate claim. Additive costs nothing and risks
+--  nothing.
+--
+--  The cycle_key carries the attempt ordinal ("...|resend-2"), so two
+--  overlapping resends of the same athlete compute the same key, exactly one
+--  INSERT survives, and the loser skips instead of sending a second copy.
+
+create unique index if not exists hermes_send_log_placement_resend_claim_uniq
+  on public.hermes_send_log (kind, cycle_key)
+  where kind = 'placement_resend' and status in ('claimed', 'sent');

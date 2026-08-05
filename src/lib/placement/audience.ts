@@ -21,6 +21,7 @@ import {
 import {
   CLASS_SPLIT_TIERS,
   cycleKeyFor,
+  EMPTY_HISTORY,
   EXCLUDED_CLASSES,
   HELD_ATHLETES,
   greetingFor,
@@ -33,10 +34,14 @@ import {
   TEMPLATE_NAME_BY_TIER,
   TIER_GROUP_LABEL,
   tierLabel,
+  type DeliveryEvent,
   type ExcludedBucket,
+  type ResendBlock,
   type SendAudience,
   type SendCandidate,
+  type SendEvent,
   type SendGroup,
+  type SendHistory,
   type SendableTier,
   type SkipReason,
 } from "@/lib/placement/shared";
@@ -132,6 +137,132 @@ export async function loadSendState(
   return { sentAt, confirmedAt };
 }
 
+// ── What actually happened to each family's email ─────────────────────────
+
+/**
+ * Every placement email that has left the building, per athlete, with whatever
+ * Resend has told us since.
+ *
+ * Assembled from hermes_send_log and hermes_email_deliveries — both already
+ * carry all of it, so nothing new is written to make the screen truthful.
+ *
+ * Tests and dry runs are EXCLUDED. They are real rows, but they are rehearsals,
+ * and a rehearsal in a family's history reads as a second email they never got.
+ */
+export async function loadSendHistory(
+  db: SupabaseClient,
+): Promise<Map<string, SendHistory>> {
+  const { data: logRows, error: logErr } = await db
+    .from("hermes_send_log")
+    .select("id, kind, recipient_email, cycle_key, status, created_at, detail")
+    .in("kind", [SEND_KINDS.placement, SEND_KINDS.resend])
+    .in("status", ["sent", "claimed", "failed"])
+    .like("cycle_key", `${PLACEMENT_CAMPAIGN}|%`)
+    .order("created_at", { ascending: true });
+  if (logErr) throw new Error(`Send history read failed: ${logErr.message}`);
+
+  const rows = (logRows ?? []) as {
+    id: string;
+    kind: string;
+    recipient_email: string | null;
+    cycle_key: string;
+    status: string;
+    created_at: string;
+    detail: Record<string, unknown> | null;
+  }[];
+
+  // One lookup for every delivery row, rather than one per athlete.
+  const deliveries = new Map<string, DeliveryEvent>();
+  if (rows.length > 0) {
+    const { data: delRows, error: delErr } = await db
+      .from("hermes_email_deliveries")
+      .select("send_log_id, status, bounce_type, bounce_message, last_event_at")
+      .in(
+        "send_log_id",
+        rows.map((r) => r.id),
+      );
+    if (delErr) throw new Error(`Delivery read failed: ${delErr.message}`);
+    for (const d of (delRows ?? []) as {
+      send_log_id: string | null;
+      status: string;
+      bounce_type: string | null;
+      bounce_message: string | null;
+      last_event_at: string | null;
+    }[]) {
+      if (!d.send_log_id) continue;
+      deliveries.set(d.send_log_id, {
+        status: d.status,
+        bounceType: d.bounce_type,
+        bounceMessage: d.bounce_message,
+        lastEventAt: d.last_event_at,
+      });
+    }
+  }
+
+  const history = new Map<string, SendHistory>();
+  for (const r of rows) {
+    // "campaign|reg:abc|resend-2" → "campaign|reg:abc". A resend belongs to the
+    // same athlete as the original it follows.
+    const parts = r.cycle_key.split("|");
+    if (parts.length < 2) continue;
+    const base = `${parts[0]}|${parts[1]}`;
+
+    const entry = history.get(base) ?? {
+      original: null,
+      resends: [],
+      lastSentTo: null,
+      lastSentAt: null,
+    };
+
+    const event: SendEvent = {
+      kind: r.kind === SEND_KINDS.resend ? "resend" : "placement",
+      at: r.created_at,
+      to: r.recipient_email ?? "",
+      by: typeof r.detail?.actor === "string" ? r.detail.actor : null,
+      status: r.status,
+      delivery: deliveries.get(r.id) ?? null,
+    };
+
+    if (event.kind === "resend") entry.resends.push(event);
+    else if (!entry.original) entry.original = event;
+
+    // The last copy that actually went out — which is often not the address on
+    // file, and is the thing an operator needs to see before sending again.
+    if (r.status !== "failed") {
+      entry.lastSentAt = event.at;
+      entry.lastSentTo = event.to || entry.lastSentTo;
+    }
+    history.set(base, entry);
+  }
+
+  return history;
+}
+
+/**
+ * Whether the resend control is offered, and why not when it is not.
+ *
+ * DECIDED ON THE SERVER so the screen and the route cannot disagree about
+ * whether a family has already said yes. The route checks all of this again
+ * before it sends — this is what the operator sees, not what protects them.
+ *
+ * Cooldown is deliberately absent: it depends on the clock at the moment of the
+ * click, not the clock at page load, so it is enforced in the route and
+ * counted down by the browser.
+ */
+export function resendBlockReason(
+  a: SendableAthlete,
+  state: SendState,
+  history: SendHistory,
+): ResendBlock | null {
+  // A parent who already said yes is never asked twice. First, and absolute.
+  if (state.confirmedAt.has(cycleKeyFor(a.table, a.id))) return "confirmed";
+  if (a.key in HELD_ATHLETES) return "held";
+  // Not a resend — an unapproved original send. That belongs to the class gate.
+  if (!state.sentAt.has(cycleKeyFor(a.table, a.id))) return "never_sent";
+  if (!a.email && !history.lastSentTo) return "no_email";
+  return null;
+}
+
 /**
  * Why this athlete cannot be sent to right now — or null if she can.
  * Order matters: the most specific, most actionable reason wins.
@@ -159,8 +290,11 @@ function toCandidate(
   a: SendableAthlete,
   state: SendState,
   blockedBy: SkipReason | null,
+  histories: Map<string, SendHistory>,
 ): SendCandidate {
   const key = cycleKeyFor(a.table, a.id);
+  const history = histories.get(key) ?? EMPTY_HISTORY;
+  const resendBlockedBy = resendBlockReason(a, state, history);
   return {
     key: a.key,
     table: a.table,
@@ -175,6 +309,9 @@ function toCandidate(
     sentAt: state.sentAt.get(key) ?? null,
     confirmedAt: state.confirmedAt.get(key) ?? null,
     blockedBy,
+    history,
+    canResend: resendBlockedBy === null,
+    resendBlockedBy,
   };
 }
 
@@ -183,10 +320,11 @@ function byName(a: { name: string }, b: { name: string }): number {
 }
 
 export async function buildAudience(db: SupabaseClient): Promise<SendAudience> {
-  const [roster, bundle, state] = await Promise.all([
+  const [roster, bundle, state, histories] = await Promise.all([
     buildRosterData(db),
     loadTemplates(db),
     loadSendState(db),
+    loadSendHistory(db),
   ]);
 
   const sendable = sendableAthletes(roster.athletes);
@@ -227,7 +365,9 @@ export async function buildAudience(db: SupabaseClient): Promise<SendAudience> {
       continue;
     }
     if (cls == null) {
-      noClassYear.push(toCandidate(a, state, blockReason(a, state, bundle)));
+      noClassYear.push(
+        toCandidate(a, state, blockReason(a, state, bundle), histories),
+      );
       continue;
     }
     if (EXCLUDED_CLASSES.includes(cls)) continue;
@@ -248,7 +388,7 @@ export async function buildAudience(db: SupabaseClient): Promise<SendAudience> {
     const cannotContact: SendCandidate[] = [];
     for (const a of buckets.get(key) ?? []) {
       const reason = blockReason(a, state, bundle);
-      const candidate = toCandidate(a, state, reason);
+      const candidate = toCandidate(a, state, reason, histories);
       if (reason === null) ready.push(candidate);
       else if (reason === "already_sent") alreadySent.push(candidate);
       else cannotContact.push(candidate);

@@ -153,10 +153,30 @@ export const SEND_KINDS = {
   placement: "placement",
   nudge: "placement_nudge",
   receipt: "placement_receipt",
+  /**
+   * A placement email sent again, usually to a corrected address.
+   *
+   * ITS OWN KIND, not a second 'placement' row, for two reasons. The original
+   * send's claim is what proves she was told on 31 July; a resend must not be
+   * able to overwrite, consume or collide with it. And six weeks from now the
+   * history has to read without archaeology — "sent, then resent to the mother"
+   * is a different fact from "sent twice".
+   */
+  resend: "placement_resend",
   /** Test sends log here — outside the unique index, so a test can never
    *  consume a real athlete's dedup key. Mirrors the collections_test pattern. */
   test: "placement_test",
 } as const;
+
+/**
+ * How long the same family is locked out of the same email after a resend.
+ *
+ * The failure this exists to prevent is the impatient click, not a considered
+ * second attempt an hour later — so it is a minute, not a day. It is enforced
+ * on the SERVER against the log; the disabled button and the countdown on
+ * screen are courtesies, not the guard.
+ */
+export const RESEND_COOLDOWN_SECONDS = 60;
 
 /** "placement-2026-27|reg:8f0c…" — never null, unlike player_id. */
 export function athleteKey(table: string, id: string): string {
@@ -338,6 +358,92 @@ export function bannedLanguageIn(text: string): string[] {
   return Array.from(hits);
 }
 
+// ── Why a resend is not on offer ──────────────────────────────────────────
+
+/**
+ * A resend is refused for a REASON, and the reason is named on screen. The
+ * order below is the order the server checks them in.
+ */
+export type ResendBlock =
+  | "confirmed"
+  | "held"
+  | "never_sent"
+  | "no_email"
+  | "cooling_down";
+
+export const RESEND_BLOCK_LABEL: Record<ResendBlock, string> = {
+  // The whole point. A family who already said yes is never asked again.
+  confirmed: "Confirmed — she is never asked again",
+  held: "Held — Harrison is contacting this family directly",
+  // A resend of an email that was never sent is not a resend; it is an
+  // unapproved original send, and it belongs to the class-approval flow.
+  never_sent: "Never received the placement email — approve her class instead",
+  no_email: "No email on file",
+  cooling_down: "Just sent — wait a moment before sending again",
+};
+
+// ── What actually happened to her email ───────────────────────────────────
+
+/**
+ * The Resend delivery event, or null when no delivery row exists.
+ *
+ * `status: 'sent'` means ACCEPTED BY RESEND AND NOTHING SINCE — not delivered.
+ * The distinction is load-bearing: a placement email that lands in a mailbox
+ * nobody reads is indistinguishable from one that was delivered, and the screen
+ * must not claim more than it knows.
+ */
+export interface DeliveryEvent {
+  status: string;
+  bounceType: string | null;
+  bounceMessage: string | null;
+  lastEventAt: string | null;
+}
+
+export const DELIVERY_LABEL: Record<string, string> = {
+  sent: "Accepted · no delivery event yet",
+  delivered: "Delivered",
+  bounced: "Bounced",
+  complained: "Marked as spam",
+  delivery_delayed: "Delayed",
+};
+
+export function deliveryLabel(d: DeliveryEvent | null): string {
+  if (!d) return "No delivery record";
+  return DELIVERY_LABEL[d.status] ?? d.status;
+}
+
+/** One email that left the building, original or resend. */
+export interface SendEvent {
+  kind: "placement" | "resend";
+  at: string;
+  to: string;
+  /** The admin who fired it, from hermes_send_log.detail.actor. */
+  by: string | null;
+  /** hermes_send_log.status — 'sent', 'failed', or a stuck 'claimed'. */
+  status: string;
+  delivery: DeliveryEvent | null;
+}
+
+/**
+ * Every placement email this athlete has been sent, in the order it happened.
+ * Assembled from hermes_send_log and hermes_email_deliveries, which already
+ * hold all of it — nothing new is recorded to make this screen work.
+ */
+export interface SendHistory {
+  original: SendEvent | null;
+  resends: SendEvent[];
+  /** Where the most recent copy actually went — often not her address on file. */
+  lastSentTo: string | null;
+  lastSentAt: string | null;
+}
+
+export const EMPTY_HISTORY: SendHistory = {
+  original: null,
+  resends: [],
+  lastSentTo: null,
+  lastSentAt: null,
+};
+
 // ── Shapes crossing the wire to the send screen ───────────────────────────
 
 export interface SendCandidate {
@@ -361,6 +467,15 @@ export interface SendCandidate {
   confirmedAt: string | null;
   /** Populated when this athlete cannot be sent to right now. */
   blockedBy: SkipReason | null;
+  /** Every copy of this email that has left, and what became of it. */
+  history: SendHistory;
+  /**
+   * Whether the resend control is offered at all. Decided on the SERVER and
+   * merely rendered here, so the screen and the route can never disagree about
+   * whether a family has already said yes.
+   */
+  canResend: boolean;
+  resendBlockedBy: ResendBlock | null;
 }
 
 export interface SendGroup {
