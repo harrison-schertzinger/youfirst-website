@@ -795,7 +795,7 @@ export async function resendPlacement(
       // Why this row exists at all, so the history reads without archaeology.
       resend: true,
       resend_attempt: attempt,
-      resend_of: history.original?.at ?? null,
+      resend_of_sent_at: history.original?.at ?? null,
       previous_recipient: history.lastSentTo,
       ...(correction
         ? {

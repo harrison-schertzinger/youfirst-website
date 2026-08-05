@@ -1204,7 +1204,17 @@ function ResendModal({
               <div className="flex gap-2 text-[13px]">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#F59E0B]" />
                 <div className="text-[#92400E]">
-                  {result.error ?? "Nothing was sent."}
+                  <div>{result.error ?? "Nothing was sent."}</div>
+                  {/* The correction is saved before the send. If the send then
+                      failed, she still needs to know the address stuck — or
+                      she will type it again and wonder why nothing changed. */}
+                  {result.correction && (
+                    <div className="mt-1 text-[12px] text-[#6B7280]">
+                      Her address was still updated to{" "}
+                      <span className="font-semibold">{result.correction.to}</span>{" "}
+                      on {result.correction.label}. Nothing was emailed.
+                    </div>
+                  )}
                 </div>
               </div>
             )}

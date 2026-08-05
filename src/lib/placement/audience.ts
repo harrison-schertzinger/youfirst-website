@@ -249,6 +249,22 @@ export async function loadSendHistory(
  * click, not the clock at page load, so it is enforced in the route and
  * counted down by the browser.
  */
+/**
+ * Data problems that make the email UNRENDERABLE, not merely unsendable.
+ *
+ * A resend offered here would open the drawer, take the operator through the
+ * address, and refuse at the last step. Better not to offer it: the reason is
+ * already named in her row, and the fix is on the roster screen either way.
+ */
+const RENDER_FATAL: readonly SkipReason[] = [
+  "no_class_year",
+  "no_greeting_name",
+  "no_template",
+  "unwritten_copy",
+  "unfilled_merge_field",
+  "banned_language",
+];
+
 export function resendBlockReason(
   a: SendableAthlete,
   state: SendState,
@@ -295,6 +311,9 @@ function toCandidate(
   const key = cycleKeyFor(a.table, a.id);
   const history = histories.get(key) ?? EMPTY_HISTORY;
   const resendBlockedBy = resendBlockReason(a, state, history);
+  // An email that cannot be rendered cannot be resent, whatever the resend
+  // guards say. No reason is surfaced because her row already carries one.
+  const unrenderable = blockedBy != null && RENDER_FATAL.includes(blockedBy);
   return {
     key: a.key,
     table: a.table,
@@ -310,7 +329,7 @@ function toCandidate(
     confirmedAt: state.confirmedAt.get(key) ?? null,
     blockedBy,
     history,
-    canResend: resendBlockedBy === null,
+    canResend: resendBlockedBy === null && !unrenderable,
     resendBlockedBy,
   };
 }
