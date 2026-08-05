@@ -91,6 +91,57 @@ interface PlayerGuardianRow {
   is_primary: boolean;
 }
 
+// ── Which guardian speaks for a player ────────────────────────────────────
+
+/** The minimum the chooser needs, so a caller can pass its own narrower select. */
+export interface ChoosableGuardian {
+  id: string;
+  email: string | null;
+}
+
+export interface GuardianLink {
+  guardian_id: string;
+  is_primary: boolean | null;
+}
+
+/**
+ * THE ONE EXPRESSION that decides which guardian supplies a player's contact
+ * details. Exported because src/lib/placement/address.ts has to write to the
+ * record this function picks — if the two disagreed by so much as a tiebreak,
+ * a correction would report success and change nothing the audience reads.
+ * That is not hypothetical: it is the shape of the bug this replaced.
+ *
+ * Primary link wins. Ties break on guardian id, ASCENDING AND EXPLICIT, because
+ * the previous rule was "last row wins" over a query with no ORDER BY — so for
+ * a player with two non-primary guardians, which parent the roster spoke to was
+ * decided by physical row order and could change after any UPDATE or VACUUM.
+ * Every multi-guardian player on the books today has exactly one primary link,
+ * so this returns the same guardian the old expression did for all of them; it
+ * removes a latent coin-flip, not a live behaviour.
+ */
+export function chooseGuardian<G extends ChoosableGuardian>(
+  links: GuardianLink[],
+  guardianById: Map<string, G>,
+): G | null {
+  let best: G | null = null;
+  let bestIsPrimary = false;
+  for (const link of links) {
+    const g = guardianById.get(link.guardian_id);
+    if (!g) continue;
+    const primary = link.is_primary === true;
+    if (best === null) {
+      best = g;
+      bestIsPrimary = primary;
+    } else if (primary && !bestIsPrimary) {
+      best = g;
+      bestIsPrimary = true;
+    } else if (primary === bestIsPrimary && g.id < best.id) {
+      best = g;
+    }
+  }
+  return best;
+}
+
 interface ConfRow {
   id: string;
   created_at: string;
@@ -294,12 +345,17 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
   const guardianById = new Map<string, GuardianRow>();
   for (const g of guardianRows) guardianById.set(g.id, g);
 
-  const guardianForPlayer = new Map<string, GuardianRow>();
+  const linksByPlayer = new Map<string, PlayerGuardianRow[]>();
   for (const link of pgRows) {
-    const g = guardianById.get(link.guardian_id);
-    if (!g) continue;
-    const existing = guardianForPlayer.get(link.player_id);
-    if (!existing || link.is_primary) guardianForPlayer.set(link.player_id, g);
+    const list = linksByPlayer.get(link.player_id) ?? [];
+    list.push(link);
+    linksByPlayer.set(link.player_id, list);
+  }
+
+  const guardianForPlayer = new Map<string, GuardianRow>();
+  for (const [playerId, links] of linksByPlayer) {
+    const g = chooseGuardian(links, guardianById);
+    if (g) guardianForPlayer.set(playerId, g);
   }
 
   const confById = new Map<string, ConfRow>();

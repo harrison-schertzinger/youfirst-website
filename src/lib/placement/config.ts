@@ -7,6 +7,7 @@
  * reported as a refusal to send, not worked around.
  */
 
+import { createHash } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export const SITE_URL =
@@ -128,6 +129,51 @@ export function resendConfig():
 }
 
 /**
+ * How long we wait on Resend before giving up on the response.
+ *
+ * Twenty seconds is generous for this API, and it is only safe to pick a number
+ * at all because every send now carries an idempotency key: a request that times
+ * out after Resend accepted it is retried against the same key and returns the
+ * original message instead of sending a second one. Without that key the correct
+ * timeout would be "never", because every false failure is a duplicate email.
+ */
+const RESEND_TIMEOUT_MS = 20_000;
+
+/**
+ * The key that makes a lost response harmless.
+ *
+ * THE FAILURE IT CLOSES: deliverOne resolves a claim to 'failed' whenever
+ * sendViaResend reports an error, and 'failed' sits outside the partial unique
+ * index, so the identical cycle_key can be claimed again. That is deliberate —
+ * it is how a genuine failure gets retried once the cause is fixed. But a
+ * connection reset while reading Resend's response, or a function timeout after
+ * the POST already landed, is indistinguishable from a genuine failure. The
+ * email is gone, the row says 'failed', the cooldown does not apply because
+ * resendPlacement filters failed attempts out of its count, and the retry sends
+ * the family a second copy. Every one of the three double-fire defences is past
+ * by then.
+ *
+ * KEYED ON DESTINATION AS WELL AS ATTEMPT, deliberately. The retry after a
+ * failure reuses the same cycle_key, so a key derived from cycle_key alone would
+ * be replayed with a different payload when the operator corrects the address on
+ * the way through — and Resend rejects a reused key carrying a changed body,
+ * which would block the corrected send outright. Including the destination gives
+ * the key the meaning we actually want: one email per attempt, per address. Same
+ * address is a duplicate and dedupes; new address is a different email and goes.
+ *
+ * Test and dry-run cycle keys already carry a timestamp, so a rehearsal is
+ * always a fresh key and always really sends.
+ */
+export function idempotencyKeyFor(cycleKey: string, to: string): string {
+  const composed = `${cycleKey}|${to.trim().toLowerCase()}`;
+  // Resend caps the header at 256 characters. Long keys are rare, but a
+  // truncated key would silently collide with its own prefix, so hash instead.
+  return composed.length <= 256
+    ? composed
+    : createHash("sha256").update(composed).digest("hex");
+}
+
+/**
  * No attachment parameter, by design. Nothing in the placement path may attach
  * a file: the Standard is a link. Removing the capability is stronger than
  * remembering not to use it.
@@ -137,6 +183,8 @@ export async function sendViaResend(input: {
   subject: string;
   html: string;
   text: string;
+  /** From idempotencyKeyFor(). Omit only where a duplicate cannot matter. */
+  idempotencyKey?: string;
 }): Promise<{ ok: boolean; id?: string; error?: string }> {
   const cfg = resendConfig();
   if (!cfg.ok) return { ok: false, error: cfg.reason };
@@ -147,6 +195,9 @@ export async function sendViaResend(input: {
       headers: {
         Authorization: `Bearer ${cfg.apiKey}`,
         "Content-Type": "application/json",
+        ...(input.idempotencyKey
+          ? { "Idempotency-Key": input.idempotencyKey }
+          : {}),
       },
       body: JSON.stringify({
         from: cfg.from,
@@ -156,6 +207,7 @@ export async function sendViaResend(input: {
         text: input.text,
         reply_to: REPLY_TO,
       }),
+      signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
     });
     if (!res.ok) {
       return {
@@ -163,9 +215,24 @@ export async function sendViaResend(input: {
         error: `resend ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`,
       };
     }
+    // A replayed idempotency key returns the ORIGINAL message here, with its
+    // original id and no second email. That is the whole point: this reads as an
+    // ordinary success and resolves the claim to 'sent'.
     const data = (await res.json().catch(() => ({}))) as { id?: string };
     return { ok: true, id: data.id };
   } catch (err) {
+    // A timeout is not "nothing happened" — Resend may well have accepted the
+    // message. Say so, because the operator's next move depends on it, and the
+    // idempotency key is what makes retrying the right next move.
+    if (err instanceof Error && err.name === "TimeoutError") {
+      return {
+        ok: false,
+        error:
+          `Resend did not answer within ${RESEND_TIMEOUT_MS / 1000}s. The email ` +
+          `may or may not have gone out. Sending again is safe — it carries an ` +
+          `idempotency key, so a copy that already left will not be sent twice.`,
+      };
+    }
     return { ok: false, error: err instanceof Error ? err.message : "unknown" };
   }
 }

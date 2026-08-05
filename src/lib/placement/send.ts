@@ -30,6 +30,7 @@ import {
   ADMIN_NOTIFY,
   SITE_URL,
   STANDARD_URL,
+  idempotencyKeyFor,
   sendViaResend,
 } from "@/lib/placement/config";
 import {
@@ -452,6 +453,52 @@ type DeliverOutcome =
   | { status: "failed"; to: string; detail: string }
   | { status: "skipped"; to: string; detail: string };
 
+/**
+ * A claim that could not be written, in words a director can act on.
+ *
+ * THE ONE FACT EVERY BRANCH STATES: nobody was emailed. The claim is written
+ * BEFORE the Resend call, so a claim that fails means the send never happened —
+ * and that is precisely what an operator staring at an error needs to know
+ * first, ahead of any diagnosis.
+ *
+ * The SQLSTATE never appears here; it goes to the server log for whoever is
+ * debugging. What appeared in the drawer before this existed was the raw
+ * Postgres text of a constraint violation, which reads as gibberish to the
+ * person clicking and as nothing in particular to anyone reviewing a screenshot.
+ * That is how a dead send path survived eight days on screen.
+ */
+function claimFailureMessage(code: string | null, kind: string): string {
+  const nobody = "Nothing was emailed — nobody was contacted.";
+  switch (code) {
+    case "23514":
+      return (
+        `The send log will not accept a '${kind}' entry, so the send stopped ` +
+        `before it started. ${nobody} This is a database migration that has not ` +
+        `been applied: '${kind}' needs adding to hermes_send_log_kind_check. ` +
+        `Nothing on this screen can fix it — send this line to whoever is on the code.`
+      );
+    case "23503":
+      return (
+        `The send log could not link this email to her record, so the send ` +
+        `stopped before it started. ${nobody} Her record may have been merged or ` +
+        `removed since this screen loaded — reload and check her on the roster.`
+      );
+    case "42501":
+    case "42P01":
+      return (
+        `The send log could not be written — the server is missing permission ` +
+        `or the table is not there. ${nobody} This is a deployment problem, not ` +
+        `a data problem; send this line to whoever is on the code.`
+      );
+    default:
+      return (
+        `The send could not be recorded, so it was not sent. ${nobody} The ` +
+        `details are in the server log` +
+        (code ? ` under database code ${code}.` : ".")
+      );
+  }
+}
+
 async function deliverOne(
   db: SupabaseClient,
   input: DeliverInput,
@@ -507,17 +554,29 @@ async function deliverOne(
     .single();
 
   if (claimErr || !claim) {
-    if ((claimErr as { code?: string } | null)?.code === "23505") {
+    const code = (claimErr as { code?: string } | null)?.code ?? null;
+    if (code === "23505") {
       return {
         status: "skipped",
         to: input.to,
         detail: "Already claimed or sent — not sent twice.",
       };
     }
+    // The SQLSTATE goes to the log, where someone can act on it. The operator
+    // gets sentences. A raw constraint string in a 502 is what hid the missing
+    // 'placement_resend' kind for eight days.
+    console.error("[placement] claim insert failed — nothing was emailed", {
+      kind: input.kind,
+      cycle_key: input.cycleKey,
+      sqlstate: code,
+      message: claimErr?.message ?? "insert returned no row",
+      details: (claimErr as { details?: string } | null)?.details ?? null,
+      hint: (claimErr as { hint?: string } | null)?.hint ?? null,
+    });
     return {
       status: "failed",
       to: input.to,
-      detail: `Claim failed: ${claimErr?.message ?? "no row"}`,
+      detail: claimFailureMessage(code, input.kind),
     };
   }
   const claimId = claim.id as string;
@@ -527,6 +586,9 @@ async function deliverOne(
     subject,
     html,
     text,
+    // Keyed on the claim's cycle_key AND the destination, so a lost response
+    // cannot become a second email. See idempotencyKeyFor.
+    idempotencyKey: idempotencyKeyFor(input.cycleKey, input.to),
   });
 
   // Resolve the claim. A failure resolves to 'failed', which falls outside the
@@ -597,6 +659,12 @@ export interface ResendResult {
   to?: string;
   /** Present when the operator corrected the address on the way through. */
   correction?: AddressCorrection;
+  /**
+   * The address a REHEARSAL was asked to save and deliberately did not. A test
+   * send changes no record, and the operator has to be told that plainly or
+   * they will believe the correction is filed and never send the live one.
+   */
+  correctionDeferred?: string;
   /** 1 for the first resend, 2 for the second… */
   attempt?: number;
 }
@@ -625,6 +693,9 @@ export interface ResendResult {
  *      cooldown together still produce exactly one email.
  *   7. Unwritten copy and banned language block a resend exactly as they block
  *      an original send — it is the same renderer, not a relaxed one.
+ *   8. A REHEARSAL WRITES NOTHING. Only mode 'live' may correct an address, and
+ *      the mode is derived by the route from the session, so a direct POST
+ *      cannot dress a real write up as a test.
  */
 export async function resendPlacement(
   db: SupabaseClient,
@@ -695,7 +766,35 @@ export async function resendPlacement(
       name: athlete.name,
     };
   }
-  const target = requested ?? athlete.email ?? history.lastSentTo;
+
+  /**
+   * A REHEARSAL CHANGES NOTHING.
+   *
+   * correctAddress used to run whatever the mode was, and the drawer's "Send
+   * this to me" button posts whatever is in the address field — so typing a
+   * correction and clicking the test button wrote the guardian row, the token,
+   * and a shared sibling's address in production, then emailed the admin. One
+   * click, no arming step, under a tooltip that said it only sends to your own
+   * address. Given the send path was dead at the time, that made the mode which
+   * reaches nobody the only mode that changed anything.
+   *
+   * THE GATE IS HERE, IN THE SERVER, not in the drawer. The drawer is a
+   * convenience and a direct POST is one curl away; only the mode the route
+   * derives — from the session for test, never from the request body — decides
+   * whether a record may be written.
+   *
+   * The requested address is dropped entirely for a rehearsal rather than merely
+   * withheld from correctAddress, because issueToken() re-stamps
+   * placement_tokens.recipient_email from whatever address it is handed. Passing
+   * an operator-typed value through would have written it to the token even with
+   * correctAddress skipped — the same mutation, one door along.
+   */
+  const isRehearsal = mode !== "live";
+  const correctionRequested =
+    requested && requested !== athlete.email ? requested : null;
+
+  const onFile = athlete.email ?? history.lastSentTo;
+  const target = isRehearsal ? onFile : (requested ?? onFile);
   if (!target) {
     return {
       ok: false,
@@ -726,11 +825,14 @@ export async function resendPlacement(
   }
 
   // The correction is saved BEFORE the send, so an email that goes to a new
-  // address is never reported against a record still holding the old one.
+  // address is never reported against a record still holding the old one. Live
+  // only — see isRehearsal above.
   let correction: AddressCorrection | undefined;
-  if (requested && requested !== athlete.email) {
-    correction = await correctAddress(db, athlete, token.id, requested);
+  if (!isRehearsal && correctionRequested) {
+    correction = await correctAddress(db, athlete, token.id, correctionRequested);
   }
+  /** A rehearsal was asked to change the address and deliberately did not. */
+  const correctionDeferred = isRehearsal ? (correctionRequested ?? undefined) : undefined;
 
   // Re-issue with the FINAL address so the token agrees with what was just
   // saved, and so the link in this email is the link she already has.
@@ -763,6 +865,7 @@ export async function resendPlacement(
       refusal: rendered.detail,
       name: athlete.name,
       correction,
+      correctionDeferred,
     };
   }
 
@@ -814,6 +917,7 @@ export async function resendPlacement(
       name: athlete.name,
       to: outcome.to,
       correction,
+      correctionDeferred,
       attempt,
     };
   }
@@ -826,6 +930,7 @@ export async function resendPlacement(
       cooldownRemaining: RESEND_COOLDOWN_SECONDS,
       name: athlete.name,
       correction,
+      correctionDeferred,
     };
   }
   return {
@@ -834,6 +939,7 @@ export async function resendPlacement(
     refusal: outcome.detail,
     name: athlete.name,
     correction,
+    correctionDeferred,
   };
 }
 
@@ -946,6 +1052,22 @@ export async function sendNudges(
   const cutoffMs = day * 24 * 60 * 60 * 1000;
 
   for (const athlete of sendableAthletes(roster.athletes)) {
+    // A HOLD IS A HOLD ON EVERY PATH. sendGroup has always honoured this list
+    // and the resend guards check it, but the nudge did not — so a held athlete
+    // who had already received her placement email would have been reminded
+    // automatically by a flow Harrison had explicitly taken her out of. Nobody
+    // is exposed today: the one held athlete is 'declined' and so never reaches
+    // a sendable tier at all. That is two accidents lining up, not a guard.
+    // Reported rather than skipped silently, matching sendGroup.
+    if (athlete.key in HELD_ATHLETES) {
+      report.skipped.push({
+        name: athlete.name,
+        reason: "held",
+        detail: SKIP_REASON_LABEL.held,
+      });
+      continue;
+    }
+
     const cycleKey = cycleKeyFor(athlete.table, athlete.id);
     const sentAt = placementState.sentAt.get(cycleKey);
     if (!sentAt) continue; // never nudge someone who never got the original

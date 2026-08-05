@@ -86,6 +86,25 @@ interface ResendResult {
     label: string;
     alsoAffects: string[];
   };
+  /** A rehearsal was asked to save this address and deliberately did not. */
+  correctionDeferred?: string;
+}
+
+/**
+ * Which record supplies her address, and who else reads it — from
+ * GET /api/admin/placements/address, fetched when the drawer opens so a shared
+ * guardian is disclosed while the operator can still change their mind.
+ *
+ * `alsoAffects: []` means NOBODY ELSE reads this record. It never means "the
+ * lookup failed" — that arrives as `error` and is rendered as a warning, because
+ * a disclosure that fails silently open is worse than no disclosure at all.
+ */
+interface AddressSource {
+  kind: "registration" | "guardian" | "player_fallback";
+  label: string;
+  alsoAffects: string[];
+  onFile: string | null;
+  error?: string;
 }
 
 const CARD = "rounded-2xl border border-[#E5E8EC] bg-white";
@@ -598,6 +617,13 @@ export default function PlacementsClient({ initial }: { initial: SendAudience })
 
       {resendFor && (
         <ResendModal
+          // Keyed per athlete so opening a second family's drawer REMOUNTS it.
+          // Without this the address field, the arm state and the disclosure
+          // carry over from the last athlete — and a stale "also changes it for
+          // Elise Swartz" under a different name is worse than none. Not keyed
+          // on her email: a live correction refreshes this object, and remounting
+          // there would wipe the result panel the operator is reading.
+          key={resendFor.key}
           athlete={resendFor}
           result={resendResult}
           busy={busy}
@@ -1000,6 +1026,7 @@ function ResendModal({
   const [email, setEmail] = useState(onFile);
   const [armed, setArmed] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [source, setSource] = useState<AddressSource | null>(null);
 
   // Tick only while a cooldown is actually running.
   useEffect(() => {
@@ -1007,6 +1034,47 @@ function ResendModal({
     const t = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(t);
   }, [cooldownUntil]);
+
+  /**
+   * Which record a correction would land on, and who else reads it — asked for
+   * the moment the drawer opens, so a shared guardian is on screen BEFORE the
+   * operator commits. Read-only; it sends nothing and writes nothing.
+   */
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/admin/placements/address?athleteKey=${encodeURIComponent(athlete.key)}`,
+        );
+        const json = (await res.json()) as AddressSource & { error?: string };
+        if (!live) return;
+        setSource(
+          res.ok
+            ? json
+            : {
+                kind: "guardian",
+                label: "her record",
+                alsoAffects: [],
+                onFile: athlete.email,
+                error: json.error ?? "Could not read the address source.",
+              },
+        );
+      } catch (e) {
+        if (!live) return;
+        setSource({
+          kind: "guardian",
+          label: "her record",
+          alsoAffects: [],
+          onFile: athlete.email,
+          error: e instanceof Error ? e.message : "Could not read the address source.",
+        });
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [athlete.key, athlete.email]);
 
   const cooling = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
   const trimmed = email.trim();
@@ -1111,11 +1179,40 @@ function ResendModal({
             autoComplete="off"
             className="mt-2 w-full rounded-lg border border-[#E5E8EC] px-3 py-2.5 text-[14px] outline-none focus:border-[#4B9CD3]"
           />
-          {corrected && valid && (
-            <p className="mt-2 text-[12px] leading-relaxed text-[#1F6FA8]">
-              This also corrects her address on file, so the reminder and every
-              later email go here too — not just this one.
+          {/* Which record this comes from, and who else reads it — known before
+              the operator decides, not reported after the write. */}
+          {source?.error ? (
+            <p className="mt-2 flex gap-1.5 text-[12px] leading-relaxed text-[#B45309]">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                Could not check which record supplies this address, so it is not
+                known whether anyone else shares it. Correcting the address will
+                be refused until this reads cleanly — sending to the address
+                already on file still works. ({source.error})
+              </span>
             </p>
+          ) : source ? (
+            <p className="mt-2 text-[12px] text-[#6B7280]">
+              Reads from {source.label}.
+            </p>
+          ) : (
+            <p className="mt-2 text-[12px] text-[#9CA3AF]">
+              Checking which record supplies this address…
+            </p>
+          )}
+
+          {corrected && valid && !source?.error && (
+            <div className="mt-2 rounded-lg bg-[#EFF6FF] px-3 py-2 text-[12px] leading-relaxed text-[#1F6FA8]">
+              Sending to the family saves this to {source?.label ?? "her record"},
+              so the reminder and every later email go here too — not just this
+              one. A test send changes nothing and goes to the address already on
+              file.
+              {source && source.alsoAffects.length > 0 && (
+                <div className="mt-1.5 font-semibold text-[#B45309]">
+                  This also changes it for {source.alsoAffects.join(", ")}.
+                </div>
+              )}
+            </div>
           )}
           {trimmed && !valid && (
             <p className="mt-2 text-[12px] text-[#B91C1C]">
@@ -1130,7 +1227,7 @@ function ResendModal({
             onClick={() => onSend("test", trimmed)}
             disabled={!valid || busy !== null}
             className={`${BTN} border border-[#E5E8EC] text-[#374151] hover:bg-[#F8F9FA]`}
-            title="Sends exactly this email to your own address"
+            title="Sends this email to your own address. A rehearsal — it changes no record, and uses the address already on file rather than a correction typed above."
           >
             {testing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -1198,6 +1295,18 @@ function ResendModal({
                       .
                     </div>
                   )}
+                  {/* A rehearsal saves nothing. Say so, or she believes the
+                      correction is filed and never sends the live one. */}
+                  {result.correctionDeferred && (
+                    <div className="mt-1 text-[12px] text-[#B45309]">
+                      That was a test, so{" "}
+                      <span className="font-semibold">
+                        {result.correctionDeferred}
+                      </span>{" "}
+                      was NOT saved and the email went to the address on file.
+                      Send to the family to save it.
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -1213,6 +1322,15 @@ function ResendModal({
                       Her address was still updated to{" "}
                       <span className="font-semibold">{result.correction.to}</span>{" "}
                       on {result.correction.label}. Nothing was emailed.
+                    </div>
+                  )}
+                  {result.correctionDeferred && (
+                    <div className="mt-1 text-[12px] text-[#6B7280]">
+                      That was a test, so{" "}
+                      <span className="font-semibold">
+                        {result.correctionDeferred}
+                      </span>{" "}
+                      was not saved either. Nothing changed.
                     </div>
                   )}
                 </div>

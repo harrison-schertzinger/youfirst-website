@@ -9,10 +9,19 @@
 --    5. placement_elite_development_program_rename
 --    6. placement_seed_fixed_deadline
 --    7. placement_resend_claim_uniq            (2026-08-05)
+--    8. hermes_send_log_placement_resend_kind  (2026-08-05)
+--    9. hermes_send_log_kind_check_def_fn      (2026-08-05)
 --
 --  Applied via apply_migration; this file exists so the repo describes its own
 --  schema, matching scripts/roster-crm-migrations.sql. Re-running it is NOT
 --  idempotent — it is a record, not a runner.
+--
+--  THE DISCIPLINE THIS FILE INHERITS, stated once so nobody has to infer it:
+--  a new hermes_send_log.kind takes ITS OWN migration, and that migration adds
+--  the kind to hermes_send_log_kind_check AND creates the partial unique index
+--  that dedupes it, together, in one transaction. The CHECK list is deliberately
+--  NOT widened ahead of need. See entry 8 for why — it is the more dangerous
+--  half to widen alone.
 -- ============================================================================
 
 
@@ -213,3 +222,94 @@ notify pgrst, 'reload schema';
 create unique index if not exists hermes_send_log_placement_resend_claim_uniq
   on public.hermes_send_log (kind, cycle_key)
   where kind = 'placement_resend' and status in ('claimed', 'sent');
+
+
+-- ─── 8. hermes_send_log_placement_resend_kind (2026-08-05) ─────────────────
+--
+--  THE INDEX IN 7 WAS THE WRONG HALF, ON ITS OWN.
+--
+--  'placement_resend' was added to SEND_KINDS in code and given its own partial
+--  unique index above, but never added to the kind CHECK that entry 3 wrote.
+--  Every live resend therefore failed at the claim INSERT with SQLSTATE 23514 —
+--  not 23505, so deliverOne did not recognise it and reported a raw Postgres
+--  string in a 502. Because correctAddress runs BEFORE the claim, the operator's
+--  address write landed while the email did not. Zero rows of kind
+--  'placement_resend' existed when this was found, which is the proof that no
+--  resend had ever been sent in the eight days the button was on screen.
+--
+--  It was invisible to review because a TEST resend logs under 'placement_test',
+--  which entry 3 does allow — so the only mode anyone exercised was the only one
+--  that worked. scripts/diagnose-resend.ts could not catch it either: it fires
+--  resendPlacement() only at athletes it has already confirmed will be REFUSED,
+--  so it returns before deliverOne is ever reached.
+--
+--  WHY THE LIST STAYS TIGHT rather than being widened once for every kind this
+--  system might plausibly add:
+--
+--    A kind the CHECK ACCEPTS but no partial unique index COVERS is a claim row
+--    that dedupes against nothing. Every placement index is predicated on an
+--    explicit kind list, so a speculatively-authorised kind would write claims
+--    with idempotency silently switched off — a family receiving the same email
+--    twice, with no record that dedupe was ever in play. That is strictly worse
+--    than what happened here.
+--
+--    This constraint FAILED SAFE. It refused to send. The cost was eight days of
+--    a dead button; the cost of the permissive variant is a duplicate email to a
+--    family who has already said yes. Tight wins.
+--
+--    What was actually missing was not breadth but a check that the code's
+--    vocabulary matches the database's. scripts/diagnose-resend.ts now asserts
+--    every SEND_KINDS value against the live CHECK, so the next kind added
+--    without its migration is a red line in a read-only diagnostic rather than
+--    a 502 in front of a director.
+--
+--  Applied in ONE transaction, so unlike a drop/recreate of the index in 7 there
+--  is no window in which hermes_send_log accepts an unlisted kind.
+
+alter table public.hermes_send_log drop constraint hermes_send_log_kind_check;
+alter table public.hermes_send_log
+  add constraint hermes_send_log_kind_check
+  check (kind = any (array[
+    'payment_reminder','overdue_notice','qa_ack','morning_briefing',
+    'collections','collections_test','collections_summary',
+    'placement','placement_nudge','placement_receipt','placement_test',
+    'placement_resend'
+  ]));
+
+notify pgrst, 'reload schema';
+
+
+-- ─── 9. hermes_send_log_kind_check_def_fn (2026-08-05) ─────────────────────
+--
+--  The assertion that closes the class of defect entry 8 fixed, rather than the
+--  single instance of it.
+--
+--  scripts/diagnose-resend.ts now checks every value of SEND_KINDS against the
+--  live CHECK and fails loudly on a mismatch, so the next kind added in code
+--  without its migration is a red line in a read-only diagnostic instead of a
+--  502 in front of a director. PostgREST cannot read pg_catalog, so the
+--  constraint text comes back through this function.
+--
+--  Reads one constraint definition and nothing else. Granted to service_role
+--  only — it is not sensitive, but a function nobody needs from the browser
+--  should not be callable from it.
+
+create or replace function public.hermes_send_log_kind_check_def()
+returns text
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select pg_get_constraintdef(oid)
+  from pg_constraint
+  where conrelid = 'public.hermes_send_log'::regclass
+    and conname  = 'hermes_send_log_kind_check';
+$$;
+
+revoke all on function public.hermes_send_log_kind_check_def() from public;
+revoke all on function public.hermes_send_log_kind_check_def() from anon;
+revoke all on function public.hermes_send_log_kind_check_def() from authenticated;
+grant execute on function public.hermes_send_log_kind_check_def() to service_role;
+
+notify pgrst, 'reload schema';

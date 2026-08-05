@@ -21,8 +21,66 @@ config({ path: ".env.local" });
 import { getServiceClient, confirmUrl } from "../src/lib/placement/config";
 import { buildAudience } from "../src/lib/placement/audience";
 import { resendPlacement } from "../src/lib/placement/send";
-import { RESEND_BLOCK_LABEL, deliveryLabel } from "../src/lib/placement/shared";
+import {
+  RESEND_BLOCK_LABEL,
+  SEND_KINDS,
+  deliveryLabel,
+} from "../src/lib/placement/shared";
 import type { SendAudience, SendCandidate } from "../src/lib/placement/shared";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+/**
+ * Does the DATABASE accept every kind this CODE can write?
+ *
+ * THE CHECK THAT WAS MISSING. 'placement_resend' was added to SEND_KINDS and
+ * given its own partial unique index, but never added to
+ * hermes_send_log_kind_check — so every live resend died at the claim INSERT
+ * with SQLSTATE 23514 and no resend was ever sent in the eight days the button
+ * was on screen. Nothing caught it: a TEST resend logs under 'placement_test',
+ * which the constraint did allow, so the only mode anyone exercised was the only
+ * one that worked. The guard assertions below could not catch it either — they
+ * fire resendPlacement() only at athletes already known to be REFUSED, so they
+ * return long before deliverOne reaches the database.
+ *
+ * Read-only: it reads pg_constraint. It writes nothing and sends nothing.
+ */
+async function checkKindVocabulary(db: SupabaseClient): Promise<boolean> {
+  console.log("\n── SEND KINDS vs THE DATABASE ──────────────────────────");
+
+  const kinds = Object.values(SEND_KINDS);
+
+  // PostgREST cannot read pg_catalog, so the constraint text comes back through
+  // a stable security-definer function granted to service_role only.
+  // See migration 9 in scripts/placement-emails-migrations.sql.
+  const { data, error } = await db.rpc("hermes_send_log_kind_check_def");
+
+  if (error || typeof data !== "string" || !data) {
+    console.log(
+      `  ? Could not read the CHECK (${error?.message ?? "no definition returned"}).\n` +
+        "    This assertion is the one that would have caught the dead resend\n" +
+        "    path, so a failure here is not a pass. Run it by hand:\n" +
+        "      select pg_get_constraintdef(oid) from pg_constraint\n" +
+        "       where conname = 'hermes_send_log_kind_check';\n" +
+        `    Every one of these must appear: ${kinds.join(", ")}`,
+    );
+    return false;
+  }
+
+  const missing = kinds.filter((k) => !data.includes(`'${k}'`));
+  if (missing.length === 0) {
+    console.log(
+      `  ✓ All ${kinds.length} SEND_KINDS values are accepted by the CHECK.`,
+    );
+    return true;
+  }
+  console.log(
+    `  ✗ ${missing.join(", ")} NOT accepted by hermes_send_log_kind_check.\n` +
+      "    Every send of that kind dies at the claim with SQLSTATE 23514 —\n" +
+      "    AFTER any address correction has already been written, and without\n" +
+      "    leaving a log row. STOP and migrate before sending anything.",
+  );
+  return false;
+}
 
 const WOLL_TOKEN_ID = "05642399-5d09-4749-a3f5-0af70fe14fe3";
 
@@ -38,6 +96,11 @@ function everyone(data: SendAudience): SendCandidate[] {
 async function main() {
   const db = getServiceClient();
   if (!db) throw new Error("Service-role env vars not configured.");
+
+  // FIRST, because it is the one check that decides whether anything below can
+  // send at all. A guard chain proved against a database that will not accept
+  // the row is a proof about a path nobody can reach.
+  const vocabularyOk = await checkKindVocabulary(db);
 
   const audience = await buildAudience(db);
   const all = everyone(audience);
@@ -162,6 +225,15 @@ async function main() {
   }
 
   console.log();
+
+  // A red line has to cost something, or it is decoration.
+  if (!vocabularyOk) {
+    console.error(
+      "FAILED: the database will not accept every kind this code can write.\n" +
+        "Nothing here is safe to send until that is migrated.\n",
+    );
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {

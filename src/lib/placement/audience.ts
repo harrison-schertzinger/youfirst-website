@@ -65,11 +65,35 @@ export interface SendableAthlete {
   email: string | null;
 }
 
-/** Everyone with a sendable placement, in one flat list. */
+/**
+ * Everyone with a sendable placement, in one flat list.
+ *
+ * EXCLUDED_CLASSES IS ENFORCED HERE, not only where the screen is built.
+ *
+ * buildAudience() has always dropped 2028 from the group it renders, so the
+ * class Harrison is handling himself never appears as something to approve. But
+ * every other consumer of this function — previewAthlete, sendGroup,
+ * resendPlacement, sendNudges — took the unfiltered list, so a direct POST
+ * naming a 2028 athlete reached the send path and was stopped only by whichever
+ * downstream guard happened to catch it. Nothing was exposed: all fifteen placed
+ * 2028 athletes have a minted token and zero send rows, so never_sent refused
+ * every one of them. That is luck holding the line, not structure.
+ *
+ * Filtering at the source makes the class gate true by construction for every
+ * caller, present and future. An athlete with no graduation year is KEPT — she
+ * belongs to no class, cannot be excluded by one, and buildAudience still has to
+ * list her in noClassYear rather than drop her silently.
+ */
 export function sendableAthletes(athletes: RosterAthlete[]): SendableAthlete[] {
   const out: SendableAthlete[] = [];
   for (const a of athletes) {
     if (!isSendableTier(a.placementTier)) continue;
+    if (
+      a.classYear != null &&
+      EXCLUDED_CLASSES.includes(groupKeyForYear(a.classYear))
+    ) {
+      continue;
+    }
     out.push({
       key: a.key,
       table: a.table,
@@ -389,6 +413,9 @@ export async function buildAudience(db: SupabaseClient): Promise<SendAudience> {
       );
       continue;
     }
+    // Redundant since sendableAthletes() began filtering the same list — kept
+    // as the second of two independent checks, matching the posture the send
+    // route takes on the class gate. If one is ever loosened the other holds.
     if (EXCLUDED_CLASSES.includes(cls)) continue;
     classMinYear.set(cls, Math.min(classMinYear.get(cls) ?? 9999, a.classYear!));
     const key = groupKeyFor(a.tier, cls);
