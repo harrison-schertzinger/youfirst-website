@@ -22,7 +22,6 @@ import {
   ROSTER_SIZE_MIN,
   BLUE_TEAM_NAME,
   teamOptionsFor,
-  teamTierForClass,
   formatPhone,
   groupKeyForYear,
   nameSortKey,
@@ -33,6 +32,9 @@ import {
   type RosterAthlete,
   type RosterData,
 } from "@/lib/rosters/shared";
+// The class at which the tournament schedule — and the letter — changes. One
+// constant, imported rather than restated, so the screen and the send agree.
+import { YOUTH_LETTER_MIN_CLASS } from "@/lib/placement/shared";
 
 // ─── Rosters — the decision screen ───────────────────────────────────────────
 // The list carries only what a placement decision needs: number, name, chips,
@@ -164,18 +166,31 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
     const byTier = (t: string) => inClass.filter((a) => a.placementTier === t);
     const label = active === "unassigned" ? "" : active;
     const eliteTitle = label ? `${label} Elite` : "Elite";
-    // Which of the two Elite values this class stores. Null on the unassigned
-    // tab, where there is no class and so no letter to pick.
     const firstYear = /^\d{4}/.test(active) ? parseInt(active.slice(0, 4), 10) : null;
-    const youthClass = firstYear == null ? null : teamTierForClass(firstYear) === "elite_youth";
+    const isClassTab = firstYear != null;
+    // Tournament-roster shape targets, unchanged: they belong to the classes
+    // that play the full circuit. 2031 and up differ from 2029 in tournament
+    // schedule and in nothing else, and this is that difference on screen —
+    // the same class boundary the letter uses, not a second kind of team.
+    const showTargets = firstYear != null && firstYear < YOUTH_LETTER_MIN_CLASS;
     return [
-      // ONE Elite bucket per class. Both stored values render the same heading
-      // — they are the same team to a family — and after normalization a class
-      // only ever holds one of them, so only one of these two ever has anyone
-      // in it. `always` sits on whichever value this class actually uses, so
-      // an empty class still shows the Elite section it would fill.
-      { key: "elite", title: eliteTitle, list: byTier("elite"), always: youthClass === false, targets: true, controls: true, forceYear: false },
-      { key: "elite_youth", title: eliteTitle, list: byTier("elite_youth"), always: youthClass === true, targets: false, controls: true, forceYear: false },
+      // ONE Elite bucket per class — ONE SECTION. This used to be two rows, one
+      // per stored value, with `always` picking which of them a class was
+      // supposed to use. That is the shape that let 2033 hold both values and
+      // render two identically-titled "2033 Elite" sections on one tab.
+      //
+      // elite_youth is folded in rather than dropped: nothing writes it any
+      // more, so the list is empty, but a legacy row that turns up has to be
+      // VISIBLE under her team instead of vanishing off the screen.
+      {
+        key: "elite",
+        title: eliteTitle,
+        list: [...byTier("elite"), ...byTier("elite_youth")],
+        always: isClassTab,
+        targets: showTargets,
+        controls: true,
+        forceYear: false,
+      },
       { key: "elite_training", title: "Elite Training Group", list: byTier("elite_training"), always: false, targets: false, controls: true, forceYear: false },
       { key: "declined", title: "Declined", list: byTier("declined"), always: false, targets: false, controls: false, forceYear: false },
       {

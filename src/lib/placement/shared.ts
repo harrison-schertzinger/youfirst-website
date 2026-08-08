@@ -45,12 +45,13 @@ export const TIER_ORDER: readonly SendableTier[] = SENDABLE_TIERS;
  * directly above it, so this names the TEAM WITHIN the class and nothing more.
  *
  * elite and elite_youth both read "Elite" because they are the same thing to a
- * family — her class's Elite team. Only the letter behind them differs, and a
- * letter is not a team name.
+ * family — her class's Elite team.
  *
- * They cannot collide inside one class: the dropdown writes
- * teamTierForClass(class), which yields exactly one of the two per class, so a
- * class can never hold both and never produce two groups with one phrase.
+ * They cannot collide inside one class because elite_youth is no longer written
+ * anywhere: teamTierForClass() returns the one club tier at every class, and the
+ * placement route validates against it. The comment that used to sit here
+ * claimed the same protection for a two-value scheme and was false — class 2033
+ * held both values in both tables while it was on screen.
  */
 export const TIER_GROUP_LABEL: Record<SendableTier, string> = {
   elite: "Elite",
@@ -135,18 +136,64 @@ export const NUDGE_APPROVAL = "SEND NUDGE";
 
 /**
  * STORED VALUES, not labels. These are primary keys into email_templates.name
- * and no family ever sees one. The elite_youth row keeps the retired program
- * name deliberately: renaming a template row is a two-place change (database
- * and code) whose failure mode is a live send finding no template, and the
- * string is invisible outside /admin/templates. The COPY inside that row is a
- * different matter and has been cleaned.
+ * and no family ever sees one. The youth row keeps the retired program name
+ * deliberately: renaming a template row is a two-place change (database and
+ * code) whose failure mode is a live send finding no template, and the string is
+ * invisible outside /admin/templates. The COPY inside that row is a different
+ * matter and has been cleaned.
  */
-export const TEMPLATE_NAME_BY_TIER: Record<SendableTier, string> = {
-  elite: "Placement — Elite",
-  blue: "Placement — Blue",
-  elite_youth: "Placement — Elite Development Program",
-  elite_training: "Placement — Elite Training Group",
-};
+const LETTER_ELITE = "Placement — Elite";
+const LETTER_YOUTH = "Placement — Elite Development Program";
+const LETTER_BLUE = "Placement — Blue";
+const LETTER_TRAINING = "Placement — Elite Training Group";
+
+/** Every placement letter, for loading and for health-checking. */
+export const PLACEMENT_TEMPLATE_NAMES: readonly string[] = [
+  LETTER_ELITE,
+  LETTER_YOUTH,
+  LETTER_BLUE,
+  LETTER_TRAINING,
+];
+
+/**
+ * The class at which the letter changes. A 2034 family must never receive the
+ * 2029 college-recruiting letter.
+ *
+ * THIS IS A PROPERTY OF THE CLASS, NOT OF A TIER, and after the one-bucket
+ * collapse it could not be anything else: every Elite team in the club stores
+ * the same tier value, so a tier-keyed lookup has exactly one answer and would
+ * hand every twelve-year-old the college letter. What differs across 2031+ is
+ * the tournament schedule, and the letter is where that difference is written.
+ */
+export const YOUTH_LETTER_MIN_CLASS = 2031;
+
+/**
+ * WHICH LETTER A FAMILY RECEIVES. The only function that decides, and the only
+ * thing that reaches email_templates.name for a placement send.
+ *
+ * `TEMPLATE_NAME_BY_TIER` is deleted rather than deprecated. A tier→letter map
+ * that still exists is a tier→letter map something will use, and with one tier
+ * value club-wide every one of its lookups now returns the college letter.
+ *
+ * Blue and Elite Training select by tier and that is correct: they are distinct
+ * SITUATIONS, not classes. Blue is one team at 2029–2030 whose letter says so;
+ * Elite Training is "no tournament roster spot this season" and runs at every
+ * class. Neither is part of the Elite bucket this collapse created, and neither
+ * can be reached without the placement route writing that exact tier.
+ *
+ * NULL MEANS NO LETTER, never a default. An athlete with no graduation year has
+ * no letter, and renderEmail refuses rather than falling through to the college
+ * letter — which is precisely the failure that a `?? LETTER_ELITE` would ship.
+ */
+export function placementTemplateFor(
+  tier: SendableTier,
+  classYear: number | null,
+): string | null {
+  if (tier === "blue") return LETTER_BLUE;
+  if (tier === "elite_training") return LETTER_TRAINING;
+  if (classYear == null) return null;
+  return classYear >= YOUTH_LETTER_MIN_CLASS ? LETTER_YOUTH : LETTER_ELITE;
+}
 
 export const RECEIPT_TEMPLATE_NAME = "Placement — Confirmation Receipt";
 export const NUDGE_TEMPLATE_NAME = "Placement — Unconfirmed Nudge";
@@ -171,9 +218,16 @@ export const PLACEMENT_SEASON = "2026–27";
  *
  * Exposed to templates as {{deadline}} and seeded as the default deadline
  * region, so a template gets it whether it writes the date or the token.
+ *
+ * THE TEMPLATES NO LONGER WRITE THE DATE. Every letter's closing said "Please
+ * confirm by August 7" in hardcoded prose while this constant said the same
+ * thing separately — two copies of one fact, which is why they were able to
+ * disagree the moment the date moved. The prose now reads {{deadline}} in all
+ * three letters, so this line is the only place the date exists and a template
+ * that drifts is not expressible.
  */
-export const PLACEMENT_DEADLINE = "August 7";
-export const PLACEMENT_DEADLINE_LONG = "Friday, August 7";
+export const PLACEMENT_DEADLINE = "August 15";
+export const PLACEMENT_DEADLINE_LONG = "Saturday, August 15";
 
 /** hermes_send_log.kind values this sprint owns. */
 export const SEND_KINDS = {
@@ -546,7 +600,6 @@ export interface SendAudience {
    */
   noClassYear: SendCandidate[];
   templateHealth: {
-    tier: SendableTier | "receipt" | "nudge";
     templateName: string;
     found: boolean;
     /** Regions still carrying [[ ]] copy Harrison has not written. */

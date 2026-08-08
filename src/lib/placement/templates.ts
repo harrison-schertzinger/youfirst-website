@@ -36,9 +36,9 @@ import {
   PLACEMENT_DEADLINE,
   PLACEMENT_DEADLINE_LONG,
   PLACEMENT_SEASON,
+  PLACEMENT_TEMPLATE_NAMES,
+  placementTemplateFor,
   RECEIPT_TEMPLATE_NAME,
-  SENDABLE_TIERS,
-  TEMPLATE_NAME_BY_TIER,
   tierLabel,
   type EmailShape,
   type SendableTier,
@@ -57,7 +57,7 @@ export interface TemplateBundle {
 }
 
 const ALL_TEMPLATE_NAMES = [
-  ...SENDABLE_TIERS.map((t) => TEMPLATE_NAME_BY_TIER[t]),
+  ...PLACEMENT_TEMPLATE_NAMES,
   RECEIPT_TEMPLATE_NAME,
   NUDGE_TEMPLATE_NAME,
 ];
@@ -87,13 +87,21 @@ export async function loadTemplates(db: SupabaseClient): Promise<TemplateBundle>
   return { byName, snippets };
 }
 
+/**
+ * The template this email will render from — null when no letter can be chosen.
+ *
+ * CLASS IS REQUIRED, not optional with a fallback. The receipt and the nudge are
+ * one letter each and ignore it; a placement letter cannot be picked without it,
+ * and says so by returning null rather than guessing.
+ */
 export function templateNameFor(
   shape: EmailShape,
   tier: SendableTier,
-): string {
+  classYear: number | null,
+): string | null {
   if (shape === "receipt") return RECEIPT_TEMPLATE_NAME;
   if (shape === "nudge") return NUDGE_TEMPLATE_NAME;
-  return TEMPLATE_NAME_BY_TIER[tier];
+  return placementTemplateFor(tier, classYear);
 }
 
 // ── Merge context ─────────────────────────────────────────────────────────
@@ -181,7 +189,17 @@ export function renderEmail(
    *  in a real inbox. Live sends never pass it. */
   headerVariant?: string | null,
 ): RenderResult {
-  const name = templateNameFor(shape, athlete.tier);
+  // No class, no letter. The refusal is the point: a placement letter chosen
+  // without a graduation year is chosen by tier, and every tier is 'elite'.
+  const name = templateNameFor(shape, athlete.tier, athlete.classYear);
+  if (!name) {
+    return {
+      ok: false,
+      reason: "no_class_year",
+      detail:
+        "No graduation year on file, so no letter can be chosen for her — set or merge her before sending.",
+    };
+  }
   const tpl = bundle.byName.get(name);
   if (!tpl) {
     return { ok: false, reason: "no_template", detail: `No active template named "${name}"` };
@@ -283,9 +301,17 @@ export function renderEmail(
 
 // ── Template health, for the send screen ──────────────────────────────────
 
+/**
+ * Every letter, checked once — BY TEMPLATE, not by tier.
+ *
+ * Iterating the tiers used to check four letters because four tiers mapped to
+ * four names. With one tier value club-wide that loop would check the college
+ * letter four times and never open the youth letter at all, so a broken region
+ * or a banned phrase in the letter tonight's families receive would not have
+ * appeared on the screen whose whole job is to say the copy is not finished.
+ */
 export function templateHealth(bundle: TemplateBundle) {
   const entries: {
-    tier: SendableTier | "receipt" | "nudge";
     templateName: string;
     found: boolean;
     unwritten: string[];
@@ -294,15 +320,10 @@ export function templateHealth(bundle: TemplateBundle) {
     banned: string[];
   }[] = [];
 
-  const check = (
-    tier: SendableTier | "receipt" | "nudge",
-    templateName: string,
-    shape: EmailShape,
-  ) => {
+  const check = (templateName: string, shape: EmailShape) => {
     const tpl = bundle.byName.get(templateName);
     if (!tpl) {
       entries.push({
-        tier,
         templateName,
         found: false,
         unwritten: [],
@@ -313,7 +334,6 @@ export function templateHealth(bundle: TemplateBundle) {
     }
     const regions = parseRegions(tpl.body);
     entries.push({
-      tier,
       templateName,
       found: true,
       unwritten: [],
@@ -322,11 +342,9 @@ export function templateHealth(bundle: TemplateBundle) {
     });
   };
 
-  for (const tier of SENDABLE_TIERS) {
-    check(tier, TEMPLATE_NAME_BY_TIER[tier], "placement");
-  }
-  check("receipt", RECEIPT_TEMPLATE_NAME, "receipt");
-  check("nudge", NUDGE_TEMPLATE_NAME, "nudge");
+  for (const name of PLACEMENT_TEMPLATE_NAMES) check(name, "placement");
+  check(RECEIPT_TEMPLATE_NAME, "receipt");
+  check(NUDGE_TEMPLATE_NAME, "nudge");
 
   return entries;
 }

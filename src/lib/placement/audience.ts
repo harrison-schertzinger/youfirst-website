@@ -30,8 +30,8 @@ import {
   isSendableTier,
   PLACEMENT_CAMPAIGN,
   PLACEMENT_SEASON,
+  placementTemplateFor,
   SEND_KINDS,
-  TEMPLATE_NAME_BY_TIER,
   TIER_GROUP_LABEL,
   tierLabel,
   type DeliveryEvent,
@@ -322,7 +322,10 @@ export function blockReason(
   // send time with no warning.
   if (!greetingFor(a.parentName, a.name)) return "no_greeting_name";
   if (state.sentAt.has(cycleKeyFor(a.table, a.id))) return "already_sent";
-  if (!bundle.byName.has(TEMPLATE_NAME_BY_TIER[a.tier])) return "no_template";
+  // Her letter, chosen the same way the send will choose it — by class. The
+  // no_class_year check above means the null case cannot reach here.
+  const letter = placementTemplateFor(a.tier, a.classYear);
+  if (!letter || !bundle.byName.has(letter)) return "no_template";
   return null;
 }
 

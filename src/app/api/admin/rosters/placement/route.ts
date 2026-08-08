@@ -123,10 +123,17 @@ export async function PATCH(req: Request): Promise<NextResponse> {
     //
     // The dropdown now offers exactly one Elite team per class, but a closed
     // dropdown is a courtesy and this is the rule. Without it a stale tab, a
-    // direct POST, or the next screen that forgets could still write 'elite'
-    // onto a 2033 athlete — and 'elite' is not a label, it is the choice of
-    // letter. That is how a twelve-year-old's family receives the college-
-    // recruiting email.
+    // direct POST, or the next screen that forgets could still write a retired
+    // value onto a live row.
+    //
+    // WHAT THIS NO LONGER PROTECTS: it used to be the guard that kept 'elite'
+    // off a 2033 athlete, on the reasoning that 'elite' IS the choice of letter.
+    // It is not any more. The letter is chosen from her graduation year in
+    // placementTemplateFor(), so writing 'elite' onto a twelve-year-old is now
+    // the correct write and she still receives the youth letter. This check has
+    // gone back to being what its title says — a rule about which team names
+    // exist — and it rejects 'elite_youth' everywhere, because that team was
+    // retired and nothing may create a new row carrying it.
     //
     // elite_training is exempt: it is a state that runs at every class, not
     // one class's team, and this sprint does not change how it is stored.

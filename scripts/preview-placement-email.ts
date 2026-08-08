@@ -32,7 +32,7 @@ import { loadTemplates } from "../src/lib/placement/templates";
 import { mergeContext } from "../src/lib/placement/templates";
 import {
   PLACEMENT_SEASON,
-  TEMPLATE_NAME_BY_TIER,
+  placementTemplateFor,
   tierLabel,
   type SendableTier,
 } from "../src/lib/placement/shared";
@@ -89,7 +89,7 @@ async function main() {
   for (const tier of tiers) {
     const ctx = mergeContext({ ...athlete, tier });
     const source = live
-      ? liveBodies?.get(TEMPLATE_NAME_BY_TIER[tier])
+      ? liveBodies?.get(placementTemplateFor(tier, athlete.classYear) ?? "")
       : { subject: `Sample subject — {{placement_label}}`, body: sampleBody() };
     if (!source) {
       console.warn(`! No template for ${tier} — skipped.`);

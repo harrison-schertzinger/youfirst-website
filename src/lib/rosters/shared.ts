@@ -41,43 +41,54 @@ export function isBlueClass(year: number | null): boolean {
  * softer name. A girl tried out for a team and she made a team — the 2032
  * Elite team, the 2033/2034 Elite team.
  *
- * "Elite Development Program" is RETIRED as a team name. It is gone from every
- * surface a human being can see.
+ * "Elite Development Program" is RETIRED — as a team name and now as a stored
+ * value. Classes 2031 and up differ from 2029 in tournament schedule, and in
+ * nothing else: not in tier, not in name, not in status.
  *
- * What survives is `elite_youth` as a STORED VALUE, and its only remaining job
- * is to pick which letter a family receives: a 2034 family must never get the
- * 2029 college-recruiting letter. It picks a letter. It never names a team.
+ * SO THERE IS ONE TIER VALUE FOR EVERY ELITE TEAM IN THE CLUB, at every class.
+ * `elite_youth` survives only in the vocabulary below, so that historical rows
+ * — placement_tokens minted before this, hermes_send_log detail — still render
+ * their label. Nothing writes it any more.
  *
- * The class boundary below is where the two letters divide, and it matches the
- * data exactly: every athlete at 2031 and younger already carries elite_youth,
- * every athlete at 2030 and older carries elite or blue.
+ * WHICH LETTER A FAMILY RECEIVES IS NOT THIS FILE'S BUSINESS AND IS NO LONGER
+ * DERIVABLE FROM A TIER. It keys off graduation year, in one place:
+ * placementTemplateFor() in src/lib/placement/shared.ts. A single tier value
+ * club-wide means any tier-keyed letter selection collapses to one letter, and
+ * the letter it would collapse to is the 2029 college-recruiting letter.
  */
-export const YOUTH_LETTER_MIN_CLASS = 2031;
+export const CLUB_TIER = "elite" as const;
 
 /**
- * Which letter a class receives — and therefore which value a placement on that
- * class's Elite team stores. THE ONLY REASON THIS FUNCTION EXISTS. Callers that
- * want a name for the team want tierLabel().
+ * What a placement on a class's Elite team stores. One value, every class.
+ *
+ * Kept as a function rather than inlined so the placement route and the
+ * dropdown validate against the same single source, and so this comment sits on
+ * the thing a future reader will reach for when they want to reintroduce a
+ * second bucket. Callers that want a NAME for the team want tierLabel();
+ * callers that want a LETTER want placementTemplateFor().
  */
-export function teamTierForClass(year: number): "elite" | "elite_youth" {
-  return year >= YOUTH_LETTER_MIN_CLASS ? "elite_youth" : "elite";
+export function teamTierForClass(_year: number): typeof CLUB_TIER {
+  return CLUB_TIER;
 }
 
 /**
  * Display labels, exactly per the naming standard.
  *
- * Both Elite values render the same way — as the class's Elite team — because
- * they ARE the same thing to a family. `elite_youth` renders through
- * groupKeyForYear so 2033 and 2034 land on the single name they share, exactly
- * as Blue does for 2029 and 2030. Two teams span two grad years each; both say
- * so the same way.
+ * Both Elite values render IDENTICALLY — as the class's Elite team — because
+ * they ARE the same thing to a family, and since the one-bucket collapse they
+ * are the same thing in the database too. `elite_youth` is retained only so a
+ * historical token or log row still renders a team name rather than "Pending".
+ *
+ * Both go through groupKeyForYear so 2033 and 2034 land on the single name they
+ * share, exactly as Blue does for 2029 and 2030. Two teams span two grad years
+ * each; both say so the same way. For every other class groupKeyForYear is the
+ * year itself, so "2029 Elite" is unchanged.
  */
 export function tierLabel(tier: string | null, classYear: number | null): string {
   switch (tier) {
+    // 2033 + 2034 are ONE team — "2033/2034 Elite", never "2034 Elite".
     case "elite":
-      return classYear != null ? `${classYear} Elite` : "Elite";
     case "elite_youth":
-      // 2033 + 2034 are ONE team — "2033/2034 Elite", never "2034 Elite".
       return classYear != null ? `${groupKeyForYear(classYear)} Elite` : "Elite";
     case "blue":
       // One team across 2029 and 2030 — never "{class} Blue".

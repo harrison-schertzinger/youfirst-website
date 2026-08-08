@@ -18,7 +18,9 @@ import {
   approvalPhrase,
   bannedLanguageIn,
   isSendableTier,
+  placementTemplateFor,
   SENDABLE_TIERS,
+  type SendableTier,
 } from "../src/lib/placement/shared";
 import { PLACEMENT_TIERS } from "../src/lib/rosters/shared";
 
@@ -112,21 +114,38 @@ async function main() {
   // Prove the block: render a real athlete shape against the live templates.
   console.log("\nHARD-BLOCK PROOF (a fictional athlete, nothing written)");
   const bundle = await loadTemplates(db);
-  for (const tier of SENDABLE_TIERS) {
+  // BY CLASS, not by tier. Every Elite team stores the one club tier now, so a
+  // per-tier sweep would render the same letter four times and never prove the
+  // thing that matters: that a 2034 gets a different letter from a 2029, and
+  // that an athlete with no class gets none at all.
+  const letterCases: { label: string; tier: SendableTier; classYear: number | null }[] = [
+    { label: "elite 2029", tier: "elite", classYear: 2029 },
+    { label: "elite 2030", tier: "elite", classYear: 2030 },
+    { label: "elite 2031", tier: "elite", classYear: 2031 },
+    { label: "elite 2033", tier: "elite", classYear: 2033 },
+    { label: "elite 2034", tier: "elite", classYear: 2034 },
+    { label: "elite NO CLASS", tier: "elite", classYear: null },
+    { label: "blue 2029", tier: "blue", classYear: 2029 },
+    { label: "elite_training 2032", tier: "elite_training", classYear: 2032 },
+  ];
+  for (const c of letterCases) {
+    const letter = placementTemplateFor(c.tier, c.classYear) ?? "— none —";
     const r = renderEmail(
       bundle,
       "placement",
       {
         name: "Test Athlete",
-        classYear: 2030,
-        tier,
+        classYear: c.classYear,
+        tier: c.tier,
         parentName: "Test Parent",
         confirmUrl: "https://example.invalid/placement/TEST",
       },
       "https://example.invalid/placement/TEST",
     );
     console.log(
-      `  ${tier.padEnd(16)} ${r.ok ? "WOULD SEND" : `REFUSED (${r.reason}) — ${r.detail}`}`,
+      `  ${c.label.padEnd(20)} ${letter.padEnd(40)} ${
+        r.ok ? "WOULD SEND" : `REFUSED (${r.reason}) — ${r.detail}`
+      }`,
     );
   }
   console.log();
