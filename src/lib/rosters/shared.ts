@@ -31,26 +31,57 @@ export function isPlacementTier(v: string): v is PlacementTier {
 export const BLUE_CLASSES = [2029, 2030] as const;
 export const BLUE_TEAM_NAME = "You First Blue";
 
-/**
- * The elite_youth tier's display name. Named once, here, so a rename is one
- * line instead of a search: tierLabel returns it, and every surface — roster
- * screen and emails both — reads it from tierLabel or from this constant.
- */
-export const ELITE_DEV_PROGRAM = "Elite Development Program";
 export function isBlueClass(year: number | null): boolean {
   return year != null && (BLUE_CLASSES as readonly number[]).includes(year);
 }
 
-/** Display labels, exactly per the naming standard. */
+/**
+ * THE ONE PRINCIPLE THIS FILE ENFORCES: every team in this club is an Elite
+ * team. There is no development program, no B squad, no lesser tier with a
+ * softer name. A girl tried out for a team and she made a team — the 2032
+ * Elite team, the 2033/2034 Elite team.
+ *
+ * "Elite Development Program" is RETIRED as a team name. It is gone from every
+ * surface a human being can see.
+ *
+ * What survives is `elite_youth` as a STORED VALUE, and its only remaining job
+ * is to pick which letter a family receives: a 2034 family must never get the
+ * 2029 college-recruiting letter. It picks a letter. It never names a team.
+ *
+ * The class boundary below is where the two letters divide, and it matches the
+ * data exactly: every athlete at 2031 and younger already carries elite_youth,
+ * every athlete at 2030 and older carries elite or blue.
+ */
+export const YOUTH_LETTER_MIN_CLASS = 2031;
+
+/**
+ * Which letter a class receives — and therefore which value a placement on that
+ * class's Elite team stores. THE ONLY REASON THIS FUNCTION EXISTS. Callers that
+ * want a name for the team want tierLabel().
+ */
+export function teamTierForClass(year: number): "elite" | "elite_youth" {
+  return year >= YOUTH_LETTER_MIN_CLASS ? "elite_youth" : "elite";
+}
+
+/**
+ * Display labels, exactly per the naming standard.
+ *
+ * Both Elite values render the same way — as the class's Elite team — because
+ * they ARE the same thing to a family. `elite_youth` renders through
+ * groupKeyForYear so 2033 and 2034 land on the single name they share, exactly
+ * as Blue does for 2029 and 2030. Two teams span two grad years each; both say
+ * so the same way.
+ */
 export function tierLabel(tier: string | null, classYear: number | null): string {
   switch (tier) {
     case "elite":
       return classYear != null ? `${classYear} Elite` : "Elite";
+    case "elite_youth":
+      // 2033 + 2034 are ONE team — "2033/2034 Elite", never "2034 Elite".
+      return classYear != null ? `${groupKeyForYear(classYear)} Elite` : "Elite";
     case "blue":
       // One team across 2029 and 2030 — never "{class} Blue".
       return BLUE_TEAM_NAME;
-    case "elite_youth":
-      return ELITE_DEV_PROGRAM;
     case "elite_training":
       return "Elite Training Group";
     case "no_tryout":
@@ -62,6 +93,35 @@ export function tierLabel(tier: string | null, classYear: number | null): string
     default:
       return "Pending";
   }
+}
+
+/** One selectable placement: what it stores, and what a human reads. */
+export interface TeamOption {
+  value: "elite" | "blue" | "elite_youth";
+  label: string;
+}
+
+/**
+ * The teams that actually EXIST for a class — the whole option list a placement
+ * dropdown may offer.
+ *
+ * Exactly one Elite team per class, plus Blue where Blue runs. The screen can no
+ * longer offer "2033 Elite" and "Elite Development Program" to the same athlete,
+ * because after this there is only ever one of them and they were always the
+ * same team.
+ *
+ * Returns [] when the class is outside the table's placed_team rails, so the
+ * caller offers no team rather than one that cannot be written.
+ */
+export function teamOptionsFor(
+  table: "players" | "tryout_registrations",
+  classYear: number | null,
+): TeamOption[] {
+  if (classYear == null || !placedTeamOk(table, classYear)) return [];
+  const tier = teamTierForClass(classYear);
+  const options: TeamOption[] = [{ value: tier, label: tierLabel(tier, classYear) }];
+  if (isBlueClass(classYear)) options.push({ value: "blue", label: BLUE_TEAM_NAME });
+  return options;
 }
 
 /**

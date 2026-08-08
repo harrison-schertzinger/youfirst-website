@@ -10,7 +10,6 @@
  */
 
 import {
-  ELITE_DEV_PROGRAM,
   groupKeyForYear,
   TEAM_TIERS,
   type PlacementTier,
@@ -41,11 +40,23 @@ export function isSendableTier(v: string | null): v is SendableTier {
 /** Group order on the send screen — the order Harrison works down. */
 export const TIER_ORDER: readonly SendableTier[] = SENDABLE_TIERS;
 
+/**
+ * The heading over one approvable group. The screen prints "Class of 2033/2034"
+ * directly above it, so this names the TEAM WITHIN the class and nothing more.
+ *
+ * elite and elite_youth both read "Elite" because they are the same thing to a
+ * family — her class's Elite team. Only the letter behind them differs, and a
+ * letter is not a team name.
+ *
+ * They cannot collide inside one class: the dropdown writes
+ * teamTierForClass(class), which yields exactly one of the two per class, so a
+ * class can never hold both and never produce two groups with one phrase.
+ */
 export const TIER_GROUP_LABEL: Record<SendableTier, string> = {
   elite: "Elite",
   // One team across 2029 and 2030 — one group, one send, one anchor.
   blue: "You First Blue",
-  elite_youth: ELITE_DEV_PROGRAM,
+  elite_youth: "Elite",
   elite_training: "Elite Training Group",
 };
 
@@ -76,14 +87,22 @@ export const EXCLUDED_CLASSES: readonly string[] = ["2028"];
  * hold her is a separate thing, so it gets its own mechanism rather than being
  * disguised as a contact problem.
  *
- * Grace Lanzillotta is already 'declined' and so blocked twice over. She is
- * listed anyway: if her tier ever changes, the hold still stands.
+ * The list is currently EMPTY. That is a state, not an oversight — both entries
+ * were released for stated reasons and the mechanism stays because the next
+ * family Harrison wants to call himself will need it.
  */
 export const HELD_ATHLETES: Record<string, string> = {
   // Kelsey Lorenzen released 2026-07-30 — she gets the 2029 Elite email like
   // everyone else. Her address was never the problem: alorenzen@zoomtown.com,
   // from the roster confirmation her family filed on 23 July.
-  "player:36e8db08-366e-4806-9b4e-01992f113426": "Grace Lanzillotta",
+  //
+  // Grace Lanzillotta (player:36e8db08) released 2026-08-08. The hold existed
+  // because her players row wrongly read 'declined' on 31 July while she had in
+  // fact been placed that morning — it was protecting her from an email that
+  // contradicted a decline we had recorded by mistake. Both rows now read
+  // 2033 / elite_youth, the decline is gone, and she is in tonight's send as an
+  // athlete who has never been told she made the team. Holding her further
+  // would keep the original error running.
 };
 
 /** "2030:elite", or "blue" — the id of one approvable group. */
@@ -114,6 +133,14 @@ export const NUDGE_APPROVAL = "SEND NUDGE";
 
 // ── Templates ─────────────────────────────────────────────────────────────
 
+/**
+ * STORED VALUES, not labels. These are primary keys into email_templates.name
+ * and no family ever sees one. The elite_youth row keeps the retired program
+ * name deliberately: renaming a template row is a two-place change (database
+ * and code) whose failure mode is a live send finding no template, and the
+ * string is invisible outside /admin/templates. The COPY inside that row is a
+ * different matter and has been cleaned.
+ */
 export const TEMPLATE_NAME_BY_TIER: Record<SendableTier, string> = {
   elite: "Placement — Elite",
   blue: "Placement — Blue",

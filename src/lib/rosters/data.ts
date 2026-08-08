@@ -10,9 +10,14 @@
  * Placement is two fields, written together:
  *   placed_team      — which age-group class team ("2030"); its CHECK is the
  *                      rail that makes Move Up / Move Down work.
- *   placement_tier   — which roster within the class. Naming standard: the
- *                      values are elite | blue | elite_youth | elite_training
- *                      | declined. "Development" never labels a person.
+ *   placement_tier   — which roster within the class: elite | blue |
+ *                      elite_youth | elite_training | declined.
+ *
+ * ON elite VERSUS elite_youth: they are ONE TEAM per class as far as any human
+ * being is concerned — her class's Elite team. The two values exist only to
+ * pick which letter her family receives, because a 2034 family must never get
+ * the 2029 college-recruiting letter. The value picks a letter; tierLabel()
+ * names the team. "Elite Development Program" is retired and names nothing.
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";

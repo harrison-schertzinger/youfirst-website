@@ -15,11 +15,16 @@
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * ADDENDUM B applies to every word that lands here:
- *   B1  "Development" describes what the club does — never a person, a team or
- *       a tier. The rosters are Elite, You First Blue, the Elite Development
- *       Program and the Elite Training Group.
- *   B2  Tier labels are exact and come from tierLabel(): "{Class} Elite",
- *       "You First Blue", "Elite Development Program", "Elite Training Group".
+ *   B1  EVERY TEAM IN THIS CLUB IS AN ELITE TEAM. There is no development
+ *       program and no lesser tier with a softer name. "Development" describes
+ *       what the club does — never a person, a team or a tier. The rosters are
+ *       the class Elite teams, You First Blue, and the Elite Training Group.
+ *       "Elite Development Program" is RETIRED and must not be written again.
+ *   B2  Tier labels are exact and come from tierLabel(): "{Class} Elite" —
+ *       including "2033/2034 Elite", one team across two grad years, exactly as
+ *       Blue is one team across 2029 and 2030 — plus "You First Blue" and
+ *       "Elite Training Group". The stored value elite_youth is NOT a label; it
+ *       picks which letter a family receives and nothing else.
  *       no_tryout / no_registration / declined / pending are INTERNAL and must
  *       never appear on this page.
  *   B3  Banned: developmental / B team / second team / lower team / tier 2 /

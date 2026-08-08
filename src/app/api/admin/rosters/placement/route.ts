@@ -4,8 +4,11 @@ import { isEmailAllowed } from "@/lib/admin-auth";
 import {
   TEAM_TIERS,
   getServiceClient,
+  isBlueClass,
   placedTeamOk,
   regPlacedTeamOk,
+  teamTierForClass,
+  tierLabel,
 } from "@/lib/rosters/data";
 
 export const dynamic = "force-dynamic";
@@ -115,6 +118,30 @@ export async function PATCH(req: Request): Promise<NextResponse> {
     }
     if (!validTeamFor(table, currentClass)) {
       return fail(400, `Class ${currentClass} is outside the ${table === "players" ? "player" : "registration"} team range.`);
+    }
+    // AN ATHLETE MAY ONLY BE PLACED ON A TEAM THAT EXISTS FOR HER CLASS.
+    //
+    // The dropdown now offers exactly one Elite team per class, but a closed
+    // dropdown is a courtesy and this is the rule. Without it a stale tab, a
+    // direct POST, or the next screen that forgets could still write 'elite'
+    // onto a 2033 athlete — and 'elite' is not a label, it is the choice of
+    // letter. That is how a twelve-year-old's family receives the college-
+    // recruiting email.
+    //
+    // elite_training is exempt: it is a state that runs at every class, not
+    // one class's team, and this sprint does not change how it is stored.
+    if (picked !== "elite_training") {
+      const allowed: string[] = [teamTierForClass(currentClass)];
+      if (isBlueClass(currentClass)) allowed.push("blue");
+      if (!allowed.includes(picked)) {
+        return fail(
+          400,
+          `Class ${currentClass} has no team called that. Her team is ${tierLabel(
+            teamTierForClass(currentClass),
+            currentClass,
+          )}.`,
+        );
+      }
     }
     const team = String(currentClass);
     playerUpdate.placed_team = team;

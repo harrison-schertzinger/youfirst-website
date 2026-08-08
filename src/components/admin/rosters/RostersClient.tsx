@@ -21,10 +21,10 @@ import {
   ROSTER_SIZE_MAX,
   ROSTER_SIZE_MIN,
   BLUE_TEAM_NAME,
-  ELITE_DEV_PROGRAM,
+  teamOptionsFor,
+  teamTierForClass,
   formatPhone,
   groupKeyForYear,
-  isBlueClass,
   nameSortKey,
   pickKeeper,
   placedTeamOk,
@@ -163,9 +163,19 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
   const sections = useMemo(() => {
     const byTier = (t: string) => inClass.filter((a) => a.placementTier === t);
     const label = active === "unassigned" ? "" : active;
+    const eliteTitle = label ? `${label} Elite` : "Elite";
+    // Which of the two Elite values this class stores. Null on the unassigned
+    // tab, where there is no class and so no letter to pick.
+    const firstYear = /^\d{4}/.test(active) ? parseInt(active.slice(0, 4), 10) : null;
+    const youthClass = firstYear == null ? null : teamTierForClass(firstYear) === "elite_youth";
     return [
-      { key: "elite", title: `${label} Elite`, list: byTier("elite"), always: true, targets: true, controls: true, forceYear: false },
-      { key: "elite_youth", title: ELITE_DEV_PROGRAM, list: byTier("elite_youth"), always: false, targets: false, controls: true, forceYear: false },
+      // ONE Elite bucket per class. Both stored values render the same heading
+      // — they are the same team to a family — and after normalization a class
+      // only ever holds one of them, so only one of these two ever has anyone
+      // in it. `always` sits on whichever value this class actually uses, so
+      // an empty class still shows the Elite section it would fill.
+      { key: "elite", title: eliteTitle, list: byTier("elite"), always: youthClass === false, targets: true, controls: true, forceYear: false },
+      { key: "elite_youth", title: eliteTitle, list: byTier("elite_youth"), always: youthClass === true, targets: false, controls: true, forceYear: false },
       { key: "elite_training", title: "Elite Training Group", list: byTier("elite_training"), always: false, targets: false, controls: true, forceYear: false },
       { key: "declined", title: "Declined", list: byTier("declined"), always: false, targets: false, controls: false, forceYear: false },
       {
@@ -186,29 +196,33 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
     [inClass],
   );
 
-  // Acceptance per team: over everyone whose placement email OFFERED this
-  // tier (token at send time), classified by where she stands now — so a
-  // decline still counts against the team that was declined.
-  const acceptanceFor = useCallback(
-    (tierKey: string) => {
-      const pop = data.athletes.filter(
-        (a) =>
-          a.placementEmail &&
-          (a.placementEmail.tier ?? a.placementTier) === tierKey &&
-          (tierKey === "blue" ||
-            (a.classYear != null && groupKeyForYear(a.classYear) === active)),
-      );
-      const confirmed = pop.filter((a) => a.confirmed).length;
-      const declined = pop.filter((a) => a.placementTier === "declined").length;
-      return {
-        sent: pop.length,
-        confirmed,
-        declined,
-        silent: pop.length - confirmed - declined,
-      };
-    },
-    [data, active],
-  );
+  /**
+   * Acceptance for a team: counted over THE ATHLETES THIS HEADER SITS ABOVE,
+   * and nobody else.
+   *
+   * It used to gather its own population by matching the tier the TOKEN was
+   * minted with — a third source of truth, independent of both the row's tier
+   * and the section it renders in. When those disagreed the header counted a
+   * group that was not on screen: the 2033/2034 ELITE header read "Sent 0 · 0
+   * confirmed" directly above Eva Behrens and her confirmed Yes, because her
+   * token said elite_youth and her row said elite.
+   *
+   * Taking the rendered list as the population makes that class of lie
+   * unrepresentable. A tier mismatch can move an athlete between sections, but
+   * it can no longer separate her from her own send. A number on this screen
+   * decides whether Harrison calls a family.
+   */
+  const acceptanceFor = useCallback((list: RosterAthlete[]) => {
+    const pop = list.filter((a) => a.placementEmail);
+    const confirmed = pop.filter((a) => a.confirmed).length;
+    const declined = pop.filter((a) => a.placementTier === "declined").length;
+    return {
+      sent: pop.length,
+      confirmed,
+      declined,
+      silent: pop.length - confirmed - declined,
+    };
+  }, []);
 
   const unplaced = useMemo(() => inClass.filter((a) => !a.placementTier), [inClass]);
 
@@ -843,7 +857,7 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
                           title={BLUE_TEAM_NAME}
                           list={allBlue}
                           targets
-                          acceptance={acceptanceFor("blue")}
+                          acceptance={acceptanceFor(allBlue)}
                           sendTier="blue"
                           onCopy={() => copyEmails(BLUE_TEAM_NAME, allBlue)}
                           onCsv={() => exportCsv(BLUE_TEAM_NAME, allBlue)}
@@ -871,7 +885,7 @@ export default function RostersClient({ initial }: { initial: RosterData }) {
                               title={s.title}
                               list={s.list}
                               targets={s.targets}
-                              acceptance={s.controls ? acceptanceFor(s.key) : null}
+                              acceptance={s.controls ? acceptanceFor(s.list) : null}
                               sendTier={s.controls ? s.key : null}
                               onCopy={s.controls ? () => copyEmails(s.title, s.list) : null}
                               onCsv={s.controls ? () => exportCsv(s.title, s.list) : null}
@@ -1567,7 +1581,7 @@ function PlacementSelect({
     ? (a.placementTier as PlacementTier)
     : "pending";
 
-  const canPlace = cls != null && placedTeamOk(a.table, cls);
+  const teamOptions = teamOptionsFor(a.table, cls);
   const upTarget = cls != null && placedTeamOk(a.table, cls - 1) ? cls - 1 : null;
   const downTarget = cls != null && placedTeamOk(a.table, cls + 1) ? cls + 1 : null;
 
@@ -1591,9 +1605,13 @@ function PlacementSelect({
         ].join(" ")}
       >
         <option value="pending">Pending</option>
-        {canPlace && cls != null && <option value="elite">{cls} Elite</option>}
-        {canPlace && isBlueClass(cls) && <option value="blue">{BLUE_TEAM_NAME}</option>}
-        <option value="elite_youth">{ELITE_DEV_PROGRAM}</option>
+        {/* The teams that EXIST for her class — one Elite team, plus Blue where
+            Blue runs. Never two names for the same roster. */}
+        {teamOptions.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
         <option value="elite_training">Elite Training Group</option>
         {upTarget != null && <option value="move_up">Move Up → {upTarget}</option>}
         {downTarget != null && <option value="move_down">Move Down → {downTarget}</option>}
@@ -2004,10 +2022,16 @@ function ShapeStrip({
 
   return (
     <div className="mt-1.5 h-8 flex items-center gap-x-6 overflow-x-auto whitespace-nowrap rounded-lg border border-[#E5E8EC] bg-white px-3 text-[12px] scrollbar-hide">
-      <TierInline title={`${label} Elite`} list={byTier("elite")} />
+      {/* ONE Elite count for the class. The two stored values are one team;
+          the strip must not split her class in half over which letter she
+          gets. Only one of the two is ever populated after normalization —
+          concatenating is what makes that true rather than assumed. */}
+      <TierInline
+        title={label ? `${label} Elite` : "Elite"}
+        list={[...byTier("elite"), ...byTier("elite_youth")]}
+      />
       {blueList && <TierInline title={BLUE_TEAM_NAME} list={blueList} />}
       <span className="inline-flex items-center gap-x-3 text-[#6B7280]">
-        <StripCount label="Elite Dev" title={ELITE_DEV_PROGRAM} n={byTier("elite_youth").length} />
         <StripCount label="Training" title="Elite Training Group" n={byTier("elite_training").length} />
         <StripCount label="Declined" title="Declined" n={byTier("declined").length} />
         <StripCount label="No T/R" title="No Tryout / No Registration" n={parked} />
