@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { isEmailAllowed } from "@/lib/admin-auth";
@@ -24,6 +24,14 @@ import { isEmailAllowed } from "@/lib/admin-auth";
  * Supabase enforces the password itself. A correct password for an address that
  * is NOT on the allowlist still yields no admin access — the layout bounces it.
  */
+function messageForQueryError(code: string | null): string | null {
+  if (!code) return null;
+  if (code === "not_authorized")
+    return "That account doesn't have access to the Command Center.";
+  if (code === "signed_out") return null;
+  return "Please sign in again.";
+}
+
 export default function AdminLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -31,19 +39,13 @@ export default function AdminLoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  // Seeded from ?error= in the initializer rather than an effect: the query
+  // string cannot change without a navigation, so there is nothing to sync,
+  // and setState-in-an-effect costs a cascading render for no benefit.
+  const [error, setError] = useState<string | null>(() =>
+    messageForQueryError(queryError),
+  );
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (!queryError) return;
-    if (queryError === "not_authorized") {
-      setError("That account doesn't have access to the Command Center.");
-    } else if (queryError === "signed_out") {
-      setError(null);
-    } else {
-      setError("Please sign in again.");
-    }
-  }, [queryError]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

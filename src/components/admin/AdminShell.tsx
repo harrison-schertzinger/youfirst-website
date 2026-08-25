@@ -25,10 +25,9 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { href: "/admin", label: "Dashboard", Icon: LayoutDashboard },
+  { href: "/admin", label: "Roster", Icon: ClipboardList },
   { href: "/admin/prospects", label: "Prospects", Icon: UserPlus },
   { href: "/admin/tryouts", label: "Tryouts", Icon: ClipboardCheck },
-  { href: "/admin/rosters", label: "Rosters", Icon: ClipboardList },
   { href: "/admin/placements", label: "Placements", Icon: Send },
   { href: "/admin/players", label: "Players", Icon: Users },
   { href: "/admin/expenses", label: "Expenses", Icon: Receipt },

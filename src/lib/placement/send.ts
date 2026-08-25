@@ -1231,7 +1231,7 @@ export async function notifyConfirmation(token: TokenRow, receiptOk: boolean) {
         ? "She is in. The receipt is on its way, pointing the family at The You First Standard."
         : "She is in — but the receipt email did NOT go out. Send her the Standard link by hand and check the logs.",
     ],
-    button: { label: "Open the roster", url: `${SITE_URL}/admin/rosters` },
+    button: { label: "Open the roster", url: `${SITE_URL}/admin` },
     to: ADMIN_NOTIFY,
   });
   if (!result.sent) console.error("[placement] confirm notify failed:", result.error);
