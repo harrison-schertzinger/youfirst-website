@@ -7,6 +7,14 @@ import { cookies } from "next/headers";
 import PortalContent from "@/components/portal/PortalContent";
 import PaymentBanner from "@/components/portal/PaymentBanner";
 import { PORTAL_COOKIE_NAME, verifyPortalToken } from "@/lib/portal-session";
+import PortalSchedule from "@/components/portal/PortalSchedule";
+import PortalContacts from "@/components/portal/PortalContacts";
+import { getEvents, getUnconfirmedEvents } from "@/lib/calendar";
+import { getPublishedContacts } from "@/lib/club-contacts";
+import { getFeeds, getTeams } from "@/lib/events";
+
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.youfirstlacrosse.com";
 
 export const metadata: Metadata = {
   title: "Player Portal | YOU. FIRST Elite Lacrosse",
@@ -25,6 +33,25 @@ export default async function PortalPage({
     redirect("/fees");
   }
 
+  // Schedule, contacts, and the calendar feed. Each is independent of the
+  // others and none of them is worth failing the portal over — a family who
+  // came to check what she owes still gets that if the schedule query dies.
+  const [events, undated, contacts, feeds, teams] = await Promise.all([
+    getEvents().catch(() => []),
+    getUnconfirmedEvents().catch(() => []),
+    getPublishedContacts().catch(() => []),
+    getFeeds().catch(() => []),
+    getTeams().catch(() => []),
+  ]);
+
+  // The whole-club feed is the one with no team attached.
+  const clubFeed = feeds.find((f) => f.teamId === null) ?? null;
+  // webcal:// so a phone hands this to its calendar app instead of downloading
+  // a file it has no idea what to do with.
+  const subscribeUrl = clubFeed
+    ? `webcal://${SITE_URL.replace(/^https?:\/\//, "")}/api/calendar/${clubFeed.token}.ics`
+    : null;
+
   const params = await searchParams;
   const paidTicket = typeof params.paid === "string" ? params.paid : null;
   const canceledTicket = typeof params.canceled === "string" ? params.canceled : null;
@@ -37,7 +64,15 @@ export default async function PortalPage({
         {(paidTicket || canceledTicket) && (
           <PaymentBanner paid={paidTicket} canceled={canceledTicket} />
         )}
-        <PortalContent />
+        <PortalContent>
+          <PortalSchedule
+            events={events}
+            undated={undated}
+            subscribeUrl={subscribeUrl}
+            teamCount={teams.length}
+          />
+          <PortalContacts contacts={contacts} />
+        </PortalContent>
       </main>
       <Footer />
     </>

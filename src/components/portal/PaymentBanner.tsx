@@ -60,7 +60,7 @@ export default function PaymentBanner({
       <div className="mx-auto max-w-[1280px] px-6 lg:px-8 pt-6">
         <div className="flex items-center justify-between gap-4 rounded-xl bg-[#F0F1F3] border border-[#E5E7EB] px-5 py-4">
           <p className="text-sm text-[#6B7280]">
-            Payment canceled. Try again when you're ready.
+            Payment canceled. Try again when you&rsquo;re ready.
           </p>
           <button
             type="button"

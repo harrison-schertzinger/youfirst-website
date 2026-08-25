@@ -69,7 +69,12 @@ interface PlayerWithData extends Player {
   charges: PortalCharge[];
 }
 
-export default function PortalContent() {
+export default function PortalContent({
+  children,
+}: {
+  /** Server-rendered sections (schedule, contacts) placed above sign-out. */
+  children?: React.ReactNode;
+}) {
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [players, setPlayers] = useState<PlayerWithData[]>([]);
@@ -210,6 +215,9 @@ export default function PortalContent() {
           charges={selectedPlayer.charges}
         />
       </div>
+
+      {/* Schedule and contacts — server-rendered, handed down from the page. */}
+      {children}
 
       {/* Sign out */}
       <div className="text-center pt-8 border-t border-[#E5E7EB]">
