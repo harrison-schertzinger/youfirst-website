@@ -136,3 +136,20 @@ create policy "Service role full access event_teams" on public.event_teams
 drop policy if exists "Service role full access calendar_feeds" on public.calendar_feeds;
 create policy "Service role full access calendar_feeds" on public.calendar_feeds
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- players_notes_and_hold_status
+-- APPLIED to iklgrzabcloaqyghlggr on 2026-08-25 via MCP apply_migration.
+--
+-- An injured athlete is ON the roster. She is not "inactive". Before this the
+-- status column had no way to say that, and a player had no notes field at all.
+-- Widening the CHECK is only half the change — see src/lib/player-status.ts,
+-- because every caller wrote `status === 'active'` and that comparison was
+-- silently answering two different questions.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+alter table public.players add column if not exists notes text;
+
+alter table public.players drop constraint if exists players_status_check;
+alter table public.players add constraint players_status_check
+  check (status = any (array['active','injured','hold','inactive','alumni']));

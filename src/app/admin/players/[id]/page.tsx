@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowLeft } from "lucide-react";
+import { isOnRoster } from "@/lib/player-status";
 import {
   inferPlayerSource,
   sourceLabels,
@@ -173,7 +174,9 @@ export default async function PlayerProfilePage({
     redirect("/admin/players");
   }
   const p = player as PlayerRow;
-  if (p.status !== "active") {
+  // Injured and on-hold athletes are ON the roster — only genuinely departed
+  // players get bounced back with the "archived" notice.
+  if (!isOnRoster(p.status)) {
     redirect(
       `/admin/players?archived=${encodeURIComponent(`${p.first_name} ${p.last_name}`)}`,
     );

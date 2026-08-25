@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { readPortalSession } from "@/lib/portal-session";
+import { isOnRoster } from "@/lib/player-status";
 import {
   isSelfLinkEnabled,
   SELF_LINK_DISABLED_MESSAGE,
@@ -62,7 +63,9 @@ export async function POST(request: NextRequest) {
     console.error("[portal/link] player lookup failed:", playerErr);
     return NextResponse.json({ error: "Couldn’t link right now." }, { status: 500 });
   }
-  if (!player || player.status !== "active") {
+  // On the roster is the test, not "currently playing" — a parent must be able
+  // to link an injured daughter to her portal.
+  if (!player || !isOnRoster(player.status)) {
     return NextResponse.json({ error: "Player not found." }, { status: 404 });
   }
 

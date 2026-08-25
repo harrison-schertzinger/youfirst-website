@@ -36,6 +36,7 @@ import {
   type RosterFlag,
 } from "@/lib/rosters/shared";
 import { PLACEMENT_CAMPAIGN, SEND_KINDS } from "@/lib/placement/shared";
+import { ROSTER_STATUSES } from "@/lib/player-status";
 
 export * from "@/lib/rosters/shared";
 
@@ -282,7 +283,7 @@ export async function buildRosterData(db: SupabaseClient): Promise<RosterData> {
       .select(
         "id, first_name, last_name, graduation_year, placed_team, placement_tier, position, jersey_number, school, team_name, status, fallback_email, unverified_phone, created_at",
       )
-      .eq("status", "active")
+      .in("status", ROSTER_STATUSES as unknown as string[])
       .order("last_name", { ascending: true }),
     db.from("guardians").select("id, email, first_name, last_name, phone"),
     db.from("player_guardians").select("player_id, guardian_id, is_primary"),
