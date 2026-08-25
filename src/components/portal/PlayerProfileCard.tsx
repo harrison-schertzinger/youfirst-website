@@ -50,9 +50,12 @@ const SIZE_FIELDS: Array<{
 export default function PlayerProfileCard({
   player,
   onUpdated,
+  preview = false,
 }: {
   player: PlayerProfileData;
   onUpdated: (next: PlayerProfileData) => void;
+  /** Admin preview screen — saving is disabled, the id is synthetic. */
+  preview?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [sizes, setSizes] = useState<SizeState>(() => toSizeState(player));
@@ -74,6 +77,12 @@ export default function PlayerProfileCard({
   }
 
   async function save() {
+    // Preview screen: the player id is synthetic, so a save would either 404 or
+    // write to nothing. Fail loudly and locally instead of pretending.
+    if (preview) {
+      setError("Preview only — saving is disabled on this screen.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {

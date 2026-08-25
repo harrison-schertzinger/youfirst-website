@@ -1,5 +1,7 @@
 "use client";
 
+import { createContext, useContext } from "react";
+
 import { useRef, useState } from "react";
 import {
   buildRosterTicket,
@@ -10,6 +12,15 @@ import {
 import { formatCents, type PlayerBalanceRow } from "@/lib/portal-balance";
 import SummerBalanceCard from "./SummerBalanceCard";
 import BalanceQuestion from "./BalanceQuestion";
+
+/**
+ * True on the admin preview screen. Consumed by every card that can start a
+ * checkout, so synthetic data cannot reach Stripe.
+ */
+const PreviewContext = createContext(false);
+export function useIsPreview() {
+  return useContext(PreviewContext);
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -38,8 +49,15 @@ function TicketCard({ ticket }: { ticket: PaymentTicket }) {
   const gradient =
     "linear-gradient(135deg, #0A0A0B 0%, #1A1D24 45%, #4A90D9 100%)";
 
+  const isPreview = useIsPreview();
+
   async function handlePay() {
     if (inFlightRef.current) return;
+    // Preview screen: synthetic ids must never reach Stripe.
+    if (isPreview) {
+      setErrorMsg("Preview only — checkout is disabled on this screen.");
+      return;
+    }
     inFlightRef.current = true;
     setLoading(true);
     setErrorMsg(null);
@@ -254,8 +272,15 @@ function ChargeCard({ charge }: { charge: PortalChargeLine }) {
   const gradient =
     "linear-gradient(135deg, #0A0A0B 0%, #1A1D24 45%, #7C5CFB 100%)";
 
+  const isPreview = useIsPreview();
+
   async function handlePay() {
     if (inFlightRef.current) return;
+    // Preview screen: synthetic ids must never reach Stripe.
+    if (isPreview) {
+      setErrorMsg("Preview only — checkout is disabled on this screen.");
+      return;
+    }
     inFlightRef.current = true;
     setLoading(true);
     setErrorMsg(null);
@@ -428,13 +453,21 @@ export default function PaymentDashboard({
   payments,
   balance,
   charges = [],
+  preview = false,
 }: {
   playerId: string;
   playerFirstName: string;
   payments: PortalPayment[];
   balance: PlayerBalanceRow | null;
   charges?: PortalChargeLine[];
+  /**
+   * Renders against synthetic data on the admin preview screen. Every checkout
+   * call is short-circuited: a click here must never reach Stripe with a
+   * player id that does not exist.
+   */
+  preview?: boolean;
 }) {
+  // Everything below renders inside PreviewContext (see the return).
   const rosterTicket = buildRosterTicket(playerId, payments);
   const summerLines = buildSummerPaymentLines(payments);
   const visibleCharges = charges.filter((c) => c.status !== "void");
@@ -467,6 +500,7 @@ export default function PaymentDashboard({
   const totalRemaining = summerRemaining + rosterRemaining + chargeRemaining;
 
   return (
+    <PreviewContext.Provider value={preview}>
     <div className="max-w-2xl mx-auto mt-12">
       <p className="section-label mb-6">Payments</p>
 
@@ -542,5 +576,6 @@ export default function PaymentDashboard({
       {/* The correction channel */}
       <BalanceQuestion playerId={playerId} playerFirstName={playerFirstName} />
     </div>
+    </PreviewContext.Provider>
   );
 }

@@ -34,6 +34,11 @@ export default async function AdminLayout({
     return <>{children}</>;
   }
 
+  // Preview screens render what a PARENT sees, so they must not be wrapped in
+  // the admin sidebar — a portal squeezed into an admin shell is not a preview
+  // of anything. Auth still applies: the check below runs for these routes.
+  const isPreview = pathname.startsWith("/admin/preview");
+
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
@@ -45,6 +50,8 @@ export default async function AdminLayout({
   if (!isEmailAllowed(user.email)) {
     redirect("/admin/login?error=not_authorized");
   }
+
+  if (isPreview) return <>{children}</>;
 
   return <AdminShell userEmail={user.email ?? ""}>{children}</AdminShell>;
 }
