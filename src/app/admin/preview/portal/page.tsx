@@ -1,13 +1,14 @@
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import PlayerCard from "@/components/portal/PlayerCard";
+import PlayerHeader from "@/components/portal/PlayerHeader";
 import PlayerProfileCardPreview from "@/components/portal/PlayerProfileCardPreview";
 import PaymentDashboard from "@/components/portal/PaymentDashboard";
-import PortalSchedule from "@/components/portal/PortalSchedule";
-import PortalContacts from "@/components/portal/PortalContacts";
-import { getEvents, getUnconfirmedEvents } from "@/lib/calendar";
+import BalanceQuestionPreview from "@/components/portal/BalanceQuestionPreview";
+import RailCalendar from "@/components/portal/RailCalendar";
+import RailContacts from "@/components/portal/RailContacts";
+import { getEvents } from "@/lib/calendar";
 import { getPublishedContacts } from "@/lib/club-contacts";
-import { getFeeds, getTeams } from "@/lib/events";
+import { getFeeds } from "@/lib/events";
 import type { PlayerBalanceRow } from "@/lib/portal-balance";
 
 export const dynamic = "force-dynamic";
@@ -91,13 +92,30 @@ const previewBalance: PlayerBalanceRow = {
   quarter_eligible: true,
 };
 
+/** The next few dated events, formatted for the rail. */
+function nextUpFrom(
+  events: { id: string; title: string; startDate: string; startTime: string; isAllDay: boolean }[],
+  limit = 3,
+) {
+  const todayKey = new Date().toISOString().slice(0, 10);
+  return events
+    .filter((e) => e.startDate >= todayKey)
+    .slice(0, limit)
+    .map((e) => {
+      const d = new Date(`${e.startDate}T12:00:00`);
+      return {
+        id: e.id,
+        title: e.title,
+        when: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      };
+    });
+}
+
 export default async function PortalPreviewPage() {
-  const [events, undated, contacts, feeds, teams] = await Promise.all([
+  const [events, contacts, feeds] = await Promise.all([
     getEvents().catch(() => []),
-    getUnconfirmedEvents().catch(() => []),
     getPublishedContacts().catch(() => []),
     getFeeds().catch(() => []),
-    getTeams().catch(() => []),
   ]);
 
   const clubFeed = feeds.find((f) => f.teamId === null) ?? null;
@@ -127,34 +145,34 @@ export default async function PortalPreviewPage() {
       <Navbar initialTheme="light" />
 
       <main className="pt-20 pb-16 min-h-screen bg-background">
-        <div className="mx-auto max-w-[1280px] px-6 lg:px-8 py-12">
-          <div className="mb-12">
-            <p className="section-label mb-3">Player Portal</p>
-            <h1 className="text-[2rem] md:text-[2.5rem] font-bold tracking-tight leading-[1.1] text-[#1A1A1A]">
-              Welcome back
-            </h1>
-          </div>
+        <div className="mx-auto max-w-[1280px] px-6 lg:px-8 py-10">
+          <p className="section-label mb-5">Player Portal</p>
 
-          <div className="mb-16">
-            <PlayerCard player={previewPlayer} />
-            <PlayerProfileCardPreview player={previewPlayer} />
-            <PaymentDashboard
-              playerId={PREVIEW_PLAYER_ID}
-              playerFirstName={previewPlayer.first_name}
-              payments={previewPayments}
-              balance={previewBalance}
-              charges={[]}
-              preview
-            />
-          </div>
+          <div className="space-y-8">
+            <PlayerHeader player={previewPlayer} />
 
-          <PortalSchedule
-            events={events}
-            undated={undated}
-            subscribeUrl={subscribeUrl}
-            teamCount={teams.length}
-          />
-          <PortalContacts contacts={contacts} />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
+              <div className="lg:col-span-2 space-y-8 min-w-0">
+                <PaymentDashboard
+                  playerId={PREVIEW_PLAYER_ID}
+                  payments={previewPayments}
+                  balance={previewBalance}
+                  charges={[]}
+                  preview
+                />
+                <PlayerProfileCardPreview player={previewPlayer} />
+              </div>
+
+              <aside className="lg:col-span-1 space-y-6 min-w-0">
+                <RailCalendar
+                  subscribeUrl={subscribeUrl}
+                  nextUp={nextUpFrom(events)}
+                />
+                <RailContacts contacts={contacts} />
+                <BalanceQuestionPreview playerFirstName={previewPlayer.first_name} />
+              </aside>
+            </div>
+          </div>
         </div>
       </main>
 

@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SITE_CONFIG } from "@/lib/constants";
-import PlayerCard from "./PlayerCard";
+import PlayerHeader from "./PlayerHeader";
 import PaymentDashboard from "./PaymentDashboard";
 import PlayerProfileCard from "./PlayerProfileCard";
+import BalanceQuestion from "./BalanceQuestion";
 import PlayerPicker from "./PlayerPicker";
 import PlayerSwitcher from "./PlayerSwitcher";
 import type { PlayerBalanceRow } from "@/lib/portal-balance";
@@ -178,14 +179,8 @@ export default function PortalContent({
     shownPlayers.find((p) => p.id === selectedId) ?? shownPlayers[0];
 
   return (
-    <div className="mx-auto max-w-[1280px] px-6 lg:px-8 py-12">
-      {/* Header */}
-      <div className="mb-12">
-        <p className="section-label mb-3">Player Portal</p>
-        <h1 className="text-[2rem] md:text-[2.5rem] font-bold tracking-tight leading-[1.1] text-[#1A1A1A]">
-          Welcome back
-        </h1>
-      </div>
+    <div className="mx-auto max-w-[1280px] px-6 lg:px-8 py-10">
+      <p className="section-label mb-5">Player Portal</p>
 
       {/* Sibling switcher — renders only when this session links to more than
           one athlete. Single-player families see no switcher and no change. */}
@@ -195,32 +190,45 @@ export default function PortalContent({
         onSelect={setSelectedId}
       />
 
-      {/* The selected athlete's portal. Everything below — profile, progress,
-          payments, comment box — belongs to this player and no sibling. */}
-      <div key={selectedPlayer.id} className="mb-16">
-        <PlayerCard player={selectedPlayer} />
-        <PlayerProfileCard
-          player={selectedPlayer}
-          onUpdated={(next) =>
-            setPlayers((prev) =>
-              prev.map((p) => (p.id === next.id ? { ...p, ...next } : p))
-            )
-          }
-        />
-        <PaymentDashboard
-          playerId={selectedPlayer.id}
-          playerFirstName={selectedPlayer.first_name}
-          payments={selectedPlayer.payments}
-          balance={selectedPlayer.balance}
-          charges={selectedPlayer.charges}
-        />
+      {/* THE DASHBOARD. Identity across the top, then two columns: what she
+          owes on the left because that is what a parent came for, and the
+          things she acts on once — subscribe, who to email, flag a wrong
+          number — in a rail beside it rather than buried under a scroll.
+          Collapses to a single column on a phone, rail last. */}
+      <div key={selectedPlayer.id} className="space-y-8">
+        <PlayerHeader player={selectedPlayer} />
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
+          <div className="lg:col-span-2 space-y-8 min-w-0">
+            <PaymentDashboard
+              playerId={selectedPlayer.id}
+              payments={selectedPlayer.payments}
+              balance={selectedPlayer.balance}
+              charges={selectedPlayer.charges}
+            />
+
+            <PlayerProfileCard
+              player={selectedPlayer}
+              onUpdated={(next) =>
+                setPlayers((prev) =>
+                  prev.map((p) => (p.id === next.id ? { ...p, ...next } : p))
+                )
+              }
+            />
+          </div>
+
+          <aside className="lg:col-span-1 space-y-6 min-w-0">
+            {children}
+            <BalanceQuestion
+              playerId={selectedPlayer.id}
+              playerFirstName={selectedPlayer.first_name}
+            />
+          </aside>
+        </div>
       </div>
 
-      {/* Schedule and contacts — server-rendered, handed down from the page. */}
-      {children}
-
       {/* Sign out */}
-      <div className="text-center pt-8 border-t border-[#E5E7EB]">
+      <div className="text-center pt-12 mt-4 border-t border-[#E5E7EB]">
         <button
           onClick={signOut}
           className="text-sm text-[#9CA3AF] hover:text-[#6B7280] transition-colors duration-200 underline underline-offset-2"

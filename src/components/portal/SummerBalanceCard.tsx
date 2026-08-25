@@ -6,6 +6,7 @@ import {
   quarterCount,
   type PlayerBalanceRow,
 } from "@/lib/portal-balance";
+import { useIsPreview } from "./PaymentDashboard";
 
 /**
  * The summer balance surface.
@@ -31,6 +32,7 @@ export default function SummerBalanceCard({
   const [loading, setLoading] = useState<"full" | "quarter" | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const inFlightRef = useRef(false);
+  const isPreview = useIsPreview();
 
   const settled = balance.is_settled;
   const overpaid = balance.overpaid_cents > 0;
@@ -53,6 +55,12 @@ export default function SummerBalanceCard({
 
   async function startCheckout(intent: "full" | "quarter") {
     if (inFlightRef.current) return;
+    // Preview screen: the player id is synthetic. This card has its own
+    // checkout call and was missed when the other three were guarded.
+    if (isPreview) {
+      setErrorMsg("Preview only — checkout is disabled on this screen.");
+      return;
+    }
     inFlightRef.current = true;
     setLoading(intent);
     setErrorMsg(null);

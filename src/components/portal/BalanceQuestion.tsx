@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useIsPreview } from "./PaymentDashboard";
 
 const MAX_LENGTH = 2000;
 
@@ -31,9 +32,17 @@ export default function BalanceQuestion({
   const trimmed = message.trim();
   const canSubmit = trimmed.length > 0 && state !== "sending";
 
+  const isPreview = useIsPreview();
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit || inFlightRef.current) return;
+    // Preview screen: this would write a real row against a synthetic player.
+    if (isPreview) {
+      setState("error");
+      setErrorMsg("Preview only — sending is disabled on this screen.");
+      return;
+    }
     inFlightRef.current = true;
     setState("sending");
     setErrorMsg("");

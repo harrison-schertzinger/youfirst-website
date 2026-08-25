@@ -7,11 +7,11 @@ import { cookies } from "next/headers";
 import PortalContent from "@/components/portal/PortalContent";
 import PaymentBanner from "@/components/portal/PaymentBanner";
 import { PORTAL_COOKIE_NAME, verifyPortalToken } from "@/lib/portal-session";
-import PortalSchedule from "@/components/portal/PortalSchedule";
-import PortalContacts from "@/components/portal/PortalContacts";
-import { getEvents, getUnconfirmedEvents } from "@/lib/calendar";
+import RailCalendar from "@/components/portal/RailCalendar";
+import RailContacts from "@/components/portal/RailContacts";
+import { getEvents } from "@/lib/calendar";
 import { getPublishedContacts } from "@/lib/club-contacts";
-import { getFeeds, getTeams } from "@/lib/events";
+import { getFeeds } from "@/lib/events";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.youfirstlacrosse.com";
@@ -20,6 +20,25 @@ export const metadata: Metadata = {
   title: "Player Portal | YOU. FIRST Elite Lacrosse",
   description: "View your player's profile, payment history, and account details.",
 };
+
+/** The next few dated events, formatted for the rail. */
+function nextUpFrom(
+  events: { id: string; title: string; startDate: string; startTime: string; isAllDay: boolean }[],
+  limit = 3,
+) {
+  const todayKey = new Date().toISOString().slice(0, 10);
+  return events
+    .filter((e) => e.startDate >= todayKey)
+    .slice(0, limit)
+    .map((e) => {
+      const d = new Date(`${e.startDate}T12:00:00`);
+      return {
+        id: e.id,
+        title: e.title,
+        when: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      };
+    });
+}
 
 export default async function PortalPage({
   searchParams,
@@ -36,12 +55,10 @@ export default async function PortalPage({
   // Schedule, contacts, and the calendar feed. Each is independent of the
   // others and none of them is worth failing the portal over — a family who
   // came to check what she owes still gets that if the schedule query dies.
-  const [events, undated, contacts, feeds, teams] = await Promise.all([
+  const [events, contacts, feeds] = await Promise.all([
     getEvents().catch(() => []),
-    getUnconfirmedEvents().catch(() => []),
     getPublishedContacts().catch(() => []),
     getFeeds().catch(() => []),
-    getTeams().catch(() => []),
   ]);
 
   // The whole-club feed is the one with no team attached.
@@ -65,13 +82,8 @@ export default async function PortalPage({
           <PaymentBanner paid={paidTicket} canceled={canceledTicket} />
         )}
         <PortalContent>
-          <PortalSchedule
-            events={events}
-            undated={undated}
-            subscribeUrl={subscribeUrl}
-            teamCount={teams.length}
-          />
-          <PortalContacts contacts={contacts} />
+          <RailCalendar subscribeUrl={subscribeUrl} nextUp={nextUpFrom(events)} />
+          <RailContacts contacts={contacts} />
         </PortalContent>
       </main>
       <Footer />

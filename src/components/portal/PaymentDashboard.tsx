@@ -11,7 +11,6 @@ import {
 } from "@/lib/portal-tickets";
 import { formatCents, type PlayerBalanceRow } from "@/lib/portal-balance";
 import SummerBalanceCard from "./SummerBalanceCard";
-import BalanceQuestion from "./BalanceQuestion";
 
 /**
  * True on the admin preview screen. Consumed by every card that can start a
@@ -20,6 +19,22 @@ import BalanceQuestion from "./BalanceQuestion";
 const PreviewContext = createContext(false);
 export function useIsPreview() {
   return useContext(PreviewContext);
+}
+
+/**
+ * Supplies the preview flag to components rendered OUTSIDE PaymentDashboard —
+ * the balance box in the dashboard rail, for one.
+ */
+export function PreviewProvider({
+  value,
+  children,
+}: {
+  value: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <PreviewContext.Provider value={value}>{children}</PreviewContext.Provider>
+  );
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -449,14 +464,12 @@ function ChargeCard({ charge }: { charge: PortalChargeLine }) {
 
 export default function PaymentDashboard({
   playerId,
-  playerFirstName,
   payments,
   balance,
   charges = [],
   preview = false,
 }: {
   playerId: string;
-  playerFirstName: string;
   payments: PortalPayment[];
   balance: PlayerBalanceRow | null;
   charges?: PortalChargeLine[];
@@ -501,8 +514,8 @@ export default function PaymentDashboard({
 
   return (
     <PreviewContext.Provider value={preview}>
-    <div className="max-w-2xl mx-auto mt-12">
-      <p className="section-label mb-6">Payments</p>
+    <div className="w-full">
+      <p className="section-label mb-6">Fees</p>
 
       {/* Summary strip — money in, money owed. Never a counter. */}
       <div className="mb-6 text-sm text-[#6B7280]">
@@ -572,9 +585,6 @@ export default function PaymentDashboard({
           </div>
         </div>
       )}
-
-      {/* The correction channel */}
-      <BalanceQuestion playerId={playerId} playerFirstName={playerFirstName} />
     </div>
     </PreviewContext.Provider>
   );
