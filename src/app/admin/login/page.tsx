@@ -1,31 +1,47 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { isEmailAllowed } from "@/lib/admin-auth";
 
+/**
+ * Command Center sign-in — email + password.
+ *
+ * Replaced the magic-link flow on 2026-08-25. The magic link meant every
+ * sign-in required leaving the browser, finding an email, and clicking through
+ * — for two operators who log in constantly, that is friction with no security
+ * return, since the allowlist is what actually gates access.
+ *
+ * Defence is still layered and unchanged behind this form:
+ *   1. this client-side allowlist check (stops a wrong address before it hits
+ *      the network),
+ *   2. src/app/admin/layout.tsx re-checks the allowlist server-side for every
+ *      rendered /admin page,
+ *   3. every /api/admin/* route handler checks it again, so a forged cookie
+ *      cannot reach data through the API.
+ *
+ * Supabase enforces the password itself. A correct password for an address that
+ * is NOT on the allowlist still yields no admin access — the layout bounces it.
+ */
 export default function AdminLoginPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const queryError = searchParams.get("error");
 
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [sent, setSent] = useState(false);
 
-  // Translate ?error=… into a friendly banner. The layout redirects here
-  // with `not_authorized` when a logged-in user isn't on the allowlist.
   useEffect(() => {
     if (!queryError) return;
-    if (queryError === "auth_failed") {
-      setError("That sign-in link is invalid or expired. Request a new one.");
-    } else if (queryError === "missing_code") {
-      setError("Your sign-in link is missing a code. Request a new one.");
-    } else if (queryError === "not_authorized") {
-      setError("Your account doesn't have access to the Command Center.");
+    if (queryError === "not_authorized") {
+      setError("That account doesn't have access to the Command Center.");
+    } else if (queryError === "signed_out") {
+      setError(null);
     } else {
-      setError("Something went wrong with that sign-in link.");
+      setError("Please sign in again.");
     }
   }, [queryError]);
 
@@ -38,9 +54,8 @@ export default function AdminLoginPage() {
 
     const trimmed = email.trim().toLowerCase();
 
-    // Defence-in-depth: refuse to even send a magic link to a
-    // non-allowlist address. The layout enforces this again server-side
-    // for anyone who actually obtains a session.
+    // Defence-in-depth: don't even attempt a sign-in for a non-allowlist
+    // address. The layout enforces this again server-side.
     if (!isEmailAllowed(trimmed)) {
       setError("This email is not authorized for admin access.");
       setSubmitting(false);
@@ -49,21 +64,22 @@ export default function AdminLoginPage() {
 
     try {
       const supabase = createClient();
-      const { error: otpError } = await supabase.auth.signInWithOtp({
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email: trimmed,
-        options: {
-          emailRedirectTo: `${window.location.origin}/api/admin/auth/callback`,
-        },
+        password,
       });
-      if (otpError) {
-        console.error("[admin/login] signInWithOtp failed:", otpError);
-        setError(
-          "We couldn't send a sign-in link. Try again in a moment, or email kathleen@youfirstlacrosse.com.",
-        );
+
+      if (signInError) {
+        // Deliberately generic — never reveal whether the address exists.
+        setError("That email and password don't match.");
         setSubmitting(false);
         return;
       }
-      setSent(true);
+
+      // The browser client has written the session cookies; refresh so the
+      // server layout sees them, then hand off to the Command Center.
+      router.refresh();
+      router.replace("/admin");
     } catch (err) {
       console.error("[admin/login] threw:", err);
       setError("Network error. Check your connection and try again.");
@@ -84,77 +100,59 @@ export default function AdminLoginPage() {
 
           <div className="my-7 h-px w-full bg-[#E5E7EB]" />
 
-          {sent ? (
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-full mx-auto bg-[#34D399]/10 text-[#10B981] flex items-center justify-center">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
-                  className="w-5 h-5"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h1 className="mt-4 text-[17px] font-semibold tracking-tight text-[#0A0A0B]">
-                Check your email
-              </h1>
-              <p className="mt-2 text-sm text-[#6B7280]">
-                We sent a sign-in link to <span className="text-[#0A0A0B]">{email.trim().toLowerCase()}</span>. Click the link to access the Command Center.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSent(false);
-                  setEmail("");
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
+            <label className="block">
+              <span className="block text-[11px] font-medium uppercase tracking-wider text-[#6B7280] mb-1.5">
+                Email
+              </span>
+              <input
+                type="email"
+                autoFocus
+                required
+                autoComplete="username"
+                spellCheck={false}
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (error) setError(null);
                 }}
-                className="mt-6 text-[12px] font-medium text-[#6B7280] hover:text-[#0A0A0B] underline underline-offset-2 transition-colors"
-              >
-                Use a different email
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} noValidate className="space-y-4">
-              <label className="block">
-                <span className="block text-[11px] font-medium uppercase tracking-wider text-[#6B7280] mb-1.5">
-                  Email
-                </span>
-                <input
-                  type="email"
-                  autoFocus
-                  required
-                  autoComplete="email"
-                  spellCheck={false}
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (error) setError(null);
-                  }}
-                  placeholder="you@theyoufirstproject.com"
-                  className={`w-full bg-white border rounded-lg px-3 py-2.5 text-[14px] text-[#0A0A0B] placeholder:text-[#6B7280]/60 focus:outline-none focus:ring-2 transition-colors ${
-                    error
-                      ? "border-[#EF4444] focus:border-[#EF4444] focus:ring-[#EF4444]/20"
-                      : "border-[#E5E7EB] focus:border-[#4A90D9] focus:ring-[#4A90D9]/20"
-                  }`}
-                />
-              </label>
+                placeholder="you@theyoufirstproject.com"
+                className="w-full bg-white border border-[#E5E7EB] rounded-lg px-3 py-2.5 text-[14px] text-[#0A0A0B] placeholder:text-[#6B7280]/60 focus:outline-none focus:ring-2 focus:border-[#4A90D9] focus:ring-[#4A90D9]/20 transition-colors"
+              />
+            </label>
 
-              {error && (
-                <p role="alert" className="text-[12px] text-[#EF4444]">
-                  {error}
-                </p>
-              )}
+            <label className="block">
+              <span className="block text-[11px] font-medium uppercase tracking-wider text-[#6B7280] mb-1.5">
+                Password
+              </span>
+              <input
+                type="password"
+                required
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (error) setError(null);
+                }}
+                placeholder="••••••••••••"
+                className="w-full bg-white border border-[#E5E7EB] rounded-lg px-3 py-2.5 text-[14px] text-[#0A0A0B] placeholder:text-[#6B7280]/60 focus:outline-none focus:ring-2 focus:border-[#4A90D9] focus:ring-[#4A90D9]/20 transition-colors"
+              />
+            </label>
 
-              <button
-                type="submit"
-                disabled={submitting || email.trim() === ""}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#4A90D9] text-white text-[13px] font-semibold tracking-wide hover:bg-[#3A7BC8] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-              >
-                {submitting ? "Sending…" : "Send Sign-In Link"}
-              </button>
-            </form>
-          )}
+            {error && (
+              <p role="alert" className="text-[12px] text-[#EF4444]">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting || email.trim() === "" || password === ""}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#4A90D9] text-white text-[13px] font-semibold tracking-wide hover:bg-[#3A7BC8] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            >
+              {submitting ? "Signing in…" : "Sign In"}
+            </button>
+          </form>
         </div>
 
         <p className="mt-6 text-center text-[11px] uppercase tracking-[0.16em] text-[#6B7280]">
