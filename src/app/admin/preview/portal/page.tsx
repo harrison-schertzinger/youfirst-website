@@ -3,15 +3,16 @@ import Footer from "@/components/layout/Footer";
 import PlayerHeader from "@/components/portal/PlayerHeader";
 import BalanceQuestion from "@/components/portal/BalanceQuestion";
 import PlayerProfileCardPreview from "@/components/portal/PlayerProfileCardPreview";
-import FeesPanel from "@/components/portal/FeesPanel";
+import PreviewFees from "@/components/portal/PreviewFees";
 import { PreviewProvider } from "@/components/portal/PortalPreviewContext";
 import RailCalendar from "@/components/portal/RailCalendar";
 import RailContacts from "@/components/portal/RailContacts";
+import RailResources from "@/components/portal/RailResources";
 import { getEvents } from "@/lib/calendar";
 import { getPublishedContacts } from "@/lib/club-contacts";
+import { getPublishedResources } from "@/lib/club-resources";
 import { getFeeds } from "@/lib/events";
 import { getClassFees } from "@/lib/fee-schedule";
-import type { PlayerBalanceRow } from "@/lib/portal-balance";
 
 export const dynamic = "force-dynamic";
 
@@ -76,23 +77,30 @@ const previewPayments = [
   },
 ];
 
-// Shaped exactly like a player_balances() row so the dashboard renders the same
-// arithmetic it would for a real family: $1,850 charged, $925 paid, $925 left.
-const previewBalance: PlayerBalanceRow = {
-  player_id: PREVIEW_PLAYER_ID,
-  plan_id: "prev-plan",
-  season: "2025-26",
-  charged_cents: 185000,
-  paid_cents: 92500,
-  adjustment_cents: 0,
-  adjustment_reason: null,
-  remaining_cents: 92500,
-  overpaid_cents: 0,
-  percent_paid: 50,
-  is_settled: false,
-  quarter_cents: 46250,
-  quarter_eligible: true,
-};
+// Two seasons, so the toggle is real on this screen: last year settled, this
+// year still owed. Shaped exactly like player_season_balances() rows.
+const previewSeasons = [
+  {
+    season: "2026-27",
+    charged_cents: 185000,
+    paid_cents: 0,
+    adjustment_cents: 0,
+    remaining_cents: 185000,
+    overpaid_cents: 0,
+    percent_paid: 0,
+    is_settled: false,
+  },
+  {
+    season: "2025-26",
+    charged_cents: 185000,
+    paid_cents: 185000,
+    adjustment_cents: 0,
+    remaining_cents: 0,
+    overpaid_cents: 0,
+    percent_paid: 100,
+    is_settled: true,
+  },
+];
 
 /** The next few dated events, formatted for the rail. */
 function nextUpFrom(
@@ -114,9 +122,10 @@ function nextUpFrom(
 }
 
 export default async function PortalPreviewPage() {
-  const [events, contacts, feeds, previewFees] = await Promise.all([
+  const [events, contacts, resources, feeds, previewFees] = await Promise.all([
     getEvents().catch(() => []),
     getPublishedContacts().catch(() => []),
+    getPublishedResources().catch(() => []),
     getFeeds().catch(() => []),
     // Avery is a 2029 — her class's real published pricing, not invented.
     getClassFees(previewPlayer.graduation_year).catch(() => null),
@@ -156,13 +165,10 @@ export default async function PortalPreviewPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
               <div className="lg:col-span-2 space-y-6 min-w-0">
                 <PlayerHeader player={previewPlayer} />
-                <FeesPanel
+                <PreviewFees
                   playerId={PREVIEW_PLAYER_ID}
-                  balance={previewBalance}
+                  seasons={previewSeasons}
                   payments={previewPayments}
-                  charges={[]}
-                  rosterPaidCents={20000}
-                  rosterDueCents={20000}
                   fallTournamentCount={previewFees?.tournamentCount ?? null}
                   fallTournamentCents={previewFees?.tournamentCents ?? 30000}
                 />
@@ -180,6 +186,7 @@ export default async function PortalPreviewPage() {
                   nextUp={nextUpFrom(events)}
                 />
                 <RailContacts contacts={contacts} />
+                <RailResources resources={resources} />
               </aside>
             </div>
           </PreviewProvider>

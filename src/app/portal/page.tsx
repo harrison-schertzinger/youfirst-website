@@ -9,8 +9,10 @@ import PaymentBanner from "@/components/portal/PaymentBanner";
 import { PORTAL_COOKIE_NAME, verifyPortalToken } from "@/lib/portal-session";
 import RailCalendar from "@/components/portal/RailCalendar";
 import RailContacts from "@/components/portal/RailContacts";
+import RailResources from "@/components/portal/RailResources";
 import { getEvents } from "@/lib/calendar";
 import { getPublishedContacts } from "@/lib/club-contacts";
+import { getPublishedResources } from "@/lib/club-resources";
 import { getFeeds } from "@/lib/events";
 import { getClassFees, CURRENT_SEASON } from "@/lib/fee-schedule";
 
@@ -56,9 +58,10 @@ export default async function PortalPage({
   // Schedule, contacts, and the calendar feed. Each is independent of the
   // others and none of them is worth failing the portal over — a family who
   // came to check what she owes still gets that if the schedule query dies.
-  const [events, contacts, feeds] = await Promise.all([
+  const [events, contacts, resources, feeds] = await Promise.all([
     getEvents().catch(() => []),
     getPublishedContacts().catch(() => []),
+    getPublishedResources().catch(() => []),
     getFeeds().catch(() => []),
   ]);
 
@@ -101,6 +104,7 @@ export default async function PortalPage({
         <PortalContent contacts={contacts} classFees={classFees}>
           <RailCalendar subscribeUrl={subscribeUrl} nextUp={nextUpFrom(events)} />
           <RailContacts contacts={contacts} />
+          <RailResources resources={resources} />
         </PortalContent>
       </main>
       <Footer />

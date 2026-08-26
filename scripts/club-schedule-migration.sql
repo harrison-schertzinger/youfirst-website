@@ -184,3 +184,15 @@ create table if not exists public.fee_schedule (
 alter table public.balance_questions
   add column if not exists sent_to_contact_id uuid references public.club_contacts(id) on delete set null,
   add column if not exists sent_to_email text;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- player_season_balances — APPLIED 2026-08-26 via MCP apply_migration.
+--
+-- Per-season money so the portal can show every season a family has been part
+-- of. ADDITIVE ON PURPOSE: player_balances() returns one row (the most recent
+-- plan) and the collections email, admin queue and /api/checkout all read it.
+-- Widening it would silently change what all three see. Proven before shipping:
+-- for 2025-26 this returns 59 rows matching player_balances() exactly on
+-- charged, paid, remaining, percent and settled — zero mismatches.
+-- ═══════════════════════════════════════════════════════════════════════════
+-- (full body applied via MCP; see git history for the definition)

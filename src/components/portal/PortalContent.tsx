@@ -6,6 +6,7 @@ import { SITE_CONFIG } from "@/lib/constants";
 import PlayerHeader from "./PlayerHeader";
 import { TICKET_AMOUNTS_CENTS } from "@/lib/feesData";
 import type { ClubContact } from "@/lib/club-contacts";
+import SeasonTabs from "./SeasonTabs";
 import FeesPanel from "./FeesPanel";
 import PlayerProfileCard from "./PlayerProfileCard";
 import BalanceQuestion from "./BalanceQuestion";
@@ -64,11 +65,24 @@ export interface PortalCharge {
   created_at: string | null;
 }
 
+export interface SeasonBalance {
+  season: string;
+  charged_cents: number;
+  paid_cents: number;
+  adjustment_cents: number;
+  remaining_cents: number;
+  overpaid_cents: number;
+  percent_paid: number;
+  is_settled: boolean;
+}
+
 interface PlayerWithData extends Player {
   guardians: Guardian[];
   payments: Payment[];
   /** From player_balances() — the one balance function. Never recomputed here. */
   balance: PlayerBalanceRow | null;
+  /** Every season this athlete has been part of, newest first. */
+  seasons: SeasonBalance[];
   charges: PortalCharge[];
 }
 
@@ -98,6 +112,8 @@ export default function PortalContent({
   const [reloadKey, setReloadKey] = useState(0);
   // Sibling households only — which child's portal is on screen.
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Which season's money is on screen. Null = the newest one this athlete has.
+  const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -193,6 +209,31 @@ export default function PortalContent({
   const selectedPlayer =
     shownPlayers.find((p) => p.id === selectedId) ?? shownPlayers[0];
 
+  const seasons = selectedPlayer.seasons ?? [];
+  const activeSeason =
+    seasons.find((s) => s.season === selectedSeason) ?? seasons[0] ?? null;
+
+  // FeesPanel speaks player_balances()' shape. A season row carries the same
+  // money fields, so it is adapted rather than duplicated — one set of numbers,
+  // whichever season is on screen.
+  const activeBalance: PlayerBalanceRow | null = activeSeason
+    ? {
+        player_id: selectedPlayer.id,
+        plan_id: null,
+        season: activeSeason.season,
+        charged_cents: activeSeason.charged_cents,
+        paid_cents: activeSeason.paid_cents,
+        adjustment_cents: activeSeason.adjustment_cents,
+        adjustment_reason: null,
+        remaining_cents: activeSeason.remaining_cents,
+        overpaid_cents: activeSeason.overpaid_cents,
+        percent_paid: activeSeason.percent_paid,
+        is_settled: activeSeason.is_settled,
+        quarter_cents: 0,
+        quarter_eligible: false,
+      }
+    : selectedPlayer.balance;
+
   return (
     <div className="mx-auto max-w-[1280px] px-6 lg:px-8 py-10">
       <p className="section-label mb-5">Player Portal</p>
@@ -217,9 +258,17 @@ export default function PortalContent({
         <div className="lg:col-span-2 space-y-6 min-w-0">
           <PlayerHeader player={selectedPlayer} />
 
+          {seasons.length > 1 && (
+            <SeasonTabs
+              seasons={seasons}
+              activeSeason={activeSeason?.season ?? null}
+              onSelect={setSelectedSeason}
+            />
+          )}
+
           <FeesPanel
             playerId={selectedPlayer.id}
-            balance={selectedPlayer.balance}
+            balance={activeBalance}
             payments={selectedPlayer.payments}
             charges={selectedPlayer.charges}
             rosterPaidCents={rosterPaidCents(selectedPlayer.payments)}

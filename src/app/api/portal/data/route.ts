@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
 
   const players = await Promise.all(
     (playersData ?? []).map(async (player) => {
-      const [paymentsRes, balanceRes, chargesRes] = await Promise.all([
+      const [paymentsRes, balanceRes, seasonsRes, chargesRes] = await Promise.all([
         admin
           .from("payments")
           .select(
@@ -73,6 +73,10 @@ export async function GET(request: NextRequest) {
         // through untouched — the browser never computes what is owed, and the
         // collections email reads this same function.
         admin.rpc("player_balances", { p_player_id: player.id }),
+        // Every season this athlete has been part of, so the portal can offer a
+        // toggle instead of showing only the newest. Proven row-for-row
+        // identical to player_balances() for 2025-26 before it shipped.
+        admin.rpc("player_season_balances", { p_player_id: player.id }),
         admin
           .from("player_charges")
           .select("id, label, amount_cents, season, status, paid_at, created_at")
@@ -82,6 +86,9 @@ export async function GET(request: NextRequest) {
 
       if (balanceRes.error) {
         console.error("[portal/data] player_balances failed:", balanceRes.error);
+      }
+      if (seasonsRes.error) {
+        console.error("[portal/data] player_season_balances failed:", seasonsRes.error);
       }
 
       return {
@@ -93,6 +100,11 @@ export async function GET(request: NextRequest) {
         guardians: [],
         payments: paymentsRes.data ?? [],
         balance: balanceRes.data?.[0] ?? null,
+        // Newest season first — that is the one a family wants by default.
+        seasons: (seasonsRes.data ?? []).sort(
+          (a: { season: string }, b: { season: string }) =>
+            b.season.localeCompare(a.season),
+        ),
         charges: chargesRes.data ?? [],
       };
     }),
