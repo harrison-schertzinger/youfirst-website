@@ -165,3 +165,47 @@ export async function getUnconfirmedEvents(): Promise<UndatedEvent[]> {
       teams: teamsOf(e, allGradYears),
     }));
 }
+
+/**
+ * A one-click "Add to Google Calendar" link for a single event.
+ *
+ * This is the SECONDARY mechanism, deliberately. Subscribing to the feed is
+ * what keeps a family right: it is one action and every later change reaches
+ * them. A Google link copies the event as it is today into their calendar and
+ * then knows nothing — if a practice moves, their copy silently stays wrong.
+ *
+ * So it exists for the parent who wants one thing on their calendar without
+ * subscribing to everything, and the copy around it should never present it as
+ * equivalent to subscribing.
+ *
+ * Google reads UTC when the timestamps carry a Z, which avoids the whole class
+ * of bugs where an event lands an hour out for a family in another timezone.
+ */
+export function googleCalendarUrl(event: ScheduleEvent): string {
+  const stamp = (date: string, time: string) => {
+    // The stored times are Eastern wall-clock; convert to UTC for Google.
+    const local = new Date(`${date}T${time}:00`);
+    const eastern = new Date(
+      local.toLocaleString("en-US", { timeZone: "America/New_York" }),
+    );
+    const offsetMs = local.getTime() - eastern.getTime();
+    return new Date(local.getTime() + offsetMs)
+      .toISOString()
+      .replace(/[-:]/g, "")
+      .replace(/\.\d{3}/, "");
+  };
+
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: event.isCancelled ? `CANCELLED: ${event.title}` : event.title,
+    dates: event.isAllDay
+      ? `${event.startDate.replace(/-/g, "")}/${event.endDate.replace(/-/g, "")}`
+      : `${stamp(event.startDate, event.startTime)}/${stamp(event.endDate, event.endTime)}`,
+  });
+
+  const where = [event.location, event.address].filter(Boolean).join(", ");
+  if (where) params.set("location", where);
+  if (event.description) params.set("details", event.description);
+
+  return `https://calendar.google.com/calendar/render?${params}`;
+}

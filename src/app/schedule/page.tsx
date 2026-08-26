@@ -3,7 +3,8 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ScheduleHero from "@/components/schedule/ScheduleHero";
 import ScheduleContent from "@/components/schedule/ScheduleContent";
-import { getEvents } from "@/lib/calendar";
+import { getEvents, getUnconfirmedEvents } from "@/lib/calendar";
+import UndatedEvents from "@/components/schedule/UndatedEvents";
 
 // Reads the events table on every request. The schedule changes and a stale
 // page is a wrong page — a parent checking Saturday morning must see the
@@ -30,7 +31,13 @@ export const metadata: Metadata = {
 };
 
 export default async function SchedulePage() {
-  const events = await getEvents();
+  // Dated and undated are fetched together but rendered apart: the grid can
+  // only place something that has a date, and a committed tournament with no
+  // date still has to be visible or the page reads as "no tournaments".
+  const [events, undated] = await Promise.all([
+    getEvents(),
+    getUnconfirmedEvents().catch(() => []),
+  ]);
 
   return (
     <>
@@ -38,6 +45,7 @@ export default async function SchedulePage() {
       <main className="bw-site">
         <ScheduleHero />
         <ScheduleContent events={events} />
+        <UndatedEvents events={undated} />
       </main>
       <Footer />
     </>

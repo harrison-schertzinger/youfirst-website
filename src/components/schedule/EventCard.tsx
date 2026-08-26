@@ -1,4 +1,9 @@
-import { ScheduleEvent, EVENT_COLORS, EVENT_LABELS } from "@/lib/calendar";
+import {
+  googleCalendarUrl,
+  ScheduleEvent,
+  EVENT_COLORS,
+  EVENT_LABELS,
+} from "@/lib/calendar";
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00");
@@ -114,7 +119,7 @@ export default function EventCard({ event, animationDelay }: EventCardProps) {
           </p>
 
           {/* Team badges */}
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {event.teams.map((year) => (
               <span
                 key={year}
@@ -123,6 +128,19 @@ export default function EventCard({ event, animationDelay }: EventCardProps) {
                 {year}
               </span>
             ))}
+
+            {/* Secondary to subscribing, and only for a live event. A copy of a
+                cancelled session is worse than no copy. */}
+            {!event.isCancelled && (
+              <a
+                href={googleCalendarUrl(event)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-auto text-[11px] font-medium text-[#4B9CD3] hover:text-[#1E7FB5] transition-colors"
+              >
+                + Google Calendar
+              </a>
+            )}
           </div>
         </div>
       </div>
