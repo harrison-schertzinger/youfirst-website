@@ -1,8 +1,7 @@
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import PlayerHeader from "@/components/portal/PlayerHeader";
+import PlayerProfileTilePreview from "@/components/portal/PlayerProfileTilePreview";
 import BalanceQuestion from "@/components/portal/BalanceQuestion";
-import PlayerProfileCardPreview from "@/components/portal/PlayerProfileCardPreview";
 import PreviewFees from "@/components/portal/PreviewFees";
 import { PreviewProvider } from "@/components/portal/PortalPreviewContext";
 import RailCalendar from "@/components/portal/RailCalendar";
@@ -164,7 +163,7 @@ export default async function PortalPreviewPage() {
           <PreviewProvider value>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
               <div className="lg:col-span-2 space-y-6 min-w-0">
-                <PlayerHeader player={previewPlayer} />
+                <PlayerProfileTilePreview player={previewPlayer} />
                 <PreviewFees
                   playerId={PREVIEW_PLAYER_ID}
                   seasons={previewSeasons}
@@ -172,7 +171,6 @@ export default async function PortalPreviewPage() {
                   fallTournamentCount={previewFees?.tournamentCount ?? null}
                   fallTournamentCents={previewFees?.tournamentCents ?? 30000}
                 />
-                <PlayerProfileCardPreview player={previewPlayer} />
               </div>
 
               <aside className="lg:col-span-1 space-y-5 min-w-0">

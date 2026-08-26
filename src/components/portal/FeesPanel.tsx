@@ -28,6 +28,24 @@ import type { PortalCharge } from "./PortalContent";
  * cents server-side.
  */
 
+/**
+ * payments.payment_date is a timestamptz, not a date string. The previous code
+ * appended "T12:00:00" to it — fine for "2026-04-07", garbage for
+ * "2026-04-07 17:24:11.173+00", which rendered as "Invalid Date" on a live
+ * parent's payment history. Handle both, and never render the raw value.
+ */
+function formatPaymentDate(value: string | null): string {
+  if (!value) return "—";
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export default function FeesPanel({
   playerId,
   balance,
@@ -57,6 +75,10 @@ export default function FeesPanel({
   const charged = balance?.charged_cents ?? 0;
   const paid = balance?.paid_cents ?? 0;
   const remaining = balance?.remaining_cents ?? 0;
+  // Credits the club has applied — a missed stretch of the season, a discount.
+  // Without this on screen, charged minus paid does not equal remaining and the
+  // panel reads as broken arithmetic.
+  const adjustment = balance?.adjustment_cents ?? 0;
   const settled = remaining <= 0;
 
   // Summer tuition is its own window — November through February 1. The fall
@@ -165,6 +187,12 @@ export default function FeesPanel({
           )}
         </div>
 
+        {adjustment > 0 && (
+          <p className="mb-2 text-[12px] text-[#6B7280]">
+            Includes a {formatCents(adjustment)} credit applied by the club.
+          </p>
+        )}
+
         <div className="h-1.5 w-full rounded-full bg-[#F0F1F3] overflow-hidden">
           <div
             className="h-full rounded-full bg-[#34D399] transition-all duration-500"
@@ -172,10 +200,17 @@ export default function FeesPanel({
           />
         </div>
 
-        <dl className="mt-3 grid grid-cols-3 gap-2">
+        <dl
+          className={`mt-3 grid gap-2 ${
+            adjustment > 0 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"
+          }`}
+        >
           {[
             ["Charged", charged, "#1A1A1A"],
             ["Paid", paid, "#0F9D6E"],
+            ...(adjustment > 0
+              ? ([["Credit", adjustment, "#0F9D6E"]] as [string, number, string][])
+              : []),
             ["Remaining", remaining, "#1A1A1A"],
           ].map(([label, cents, color]) => (
             <div key={label as string}>
@@ -353,12 +388,7 @@ export default function FeesPanel({
                 key={p.id}
                 className="flex items-center justify-between text-[12px]"
               >
-                <span className="text-[#6B7280]">
-                  {new Date(`${p.payment_date}T12:00:00`).toLocaleDateString(
-                    "en-US",
-                    { month: "short", day: "numeric", year: "numeric" },
-                  )}
-                </span>
+                <span className="text-[#6B7280]">{formatPaymentDate(p.payment_date)}</span>
                 <span className="font-semibold tabular-nums text-[#0F9D6E]">
                   {formatCents(p.amount_cents)}
                 </span>

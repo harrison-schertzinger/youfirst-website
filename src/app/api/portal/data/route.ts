@@ -110,5 +110,13 @@ export async function GET(request: NextRequest) {
     }),
   );
 
-  return NextResponse.json({ email: session.email, players });
+  // The signed-in parent's own record, so the portal can prefill her details.
+  // This is HER row and nobody else's — co-guardian PII stays locked down.
+  const { data: me } = await admin
+    .from("guardians")
+    .select("id, first_name, last_name, email, phone, relationship")
+    .eq("id", session.guardianId)
+    .maybeSingle();
+
+  return NextResponse.json({ email: session.email, guardian: me ?? null, players });
 }

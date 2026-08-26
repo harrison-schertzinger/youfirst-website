@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SITE_CONFIG } from "@/lib/constants";
-import PlayerHeader from "./PlayerHeader";
+import PlayerProfileTile from "./PlayerProfileTile";
 import { TICKET_AMOUNTS_CENTS } from "@/lib/feesData";
 import type { ClubContact } from "@/lib/club-contacts";
+import type { ProfileGuardian } from "./PlayerProfileTile";
 import SeasonTabs from "./SeasonTabs";
 import FeesPanel from "./FeesPanel";
-import PlayerProfileCard from "./PlayerProfileCard";
 import BalanceQuestion from "./BalanceQuestion";
 import PlayerPicker from "./PlayerPicker";
 import PlayerSwitcher from "./PlayerSwitcher";
@@ -108,6 +108,7 @@ export default function PortalContent({
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [players, setPlayers] = useState<PlayerWithData[]>([]);
+  const [guardian, setGuardian] = useState<ProfileGuardian | null>(null);
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   // Sibling households only — which child's portal is on screen.
@@ -130,9 +131,13 @@ export default function PortalContent({
           setStatus("error");
           return;
         }
-        const data = (await res.json()) as { players: PlayerWithData[] };
+        const data = (await res.json()) as {
+          players: PlayerWithData[];
+          guardian: ProfileGuardian | null;
+        };
         if (cancelled) return;
         setPlayers(data.players ?? []);
+        setGuardian(data.guardian ?? null);
         setStatus("ready");
       } catch {
         if (!cancelled) {
@@ -256,7 +261,16 @@ export default function PortalContent({
           Collapses to a single column on a phone, rail last. */}
       <div key={selectedPlayer.id} className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
         <div className="lg:col-span-2 space-y-6 min-w-0">
-          <PlayerHeader player={selectedPlayer} />
+          <PlayerProfileTile
+            player={selectedPlayer}
+            guardian={guardian}
+            onPlayerUpdated={(next) =>
+              setPlayers((prev) =>
+                prev.map((p) => (p.id === next.id ? { ...p, ...next } : p))
+              )
+            }
+            onGuardianUpdated={setGuardian}
+          />
 
           {seasons.length > 1 && (
             <SeasonTabs
@@ -281,14 +295,6 @@ export default function PortalContent({
             }
           />
 
-          <PlayerProfileCard
-            player={selectedPlayer}
-            onUpdated={(next) =>
-              setPlayers((prev) =>
-                prev.map((p) => (p.id === next.id ? { ...p, ...next } : p))
-              )
-            }
-          />
         </div>
 
         <aside className="lg:col-span-1 space-y-5 min-w-0">
