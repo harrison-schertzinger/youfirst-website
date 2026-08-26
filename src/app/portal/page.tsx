@@ -12,6 +12,7 @@ import RailContacts from "@/components/portal/RailContacts";
 import { getEvents } from "@/lib/calendar";
 import { getPublishedContacts } from "@/lib/club-contacts";
 import { getFeeds } from "@/lib/events";
+import { getClassFees, CURRENT_SEASON } from "@/lib/fee-schedule";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.youfirstlacrosse.com";
@@ -61,6 +62,22 @@ export default async function PortalPage({
     getFeeds().catch(() => []),
   ]);
 
+  // Season pricing for every class in the club. Cheap (one row per class) and
+  // it means the portal never has to know which athlete it is about to render.
+  const feeRows = await Promise.all(
+    [2027, 2028, 2029, 2030, 2031, 2032, 2033].map((y) =>
+      getClassFees(y, CURRENT_SEASON).catch(() => null),
+    ),
+  );
+  const classFees = Object.fromEntries(
+    feeRows
+      .filter((f): f is NonNullable<typeof f> => f !== null)
+      .map((f) => [
+        f.gradYear,
+        { tournamentCount: f.tournamentCount, tournamentCents: f.tournamentCents },
+      ]),
+  );
+
   // The whole-club feed is the one with no team attached.
   const clubFeed = feeds.find((f) => f.teamId === null) ?? null;
   // webcal:// so a phone hands this to its calendar app instead of downloading
@@ -81,7 +98,7 @@ export default async function PortalPage({
         {(paidTicket || canceledTicket) && (
           <PaymentBanner paid={paidTicket} canceled={canceledTicket} />
         )}
-        <PortalContent contacts={contacts}>
+        <PortalContent contacts={contacts} classFees={classFees}>
           <RailCalendar subscribeUrl={subscribeUrl} nextUp={nextUpFrom(events)} />
           <RailContacts contacts={contacts} />
         </PortalContent>

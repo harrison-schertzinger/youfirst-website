@@ -10,6 +10,7 @@ import RailContacts from "@/components/portal/RailContacts";
 import { getEvents } from "@/lib/calendar";
 import { getPublishedContacts } from "@/lib/club-contacts";
 import { getFeeds } from "@/lib/events";
+import { getClassFees } from "@/lib/fee-schedule";
 import type { PlayerBalanceRow } from "@/lib/portal-balance";
 
 export const dynamic = "force-dynamic";
@@ -113,10 +114,12 @@ function nextUpFrom(
 }
 
 export default async function PortalPreviewPage() {
-  const [events, contacts, feeds] = await Promise.all([
+  const [events, contacts, feeds, previewFees] = await Promise.all([
     getEvents().catch(() => []),
     getPublishedContacts().catch(() => []),
     getFeeds().catch(() => []),
+    // Avery is a 2029 — her class's real published pricing, not invented.
+    getClassFees(previewPlayer.graduation_year).catch(() => null),
   ]);
 
   const clubFeed = feeds.find((f) => f.teamId === null) ?? null;
@@ -160,6 +163,8 @@ export default async function PortalPreviewPage() {
                   charges={[]}
                   rosterPaidCents={20000}
                   rosterDueCents={20000}
+                  fallTournamentCount={previewFees?.tournamentCount ?? null}
+                  fallTournamentCents={previewFees?.tournamentCents ?? 30000}
                 />
                 <PlayerProfileCardPreview player={previewPlayer} />
               </div>

@@ -82,11 +82,14 @@ function rosterPaidCents(payments: { amount_cents: number; payment_category: str
 export default function PortalContent({
   children,
   contacts = [],
+  classFees = {},
 }: {
   /** Server-rendered rail sections (schedule, contacts). */
   children?: React.ReactNode;
   /** Published club contacts — who a family can send a question to. */
   contacts?: ClubContact[];
+  /** Season pricing by graduation year. Missing = not published for that class. */
+  classFees?: Record<number, { tournamentCount: number; tournamentCents: number }>;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -221,6 +224,12 @@ export default function PortalContent({
             charges={selectedPlayer.charges}
             rosterPaidCents={rosterPaidCents(selectedPlayer.payments)}
             rosterDueCents={TICKET_AMOUNTS_CENTS.roster}
+            fallTournamentCount={
+              classFees[selectedPlayer.graduation_year]?.tournamentCount ?? null
+            }
+            fallTournamentCents={
+              classFees[selectedPlayer.graduation_year]?.tournamentCents ?? 30000
+            }
           />
 
           <PlayerProfileCard

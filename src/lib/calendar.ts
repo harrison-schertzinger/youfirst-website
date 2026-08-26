@@ -55,13 +55,16 @@ export interface UndatedEvent {
 
 // Brand palette only — Electric/Deep Carolina, black, gray. No YOU.PRJCT+
 // gradient: different company, different brand.
+// Two of these carry the fall: every Saturday is a four-hour block — the
+// Academy hour first, then team practice — and the pair must read as two
+// distinct things at a glance without turning the page into a paint chart.
 export const EVENT_COLORS: Record<EventType, string> = {
-  tournament: "#3AB0E8",
-  practice: "#0A0A0A",
-  camp: "#7FB8E0",
-  showcase: "#1E7FB5",
+  practice: "#1E7FB5",   // Deep Carolina — the team's own session, 12–2
+  training: "#7FB8E0",   // light Carolina — the Academy block before it, 10–12
+  tournament: "#0A0A0A", // black — travel weekends stand apart from both
+  showcase: "#3AB0E8",
+  camp: "#98A0AB",
   meeting: "#98A0AB",
-  training: "#5B6470",
 };
 
 export const EVENT_LABELS: Record<EventType, string> = {
@@ -70,7 +73,7 @@ export const EVENT_LABELS: Record<EventType, string> = {
   camp: "Camp",
   showcase: "Showcase",
   meeting: "Meeting",
-  training: "Training",
+  training: "Academy",
 };
 
 /** `events.event_type` allows 'other'; the page vocabulary does not. */

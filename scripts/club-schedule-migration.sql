@@ -153,3 +153,34 @@ alter table public.players add column if not exists notes text;
 alter table public.players drop constraint if exists players_status_check;
 alter table public.players add constraint players_status_check
   check (status = any (array['active','injured','hold','inactive','alumni']));
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- fee_schedule_by_grad_year — APPLIED 2026-08-26 via MCP apply_migration.
+-- Per-class season pricing. published=false means a number is still missing;
+-- the CHECK makes such a row impossible to publish, so a fee a parent sees is
+-- always one that was actually decided.
+-- ═══════════════════════════════════════════════════════════════════════════
+create table if not exists public.fee_schedule (
+  id uuid primary key default gen_random_uuid(),
+  season text not null,
+  grad_year integer not null,
+  summer_cents integer,
+  roster_cents integer not null default 20000,
+  tournament_count integer,
+  tournament_cents integer not null default 30000,
+  published boolean not null default false,
+  note text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (season, grad_year),
+  constraint fee_schedule_amounts_sane check (
+    (summer_cents is null or summer_cents >= 0) and roster_cents >= 0
+    and tournament_cents >= 0 and (tournament_count is null or tournament_count >= 0)),
+  constraint fee_schedule_published_is_complete check (
+    published = false or (summer_cents is not null and tournament_count is not null))
+);
+
+-- balance_questions: which club contact the family chose (resolved server-side).
+alter table public.balance_questions
+  add column if not exists sent_to_contact_id uuid references public.club_contacts(id) on delete set null,
+  add column if not exists sent_to_email text;

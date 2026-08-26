@@ -4,8 +4,10 @@ import { useRef, useState } from "react";
 import { formatCents, type PlayerBalanceRow } from "@/lib/portal-balance";
 import {
   buildPlan,
+  offeredChoices,
   formatDueDate,
-  FINAL_DUE_DATE,
+  CHOICE_LABELS,
+  WINDOWS,
   type PlanChoice,
 } from "@/lib/payment-plan";
 import { useIsPreview } from "./PortalPreviewContext";
@@ -26,12 +28,6 @@ import type { PortalCharge } from "./PortalContent";
  * cents server-side.
  */
 
-const PLAN_LABELS: Record<PlanChoice, string> = {
-  full: "Pay in full",
-  half: "2 payments",
-  quarter: "4 payments",
-};
-
 export default function FeesPanel({
   playerId,
   balance,
@@ -39,6 +35,8 @@ export default function FeesPanel({
   charges,
   rosterPaidCents,
   rosterDueCents,
+  fallTournamentCount,
+  fallTournamentCents,
 }: {
   playerId: string;
   balance: PlayerBalanceRow | null;
@@ -46,6 +44,9 @@ export default function FeesPanel({
   charges: PortalCharge[];
   rosterPaidCents: number;
   rosterDueCents: number;
+  /** How many fall tournaments this class travels to. Null = not decided. */
+  fallTournamentCount: number | null;
+  fallTournamentCents: number;
 }) {
   const isPreview = useIsPreview();
   const [choice, setChoice] = useState<PlanChoice>("full");
@@ -58,14 +59,11 @@ export default function FeesPanel({
   const remaining = balance?.remaining_cents ?? 0;
   const settled = remaining <= 0;
 
-  // Which plans can honestly be offered for this balance.
-  const plans: Record<PlanChoice, ReturnType<typeof buildPlan>> = {
-    full: buildPlan("full", charged, remaining),
-    half: buildPlan("half", charged, remaining),
-    quarter: buildPlan("quarter", charged, remaining),
-  };
-  const offered = (Object.keys(plans) as PlanChoice[]).filter((c) => plans[c]);
-  const activePlan = plans[choice] ?? plans.full;
+  // Summer tuition is its own window — November through February 1. The fall
+  // tournament window closes on October 1 and is shown separately below.
+  const offered = offeredChoices("summer", remaining);
+  const activePlan =
+    buildPlan("summer", choice, remaining) ?? buildPlan("summer", "full", remaining);
 
   async function pay(intent: PlanChoice, key: string) {
     if (inFlight.current) return;
@@ -209,7 +207,7 @@ export default function FeesPanel({
                       : "text-[#6B7280] hover:text-[#1A1A1A]"
                   }`}
                 >
-                  {PLAN_LABELS[c]}
+                  {CHOICE_LABELS[c]}
                 </button>
               ))}
             </div>
@@ -250,8 +248,8 @@ export default function FeesPanel({
 
                 <p className="mt-2 text-[11.5px] leading-relaxed text-[#9CA3AF]">
                   {activePlan.installments.length > 1
-                    ? `Each payment is made here when it comes due — nothing is charged automatically. Everything is settled by ${formatDueDate(FINAL_DUE_DATE)}.`
-                    : `Everything is settled by ${formatDueDate(FINAL_DUE_DATE)}.`}
+                    ? `Each payment is made here when it comes due — nothing is charged automatically. Tuition is settled by ${formatDueDate(WINDOWS.summer.finalDue)}.`
+                    : `Tuition is settled by ${formatDueDate(WINDOWS.summer.finalDue)}.`}
                 </p>
               </>
             )}
@@ -291,6 +289,16 @@ export default function FeesPanel({
             $300 each
           </span>
         </div>
+        {fallTournamentCount != null && (
+          <p className="mt-0.5 text-[12px] text-[#6B7280]">
+            {fallTournamentCount} tournament{fallTournamentCount === 1 ? "" : "s"} ·{" "}
+            <span className="font-semibold text-[#1A1A1A] tabular-nums">
+              {formatCents(fallTournamentCount * fallTournamentCents)}
+            </span>{" "}
+            total, due by {formatDueDate(WINDOWS.fall.finalDue)}
+          </p>
+        )}
+
         {fallPayments.length > 0 ? (
           <ul className="mt-2 space-y-1.5">
             {fallPayments.map((p) => (
@@ -309,7 +317,9 @@ export default function FeesPanel({
           </ul>
         ) : (
           <p className="mt-1 text-[12px] text-[#9CA3AF]">
-            Billed per tournament once the fall schedule is confirmed.
+            {fallTournamentCount == null
+              ? "Tournament count for this class is still being set."
+              : "Nothing paid toward the fall yet."}
           </p>
         )}
       </div>

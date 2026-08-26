@@ -1,30 +1,31 @@
 /**
- * Splitting a summer balance into dated installments.
+ * Splitting a season into dated installments.
  *
  * ── WHAT THIS IS AND IS NOT ─────────────────────────────────────────────────
  * These dates are a PLAN, not a standing order. Nothing charges a card on
  * February 1 — a parent comes back and pays each installment. The copy must
- * never imply otherwise, because a family who believes they are on autopay and
- * is not ends up in collections through no fault of their own.
+ * never imply otherwise, because a family who believes she is on autopay and is
+ * not ends up in collections through no fault of her own.
  *
- * The AMOUNTS here are display only. Every cent that reaches Stripe is
- * re-derived server-side in /api/checkout from player_balances(); this module
- * cannot influence what is charged, only what is shown.
+ * The AMOUNTS are display only. Every cent that reaches Stripe is re-derived
+ * server-side in /api/checkout; this module cannot influence what is charged.
  * ────────────────────────────────────────────────────────────────────────────
  *
- * An installment is a fraction of what the SEASON costs, not of what is left.
- * A quarter of the remainder would be a different, shrinking number every time,
- * and four of them would never clear the balance.
+ * TWO WINDOWS, TWO DEADLINES. The season is not one bill:
+ *
+ *   FALL TOURNAMENTS — entry fees. Settled by October 1, so the club can pay
+ *                      operators before the teams travel. Splittable across
+ *                      September and October.
+ *   SUMMER TUITION   — settled by February 1. Splittable across November,
+ *                      December, January and February.
+ *
+ * The dates below are Harrison's, stated on 2026-08-26, not a spread computed
+ * from a deadline. A schedule a family cannot predict is a schedule nobody
+ * remembers and the club ends up chasing.
  */
-
-/**
- * Everything is settled by this date. Harrison, 2026-08-26.
- * A constant rather than a column because it is one date for the whole club;
- * when that stops being true it belongs on the season, not on a player.
- */
-export const FINAL_DUE_DATE = "2027-02-01";
 
 export type PlanChoice = "full" | "half" | "quarter";
+export type FeeWindow = "fall" | "summer";
 
 export interface Installment {
   /** YYYY-MM-DD */
@@ -34,88 +35,97 @@ export interface Installment {
 
 export interface PaymentPlan {
   choice: PlanChoice;
+  window: FeeWindow;
   installments: Installment[];
-  /** What each scheduled payment is, before the final true-up. */
-  installmentCents: number;
 }
 
-const DIVISOR: Record<PlanChoice, number> = { full: 1, half: 2, quarter: 4 };
-
-/**
- * The 1st of each month from the month after `today` through FINAL_DUE_DATE,
- * inclusive. These are the only dates an installment may fall on — a plan with
- * arbitrary dates is impossible for anyone to remember or chase.
- */
-export function availableDueDates(today: Date = new Date()): string[] {
-  const final = new Date(`${FINAL_DUE_DATE}T12:00:00Z`);
-  const dates: string[] = [];
-
-  const cursor = new Date(
-    Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 1, 12),
-  );
-  while (cursor <= final) {
-    dates.push(cursor.toISOString().slice(0, 10));
-    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
-  }
-  return dates;
+interface WindowSpec {
+  label: string;
+  finalDue: string;
+  /** Due dates per choice. A missing choice is not offered for this window. */
+  dates: Partial<Record<PlanChoice, string[]>>;
 }
 
+export const WINDOWS: Record<FeeWindow, WindowSpec> = {
+  fall: {
+    label: "Fall tournaments",
+    finalDue: "2026-10-01",
+    dates: {
+      full: ["2026-10-01"],
+      // Sep 6, not the 1st — Harrison, 2026-08-26.
+      half: ["2026-09-06", "2026-10-01"],
+      // No quarter: two months cannot carry four payments.
+    },
+  },
+  summer: {
+    label: "Summer tuition",
+    finalDue: "2027-02-01",
+    dates: {
+      full: ["2027-02-01"],
+      half: ["2026-11-01", "2027-01-01"],
+      quarter: ["2026-11-01", "2026-12-01", "2027-01-01", "2027-02-01"],
+    },
+  },
+};
+
+export const CHOICE_LABELS: Record<PlanChoice, string> = {
+  full: "Pay in full",
+  half: "2 payments",
+  quarter: "4 payments",
+};
+
 /**
- * Build the schedule for a choice.
+ * Build the schedule for a window and a choice.
  *
- * Installments are spread as evenly as whole months allow across the window,
- * always ending on the last available date. The FINAL payment is whatever
- * clears the balance — never a rounded figure — so the numbers on screen add up
- * to exactly what is owed and a family is never left holding four cents.
+ * Installments are equal except the last, which is whatever CLEARS the balance
+ * — never a rounded figure — so the numbers on screen add up to exactly what is
+ * owed and a family is never left holding four cents.
  *
- * Returns null when the choice cannot honestly be offered: no room left in the
- * calendar, or an installment that would settle the balance on its own.
+ * Returns null when the choice cannot honestly be offered: the window does not
+ * support it, nothing is owed, or an installment would settle the balance on
+ * its own (in which case it is a full payment wearing a costume).
  */
 export function buildPlan(
+  window: FeeWindow,
   choice: PlanChoice,
-  chargedCents: number,
   remainingCents: number,
-  today: Date = new Date(),
 ): PaymentPlan | null {
   if (remainingCents <= 0) return null;
 
-  const dates = availableDueDates(today);
-  if (dates.length === 0) return null;
+  const dates = WINDOWS[window].dates[choice];
+  if (!dates || dates.length === 0) return null;
 
-  if (choice === "full") {
+  if (dates.length === 1) {
     return {
       choice,
-      installmentCents: remainingCents,
-      installments: [{ dueDate: dates[dates.length - 1], amountCents: remainingCents }],
+      window,
+      installments: [{ dueDate: dates[0], amountCents: remainingCents }],
     };
   }
 
-  const n = DIVISOR[choice];
-  if (dates.length < n) return null; // not enough months left to spread it
-
-  const installmentCents = Math.round(chargedCents / n);
-  if (installmentCents <= 0 || installmentCents >= remainingCents) return null;
-
-  // How many scheduled installments actually fit inside what is still owed.
-  const whole = Math.floor(remainingCents / installmentCents);
-  const count = Math.min(n, Math.max(2, whole + (remainingCents % installmentCents ? 1 : 0)));
-  if (count < 2 || count > dates.length) return null;
-
-  const chosen = Array.from({ length: count }, (_, i) =>
-    dates[Math.round((i * (dates.length - 1)) / (count - 1))],
-  );
+  const per = Math.round(remainingCents / dates.length);
+  if (per <= 0 || per >= remainingCents) return null;
 
   const installments: Installment[] = [];
   let allocated = 0;
-  for (let i = 0; i < count; i++) {
-    const isLast = i === count - 1;
-    // The last payment clears the balance exactly.
-    const amount = isLast ? remainingCents - allocated : installmentCents;
-    allocated += amount;
-    installments.push({ dueDate: chosen[i], amountCents: amount });
-  }
+  dates.forEach((dueDate, i) => {
+    const isLast = i === dates.length - 1;
+    const amountCents = isLast ? remainingCents - allocated : per;
+    allocated += amountCents;
+    installments.push({ dueDate, amountCents });
+  });
 
-  return { choice, installments, installmentCents };
+  return { choice, window, installments };
+}
+
+/** Which choices this window can actually offer for this balance. */
+export function offeredChoices(
+  window: FeeWindow,
+  remainingCents: number,
+): PlanChoice[] {
+  return (["full", "half", "quarter"] as PlanChoice[]).filter((c) =>
+    buildPlan(window, c, remainingCents),
+  );
 }
 
 export function formatDueDate(iso: string): string {
