@@ -68,17 +68,29 @@ function missingItems(
   return missing;
 }
 
+export interface CoGuardian {
+  id: string;
+  first_name: string;
+  last_name: string;
+  relationship: string | null;
+}
+
 export default function PlayerProfileTile({
   player,
   guardian,
+  coGuardians = [],
   onPlayerUpdated,
   onGuardianUpdated,
+  onCoGuardianAdded,
   preview = false,
 }: {
   player: ProfilePlayer;
   guardian: ProfileGuardian | null;
+  /** Everyone attached to this athlete, by name only. Never contact details. */
+  coGuardians?: CoGuardian[];
   onPlayerUpdated: (next: ProfilePlayer) => void;
   onGuardianUpdated: (next: ProfileGuardian) => void;
+  onCoGuardianAdded?: () => void;
   preview?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -98,6 +110,53 @@ export default function PlayerProfileTile({
     phone: guardian?.phone ?? "",
     relationship: guardian?.relationship ?? "",
   });
+
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState("");
+  const [addBusy, setAddBusy] = useState(false);
+  const [newParent, setNewParent] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    relationship: "",
+  });
+
+  async function addParent() {
+    if (preview) {
+      setAddError("Preview only — adding is disabled on this screen.");
+      return;
+    }
+    setAddBusy(true);
+    setAddError("");
+    try {
+      const res = await fetch("/api/portal/add-guardian", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: player.id, ...newParent }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAddError(
+          typeof data.error === "string" ? data.error : "Couldn’t add that.",
+        );
+        setAddBusy(false);
+        return;
+      }
+      setNewParent({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        relationship: "",
+      });
+      setAdding(false);
+      onCoGuardianAdded?.();
+    } catch {
+      setAddError("Network error. Please try again.");
+    }
+    setAddBusy(false);
+  }
 
   const missing = missingItems(player, guardian);
   const complete = missing.length === 0;
@@ -316,9 +375,131 @@ export default function PlayerProfileTile({
               </Field>
             </div>
             <p className="mt-2 text-[12px] text-[#9CA3AF]">
-              Signed in as {guardian?.email ?? "—"}. A second parent adds their
-              own details by signing in with their email.
+              Signed in as {guardian?.email ?? "—"}.
             </p>
+          </div>
+
+          {/* Parents and guardians attached to this athlete. Names only — the
+              portal has never shown one parent another's contact details, and
+              adding someone does not open a window onto their record. */}
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9CA3AF] mb-3">
+              Parents &amp; guardians
+            </p>
+
+            {coGuardians.length > 0 && (
+              <ul className="mb-3 space-y-1.5">
+                {coGuardians.map((g) => (
+                  <li
+                    key={g.id}
+                    className="flex items-center justify-between rounded-lg bg-[#FAFBFC] px-3 py-2"
+                  >
+                    <span className="text-[13px] text-[#1A1A1A]">
+                      {g.first_name} {g.last_name}
+                    </span>
+                    {g.relationship && (
+                      <span className="text-[12px] text-[#9CA3AF]">
+                        {g.relationship}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {adding ? (
+              <div className="rounded-xl border border-[#E5E7EB] p-4 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="First name">
+                    <input
+                      value={newParent.firstName}
+                      onChange={(e) =>
+                        setNewParent((n) => ({ ...n, firstName: e.target.value }))
+                      }
+                      className="w-full rounded-lg border border-[#E5E7EB] px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4B9CD3]/20 focus:border-[#4B9CD3]"
+                    />
+                  </Field>
+                  <Field label="Last name">
+                    <input
+                      value={newParent.lastName}
+                      onChange={(e) =>
+                        setNewParent((n) => ({ ...n, lastName: e.target.value }))
+                      }
+                      className="w-full rounded-lg border border-[#E5E7EB] px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4B9CD3]/20 focus:border-[#4B9CD3]"
+                    />
+                  </Field>
+                  <Field label="Email">
+                    <input
+                      type="email"
+                      value={newParent.email}
+                      onChange={(e) =>
+                        setNewParent((n) => ({ ...n, email: e.target.value }))
+                      }
+                      className="w-full rounded-lg border border-[#E5E7EB] px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4B9CD3]/20 focus:border-[#4B9CD3]"
+                    />
+                  </Field>
+                  <Field label="Phone">
+                    <input
+                      type="tel"
+                      value={newParent.phone}
+                      onChange={(e) =>
+                        setNewParent((n) => ({ ...n, phone: e.target.value }))
+                      }
+                      className="w-full rounded-lg border border-[#E5E7EB] px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4B9CD3]/20 focus:border-[#4B9CD3]"
+                    />
+                  </Field>
+                  <Field label="Relationship">
+                    <input
+                      value={newParent.relationship}
+                      onChange={(e) =>
+                        setNewParent((n) => ({ ...n, relationship: e.target.value }))
+                      }
+                      placeholder="Father, Guardian"
+                      className="w-full rounded-lg border border-[#E5E7EB] px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#4B9CD3]/20 focus:border-[#4B9CD3]"
+                    />
+                  </Field>
+                </div>
+
+                {addError && (
+                  <p role="alert" className="text-[12px] text-[#EF4444]">
+                    {addError}
+                  </p>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={addParent}
+                    disabled={addBusy}
+                    className="px-3.5 py-2 rounded-lg bg-[#1A1A1A] text-white text-[12px] font-semibold hover:bg-black disabled:opacity-60 transition-colors"
+                  >
+                    {addBusy ? "Adding…" : "Add"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdding(false);
+                      setAddError("");
+                    }}
+                    className="text-[12px] text-[#6B7280] hover:text-[#1A1A1A] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <p className="text-[12px] text-[#9CA3AF]">
+                  They will be able to sign in with this email and see the same
+                  portal.
+                </p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                className="text-[13px] font-medium text-[#4B9CD3] hover:text-[#3D87BC] transition-colors"
+              >
+                + Add a parent or guardian
+              </button>
+            )}
           </div>
 
           {error && (

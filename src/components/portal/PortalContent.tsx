@@ -7,7 +7,7 @@ import PlayerProfileTile from "./PlayerProfileTile";
 import { TICKET_AMOUNTS_CENTS } from "@/lib/feesData";
 import type { ClubContact } from "@/lib/club-contacts";
 import type { ProfileGuardian } from "./PlayerProfileTile";
-import SeasonTabs from "./SeasonTabs";
+import PortalSideNav from "./PortalSideNav";
 import FeesPanel from "./FeesPanel";
 import BalanceQuestion from "./BalanceQuestion";
 import PlayerPicker from "./PlayerPicker";
@@ -96,12 +96,15 @@ function rosterPaidCents(payments: { amount_cents: number; payment_category: str
 export default function PortalContent({
   children,
   contacts = [],
+  resources = null,
   classFees = {},
 }: {
   /** Server-rendered rail sections (schedule, contacts). */
   children?: React.ReactNode;
   /** Published club contacts — who a family can send a question to. */
   contacts?: ClubContact[];
+  /** Full-width resource tiles, rendered below the dashboard. */
+  resources?: React.ReactNode;
   /** Season pricing by graduation year. Missing = not published for that class. */
   classFees?: Record<
     number,
@@ -254,56 +257,66 @@ export default function PortalContent({
         onSelect={setSelectedId}
       />
 
-      {/* THE DASHBOARD. Two columns, and the rail runs the full height beside
-          the main column rather than sitting under it. The athlete's name does
-          not span the page — it heads the column it belongs to.
+      {/* THE DASHBOARD — three columns.
+          LEFT   season switcher and section links. Season is a view control,
+                 not content: putting it between the profile and the fees put a
+                 band of chrome through the middle of the page and split the two
+                 things a parent reads together.
+          CENTRE who she is, then what she owes.
+          RIGHT  the things she acts on once — flag a wrong number, subscribe,
+                 find who to email.
+          Resources run full width underneath, where a link to somewhere worth
+          going has room to look like it.
+          One column on a phone: nav, content, rail, resources. */}
+      <div
+        key={selectedPlayer.id}
+        className="grid grid-cols-1 lg:grid-cols-[190px_minmax(0,1fr)_320px] gap-6 lg:gap-8 items-start"
+      >
+        <PortalSideNav
+          seasons={seasons}
+          activeSeason={activeSeason?.season ?? null}
+          onSelectSeason={setSelectedSeason}
+          playerName={selectedPlayer.first_name}
+        />
 
-          Rail order is deliberate: the correction channel first, because a
-          parent who thinks a number is wrong should not have to hunt for the
-          way to say so; then the one calendar action; then who to email.
-          Collapses to a single column on a phone, rail last. */}
-      <div key={selectedPlayer.id} className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
-        <div className="lg:col-span-2 space-y-6 min-w-0">
-          <PlayerProfileTile
-            player={selectedPlayer}
-            guardian={guardian}
-            onPlayerUpdated={(next) =>
-              setPlayers((prev) =>
-                prev.map((p) => (p.id === next.id ? { ...p, ...next } : p))
-              )
-            }
-            onGuardianUpdated={setGuardian}
-          />
-
-          {seasons.length > 1 && (
-            <SeasonTabs
-              seasons={seasons}
-              activeSeason={activeSeason?.season ?? null}
-              onSelect={setSelectedSeason}
+        <div className="space-y-6 min-w-0">
+          <div id="profile" className="scroll-mt-24">
+            <PlayerProfileTile
+              player={selectedPlayer}
+              guardian={guardian}
+              coGuardians={selectedPlayer.guardians ?? []}
+              onPlayerUpdated={(next) =>
+                setPlayers((prev) =>
+                  prev.map((p) => (p.id === next.id ? { ...p, ...next } : p))
+                )
+              }
+              onGuardianUpdated={setGuardian}
+              onCoGuardianAdded={reload}
             />
-          )}
+          </div>
 
-          <FeesPanel
-            playerId={selectedPlayer.id}
-            balance={activeBalance}
-            payments={selectedPlayer.payments}
-            charges={selectedPlayer.charges}
-            rosterPaidCents={rosterPaidCents(selectedPlayer.payments)}
-            rosterDueCents={TICKET_AMOUNTS_CENTS.roster}
-            fallTournamentCount={
-              classFees[selectedPlayer.graduation_year]?.tournamentCount ?? null
-            }
-            fallTournamentCents={
-              classFees[selectedPlayer.graduation_year]?.tournamentCents ?? 30000
-            }
-            summerTournamentCount={
-              classFees[selectedPlayer.graduation_year]?.summerTournamentCount ?? null
-            }
-          />
-
+          <div id="fees" className="scroll-mt-24">
+            <FeesPanel
+              playerId={selectedPlayer.id}
+              balance={activeBalance}
+              payments={selectedPlayer.payments}
+              charges={selectedPlayer.charges}
+              rosterPaidCents={rosterPaidCents(selectedPlayer.payments)}
+              rosterDueCents={TICKET_AMOUNTS_CENTS.roster}
+              fallTournamentCount={
+                classFees[selectedPlayer.graduation_year]?.tournamentCount ?? null
+              }
+              fallTournamentCents={
+                classFees[selectedPlayer.graduation_year]?.tournamentCents ?? 30000
+              }
+              summerTournamentCount={
+                classFees[selectedPlayer.graduation_year]?.summerTournamentCount ?? null
+              }
+            />
+          </div>
         </div>
 
-        <aside className="lg:col-span-1 space-y-5 min-w-0">
+        <aside className="space-y-5 min-w-0">
           <BalanceQuestion
             playerId={selectedPlayer.id}
             playerFirstName={selectedPlayer.first_name}
@@ -312,6 +325,8 @@ export default function PortalContent({
           {children}
         </aside>
       </div>
+
+      {resources}
 
       {/* Sign out */}
       <div className="text-center pt-12 mt-4 border-t border-[#E5E7EB]">

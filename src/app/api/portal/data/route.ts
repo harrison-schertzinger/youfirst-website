@@ -59,6 +59,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Couldn’t load your portal." }, { status: 500 });
   }
 
+  // Who is attached to each of these athletes, by name.
+  const { data: guardianRows } = await admin
+    .from("player_guardians")
+    .select("player_id, guardians(id, first_name, last_name, relationship)")
+    .in("player_id", playerIds);
+
+  type GRow = {
+    player_id: string;
+    guardians:
+      | { id: string; first_name: string; last_name: string; relationship: string | null }
+      | { id: string; first_name: string; last_name: string; relationship: string | null }[]
+      | null;
+  };
+  const guardianNamesByPlayer = new Map<
+    string,
+    { id: string; first_name: string; last_name: string; relationship: string | null }[]
+  >();
+  for (const row of ((guardianRows ?? []) as unknown as GRow[])) {
+    const g = Array.isArray(row.guardians) ? row.guardians[0] : row.guardians;
+    if (!g) continue;
+    const list = guardianNamesByPlayer.get(row.player_id) ?? [];
+    list.push(g);
+    guardianNamesByPlayer.set(row.player_id, list);
+  }
+
   const players = await Promise.all(
     (playersData ?? []).map(async (player) => {
       const [paymentsRes, balanceRes, seasonsRes, chargesRes] = await Promise.all([
@@ -97,7 +122,11 @@ export async function GET(request: NextRequest) {
         // returned to the portal. It only needs the player and the financial
         // fields to pay a balance. (Open self-linking is unchanged — that lives
         // in /api/portal/link and is untouched.)
-        guardians: [],
+        // Names and relationship only — enough for a parent to see who is
+        // attached to her athlete and to notice someone missing. Email, phone
+        // and address are still never returned. The PII lockdown is unchanged;
+        // this adds no contact detail to the payload.
+        guardians: (guardianNamesByPlayer.get(player.id) ?? []),
         payments: paymentsRes.data ?? [],
         balance: balanceRes.data?.[0] ?? null,
         // Newest season first — that is the one a family wants by default.

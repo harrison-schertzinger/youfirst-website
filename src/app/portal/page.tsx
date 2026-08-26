@@ -9,7 +9,7 @@ import PaymentBanner from "@/components/portal/PaymentBanner";
 import { PORTAL_COOKIE_NAME, verifyPortalToken } from "@/lib/portal-session";
 import RailCalendar from "@/components/portal/RailCalendar";
 import RailContacts from "@/components/portal/RailContacts";
-import RailResources from "@/components/portal/RailResources";
+import ResourceTiles from "@/components/portal/ResourceTiles";
 import { getEvents } from "@/lib/calendar";
 import { getPublishedContacts } from "@/lib/club-contacts";
 import { getPublishedResources } from "@/lib/club-resources";
@@ -118,10 +118,13 @@ export default async function PortalPage({
         {(paidTicket || canceledTicket) && (
           <PaymentBanner paid={paidTicket} canceled={canceledTicket} />
         )}
-        <PortalContent contacts={contacts} classFees={classFees}>
+        <PortalContent
+          contacts={contacts}
+          classFees={classFees}
+          resources={<ResourceTiles resources={resources} />}
+        >
           <RailCalendar subscribeUrl={subscribeUrl} events={nextUpFrom(events)} />
           <RailContacts contacts={contacts} />
-          <RailResources resources={resources} />
         </PortalContent>
       </main>
       <Footer />

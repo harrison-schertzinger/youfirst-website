@@ -1,12 +1,11 @@
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import PlayerProfileTilePreview from "@/components/portal/PlayerProfileTilePreview";
 import BalanceQuestion from "@/components/portal/BalanceQuestion";
-import PreviewFees from "@/components/portal/PreviewFees";
+import PreviewDashboard from "@/components/portal/PreviewDashboard";
 import { PreviewProvider } from "@/components/portal/PortalPreviewContext";
 import RailCalendar from "@/components/portal/RailCalendar";
 import RailContacts from "@/components/portal/RailContacts";
-import RailResources from "@/components/portal/RailResources";
+import ResourceTiles from "@/components/portal/ResourceTiles";
 import { getEvents } from "@/lib/calendar";
 import { getPublishedContacts } from "@/lib/club-contacts";
 import { getPublishedResources } from "@/lib/club-resources";
@@ -174,34 +173,34 @@ export default async function PortalPreviewPage() {
           <p className="section-label mb-5">Player Portal</p>
 
           <PreviewProvider value>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
-              <div className="lg:col-span-2 space-y-6 min-w-0">
-                <PlayerProfileTilePreview player={previewPlayer} />
-                <PreviewFees
-                  playerId={PREVIEW_PLAYER_ID}
-                  seasons={previewSeasons}
-                  payments={previewPayments}
-                  fallTournamentCount={previewFees?.tournamentCount ?? null}
-                  fallTournamentCents={previewFees?.tournamentCents ?? 30000}
-                  summerTournamentCount={previewFees?.summerTournamentCount ?? null}
-                />
-              </div>
-
-              <aside className="lg:col-span-1 space-y-5 min-w-0">
-                <BalanceQuestion
-                  playerId={PREVIEW_PLAYER_ID}
-                  playerFirstName={previewPlayer.first_name}
-                  contacts={contacts}
-                />
-                <RailCalendar
-                  subscribeUrl={subscribeUrl}
-                  events={nextUpFrom(events)}
-                />
-                <RailContacts contacts={contacts} />
-                <RailResources resources={resources} />
-              </aside>
-            </div>
+            <PreviewDashboard
+              playerId={PREVIEW_PLAYER_ID}
+              player={previewPlayer}
+              seasons={previewSeasons}
+              payments={previewPayments}
+              fallTournamentCount={previewFees?.tournamentCount ?? null}
+              fallTournamentCents={previewFees?.tournamentCents ?? 30000}
+              summerTournamentCount={previewFees?.summerTournamentCount ?? null}
+              rail={
+                <>
+                  <BalanceQuestion
+                    playerId={PREVIEW_PLAYER_ID}
+                    playerFirstName={previewPlayer.first_name}
+                    contacts={contacts}
+                  />
+                  <RailCalendar
+                    subscribeUrl={subscribeUrl}
+                    events={nextUpFrom(events)}
+                  />
+                  <RailContacts contacts={contacts} />
+                </>
+              }
+            />
           </PreviewProvider>
+
+          <div className="mt-8">
+            <ResourceTiles resources={resources} />
+          </div>
         </div>
       </main>
 
