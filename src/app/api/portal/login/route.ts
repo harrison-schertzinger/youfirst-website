@@ -87,8 +87,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Wrong password is the ONLY way to fail auth — any email is accepted (a
-  // shell guardian is created for unknown emails). Constant-time compare.
+  // Constant-time compare. The password is one of TWO gates now — see the
+  // club-family check below.
   if (!password || !passwordMatches(password, universal)) {
     return NextResponse.json(
       { error: "That password isn’t right." },
@@ -108,6 +108,39 @@ export async function POST(request: NextRequest) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // ── GATE TWO: is this a family of the club? ────────────────────────────
+  //
+  // The password is shared, so on its own it admits anyone who has ever been
+  // told it. The portal holds an athlete's record and her family's balance, so
+  // knowing a password cannot be the whole test. The address must appear
+  // against an eligible athlete somewhere the club actually collects addresses.
+  //
+  // Deliberately wider than "on the roster": a family that has aged out but
+  // still owes must be able to sign in and pay.
+  //
+  // The failure message is identical to the wrong-password one. Distinguishing
+  // them would turn this endpoint into an oracle for who is on the team.
+  const { data: isClubFamily, error: gateErr } = await admin.rpc(
+    "is_club_family_email",
+    { p_email: email },
+  );
+
+  if (gateErr) {
+    console.error("[portal/login] club-family check failed:", gateErr);
+    return NextResponse.json(
+      { error: "We couldn’t sign you in. Please try again." },
+      { status: 500 },
+    );
+  }
+
+  if (!isClubFamily) {
+    console.warn("[portal/login] rejected non-club address:", email);
+    return NextResponse.json(
+      { error: "That email and password don’t match." },
+      { status: 401 },
+    );
+  }
+
   // Find the guardian by email (all stored emails are already lowercased,
   // so an equality match is a correct case-insensitive lookup).
   const { data: existing, error: lookupErr } = await admin
@@ -126,7 +159,9 @@ export async function POST(request: NextRequest) {
 
   let guardianId = existing?.[0]?.id as string | undefined;
 
-  // Unknown email → create a shell guardian so it can be linked to a player.
+  // A club address we have seen on a roster form or a placement letter but that
+  // has no guardian row yet — mint one. This can only be reached AFTER the
+  // club-family gate, so a stranger's address never creates a record.
   if (!guardianId) {
     const { data: inserted, error: insertErr } = await admin
       .from("guardians")

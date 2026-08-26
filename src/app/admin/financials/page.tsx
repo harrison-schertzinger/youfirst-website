@@ -20,7 +20,9 @@ import type { PlayerBalanceRow } from "@/lib/portal-balance";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_SEASON = "2025-26";
+// The season financials opens on. 2026-27 is the live one now; last season is
+// still one click away in the selector and its numbers are unchanged.
+const DEFAULT_SEASON = "2026-27";
 
 interface PaymentLite {
   amount_cents: number | null;
@@ -129,7 +131,7 @@ export default async function FinancialsPage({
   // P&L queries.
   // Per audit rule (h): sum payments.amount_cents (NOT payment_plans.amount_paid_cents)
   // to avoid double-counting pending Stripe sessions.
-  // Billed/Outstanding/Rate come from player_balances() — the same function
+  // Billed/Outstanding/Rate come from player_season_balances() — season-scoped,
   // the portal, checkout and collections email read.
   const [
     paymentsRes,
@@ -144,7 +146,11 @@ export default async function FinancialsPage({
       .select("amount_cents, status, season")
       .eq("season", season)
       .eq("status", "completed"),
-    admin.rpc("player_balances"),
+        // player_season_balances, NOT player_balances: the latter returns only the
+    // most recent plan per player, so the moment 2026-27 plans existed a
+    // 2025-26 view lost the 49 families who moved on and reported a fraction of
+    // what was billed. This returns every season and the filter below picks one.
+    admin.rpc("player_season_balances"),
     admin
       .from("expenses")
       .select(
