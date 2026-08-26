@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import {
   signPortalToken,
@@ -38,13 +37,6 @@ function isRateLimited(ip: string, nowMs: number): boolean {
   return rec.count > RL_MAX_ATTEMPTS;
 }
 
-/** Constant-time string compare via fixed-length digests. */
-function passwordMatches(provided: string, expected: string): boolean {
-  const a = crypto.createHash("sha256").update(provided).digest();
-  const b = crypto.createHash("sha256").update(expected).digest();
-  return crypto.timingSafeEqual(a, b);
-}
-
 /** Derive a friendly placeholder first name from an email local-part. */
 function deriveFirstName(email: string): string {
   const local = email.split("@")[0] ?? "";
@@ -58,14 +50,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "Too many attempts. Please wait a minute and try again." },
       { status: 429, headers: { "Retry-After": "60" } },
-    );
-  }
-
-  const universal = process.env.PORTAL_UNIVERSAL_PASSWORD;
-  if (!universal) {
-    return NextResponse.json(
-      { error: "Portal login is not configured." },
-      { status: 503 },
     );
   }
 
@@ -87,15 +71,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Constant-time compare. The password is one of TWO gates now — see the
-  // club-family check below.
-  if (!password || !passwordMatches(password, universal)) {
-    return NextResponse.json(
-      { error: "That password isn’t right." },
-      { status: 401 },
-    );
-  }
-
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
@@ -107,6 +82,36 @@ export async function POST(request: NextRequest) {
   const admin = createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+
+  // ── GATE ONE: the shared club password ────────────────────────────────
+  //
+  // Verified inside the database. The application never sees the stored hash
+  // and never learns the password — verify_portal_password() answers yes or no
+  // and nothing else, so a log line or a stack trace cannot leak it. bcrypt's
+  // comparison is constant-time.
+  //
+  // It used to live only in PORTAL_UNIVERSAL_PASSWORD on Vercel, which meant a
+  // redeploy to change it and no way for anyone working on the code to confirm
+  // what it was.
+  const { data: passwordOk, error: pwErr } = await admin.rpc(
+    "verify_portal_password",
+    { p_candidate: password },
+  );
+
+  if (pwErr) {
+    console.error("[portal/login] password check failed:", pwErr);
+    return NextResponse.json(
+      { error: "We couldn’t sign you in. Please try again." },
+      { status: 500 },
+    );
+  }
+
+  if (!passwordOk) {
+    return NextResponse.json(
+      { error: "That email and password don’t match." },
+      { status: 401 },
+    );
+  }
 
   // ── GATE TWO: is this a family of the club? ────────────────────────────
   //

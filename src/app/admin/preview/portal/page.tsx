@@ -168,10 +168,9 @@ export default async function PortalPreviewPage() {
 
       <Navbar initialTheme="light" />
 
-      <main className="pt-20 pb-16 min-h-screen bg-background">
-        <div className="mx-auto max-w-[1280px] px-6 lg:px-8 py-10">
-          <p className="section-label mb-5">Player Portal</p>
-
+      <main className="pt-[84px] pb-14 min-h-screen bg-background">
+        <div className="mx-auto max-w-[1440px] px-4 sm:px-6 py-6">
+          
           <PreviewProvider value>
             <PreviewDashboard
               playerId={PREVIEW_PLAYER_ID}

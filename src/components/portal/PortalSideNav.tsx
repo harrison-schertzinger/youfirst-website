@@ -29,6 +29,13 @@ export default function PortalSideNav({
 }) {
   return (
     <nav className="lg:sticky lg:top-24 space-y-6">
+      {/* The page label lives here rather than as a lone eyebrow above the
+          content, where it cost a line of vertical space and told the reader
+          nothing the nav does not. */}
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#4B9CD3]">
+        Player Portal
+      </p>
+
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#9CA3AF] mb-2.5">
           Season

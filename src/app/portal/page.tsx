@@ -114,7 +114,7 @@ export default async function PortalPage({
     <>
       <ScrollProgressBar />
       <Navbar initialTheme="light" />
-      <main className="pt-20 pb-16 min-h-screen bg-background">
+      <main className="pt-[84px] pb-14 min-h-screen bg-background">
         {(paidTicket || canceledTicket) && (
           <PaymentBanner paid={paidTicket} canceled={canceledTicket} />
         )}

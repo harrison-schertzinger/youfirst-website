@@ -246,9 +246,8 @@ export default function PortalContent({
     : selectedPlayer.balance;
 
   return (
-    <div className="mx-auto max-w-[1280px] px-6 lg:px-8 py-10">
-      <p className="section-label mb-5">Player Portal</p>
-
+    <div className="mx-auto max-w-[1440px] px-4 sm:px-6 py-6">
+      
       {/* Sibling switcher — renders only when this session links to more than
           one athlete. Single-player families see no switcher and no change. */}
       <PlayerSwitcher
