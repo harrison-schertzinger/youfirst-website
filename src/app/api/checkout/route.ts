@@ -40,10 +40,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
   }
 
-  const { playerId, category, intent } = (body ?? {}) as {
+  const { playerId, category, intent, season } = (body ?? {}) as {
     playerId?: string;
     category?: string;
     intent?: string;
+    season?: string;
   };
 
   if (typeof playerId !== "string" || !playerId) {
@@ -124,20 +125,30 @@ export async function POST(request: NextRequest) {
     ticketId = `${playerId}-roster-1`;
   } else {
     // ── Summer: the amount IS the balance. One source of truth. ──────
-    const { data: balances, error: balanceErr } = await admin.rpc(
-      "player_balances",
-      { p_player_id: playerId },
-    );
+    //
+    // A SEASON MAY BE NAMED, and it matters. The portal shows a tab per season
+    // and a family with an unpaid 2025-26 balance can pay it from that tab.
+    // player_balances() returns only the MOST RECENT plan, so without this a
+    // parent settling last season's $154 would have been charged this season's
+    // $1,850. The season is validated against her own plans below — it selects
+    // which of her balances to read, and can never introduce one.
+    const rpc = season
+      ? await admin.rpc("player_season_balances", { p_player_id: playerId })
+      : await admin.rpc("player_balances", { p_player_id: playerId });
 
-    if (balanceErr) {
-      console.error("[checkout] player_balances failed:", balanceErr);
+    if (rpc.error) {
+      console.error("[checkout] balance lookup failed:", rpc.error);
       return NextResponse.json(
         { error: "Couldn’t start checkout." },
         { status: 500 },
       );
     }
 
-    const balance = (balances as PlayerBalanceRow[] | null)?.[0];
+    const rows = (rpc.data as PlayerBalanceRow[] | null) ?? [];
+    const balance = season
+      ? rows.find((r) => r.season === season)
+      : rows[0];
+
     if (!balance) {
       return NextResponse.json(
         { error: "No summer payment plan for this player." },
@@ -154,7 +165,7 @@ export async function POST(request: NextRequest) {
 
     if (safeIntent === "full") {
       amountCents = balance.remaining_cents;
-      ticketId = `${playerId}-summer-balance`;
+      ticketId = `${playerId}-summer-${balance.season ?? "current"}-balance`;
     } else {
       // An installment is a fraction of what the SEASON costs, not of what is
       // left — otherwise "pay a quarter" would mean a different, shrinking
@@ -183,7 +194,7 @@ export async function POST(request: NextRequest) {
         );
       }
       amountCents = installment;
-      ticketId = `${playerId}-summer-${safeIntent}`;
+      ticketId = `${playerId}-summer-${balance.season ?? "current"}-${safeIntent}`;
     }
 
     // Belt and braces: never let a computed amount exceed what is owed, and

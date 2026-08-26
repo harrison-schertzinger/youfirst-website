@@ -105,7 +105,15 @@ export default function FeesPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Intent only. The amount is re-derived server-side.
-        body: JSON.stringify({ playerId, category: "summer", intent }),
+        // Name the season being paid. Without it the server reads the most
+        // recent plan and would charge this season's amount for last season's
+        // balance.
+        body: JSON.stringify({
+          playerId,
+          category: "summer",
+          intent,
+          season: balance?.season ?? undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.url) {
