@@ -55,6 +55,7 @@ export default function FeesPanel({
   rosterDueCents,
   fallTournamentCount,
   fallTournamentCents,
+  summerTournamentCount = null,
 }: {
   playerId: string;
   balance: PlayerBalanceRow | null;
@@ -63,8 +64,11 @@ export default function FeesPanel({
   rosterPaidCents: number;
   rosterDueCents: number;
   /** How many fall tournaments this class travels to. Null = not decided. */
+  /** Fall travel, billed on top of tuition. 0 = this class does not travel. */
   fallTournamentCount: number | null;
   fallTournamentCents: number;
+  /** June tournaments covered by tuition. Display only, never billed here. */
+  summerTournamentCount?: number | null;
 }) {
   const isPreview = useIsPreview();
   const [choice, setChoice] = useState<PlanChoice>("full");
@@ -172,6 +176,12 @@ export default function FeesPanel({
         <div className="flex items-baseline justify-between mb-1">
           <span className="text-[13px] font-medium text-[#1A1A1A]">
             Summer tuition
+            {summerTournamentCount != null && summerTournamentCount > 0 && (
+              <span className="ml-1.5 font-normal text-[#9CA3AF]">
+                · {summerTournamentCount} June tournament
+                {summerTournamentCount === 1 ? "" : "s"} included
+              </span>
+            )}
           </span>
           {settled ? (
             <span className="text-[12px] font-semibold text-[#0F9D6E]">
@@ -320,11 +330,13 @@ export default function FeesPanel({
           <span className="text-[13px] font-medium text-[#1A1A1A]">
             Fall tournaments
           </span>
-          <span className="text-[12px] tabular-nums text-[#6B7280]">
-            $300 each
-          </span>
+          {fallTournamentCount !== 0 && (
+            <span className="text-[12px] tabular-nums text-[#6B7280]">
+              {formatCents(fallTournamentCents)} each
+            </span>
+          )}
         </div>
-        {fallTournamentCount != null && (
+        {fallTournamentCount != null && fallTournamentCount > 0 && (
           <p className="mt-0.5 text-[12px] text-[#6B7280]">
             {fallTournamentCount} tournament{fallTournamentCount === 1 ? "" : "s"} ·{" "}
             <span className="font-semibold text-[#1A1A1A] tabular-nums">
@@ -333,8 +345,13 @@ export default function FeesPanel({
             total, due by {formatDueDate(WINDOWS.fall.finalDue)}
           </p>
         )}
+        {fallTournamentCount === 0 && (
+          <p className="mt-0.5 text-[12px] text-[#6B7280]">
+            This team does not travel in the fall — nothing to pay here.
+          </p>
+        )}
 
-        {fallPayments.length > 0 ? (
+        {fallTournamentCount === 0 ? null : fallPayments.length > 0 ? (
           <ul className="mt-2 space-y-1.5">
             {fallPayments.map((p) => (
               <li

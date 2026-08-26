@@ -103,7 +103,10 @@ export default function PortalContent({
   /** Published club contacts — who a family can send a question to. */
   contacts?: ClubContact[];
   /** Season pricing by graduation year. Missing = not published for that class. */
-  classFees?: Record<number, { tournamentCount: number; tournamentCents: number }>;
+  classFees?: Record<
+    number,
+    { tournamentCount: number; tournamentCents: number; summerTournamentCount: number | null }
+  >;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -292,6 +295,9 @@ export default function PortalContent({
             }
             fallTournamentCents={
               classFees[selectedPlayer.graduation_year]?.tournamentCents ?? 30000
+            }
+            summerTournamentCount={
+              classFees[selectedPlayer.graduation_year]?.summerTournamentCount ?? null
             }
           />
 

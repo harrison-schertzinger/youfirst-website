@@ -19,6 +19,7 @@ export interface ClassFees {
   rosterCents: number;
   tournamentCount: number;
   tournamentCents: number;
+  summerTournamentCount: number | null;
 }
 
 export async function getClassFees(
@@ -37,7 +38,7 @@ export async function getClassFees(
 
   const { data, error } = await admin
     .from("fee_schedule")
-    .select("grad_year, season, summer_cents, roster_cents, tournament_count, tournament_cents")
+    .select("grad_year, season, summer_cents, roster_cents, tournament_count, tournament_cents, summer_tournament_count")
     .eq("season", season)
     .eq("grad_year", gradYear)
     .eq("published", true)
@@ -55,5 +56,6 @@ export async function getClassFees(
     rosterCents: data.roster_cents,
     tournamentCount: data.tournament_count,
     tournamentCents: data.tournament_cents,
+    summerTournamentCount: data.summer_tournament_count ?? null,
   };
 }

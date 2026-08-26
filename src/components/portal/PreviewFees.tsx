@@ -21,12 +21,14 @@ export default function PreviewFees({
   payments,
   fallTournamentCount,
   fallTournamentCents,
+  summerTournamentCount = null,
 }: {
   playerId: string;
   seasons: SeasonBalance[];
   payments: PortalPayment[];
   fallTournamentCount: number | null;
   fallTournamentCents: number;
+  summerTournamentCount?: number | null;
 }) {
   const [selected, setSelected] = useState(seasons[0]?.season ?? "");
   const active = seasons.find((s) => s.season === selected) ?? seasons[0];
@@ -63,6 +65,7 @@ export default function PreviewFees({
         rosterDueCents={20000}
         fallTournamentCount={fallTournamentCount}
         fallTournamentCents={fallTournamentCents}
+        summerTournamentCount={summerTournamentCount}
       />
     </>
   );

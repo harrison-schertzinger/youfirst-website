@@ -101,23 +101,36 @@ const previewSeasons = [
   },
 ];
 
-/** The next few dated events, formatted for the rail. */
+/**
+ * The next couple of Saturdays for the rail — whole days, not a flat count, so
+ * a four-hour block never arrives with half of itself missing.
+ */
 function nextUpFrom(
-  events: { id: string; title: string; startDate: string; startTime: string; isAllDay: boolean }[],
-  limit = 3,
+  events: {
+    id: string;
+    title: string;
+    startDate: string;
+    startTime: string;
+    endTime: string;
+    eventType: import("@/lib/calendar").EventType;
+    isAllDay: boolean;
+  }[],
+  maxDays = 2,
 ) {
   const todayKey = new Date().toISOString().slice(0, 10);
-  return events
-    .filter((e) => e.startDate >= todayKey)
-    .slice(0, limit)
-    .map((e) => {
-      const d = new Date(`${e.startDate}T12:00:00`);
-      return {
-        id: e.id,
-        title: e.title,
-        when: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      };
-    });
+  const upcoming = events.filter((e) => e.startDate >= todayKey);
+  const days = [...new Set(upcoming.map((e) => e.startDate))].slice(0, maxDays);
+  return upcoming
+    .filter((e) => days.includes(e.startDate))
+    .map((e) => ({
+      id: e.id,
+      title: e.title,
+      startDate: e.startDate,
+      startTime: e.startTime,
+      endTime: e.endTime,
+      eventType: e.eventType,
+      isAllDay: e.isAllDay,
+    }));
 }
 
 export default async function PortalPreviewPage() {
@@ -170,6 +183,7 @@ export default async function PortalPreviewPage() {
                   payments={previewPayments}
                   fallTournamentCount={previewFees?.tournamentCount ?? null}
                   fallTournamentCents={previewFees?.tournamentCents ?? 30000}
+                  summerTournamentCount={previewFees?.summerTournamentCount ?? null}
                 />
               </div>
 
@@ -181,7 +195,7 @@ export default async function PortalPreviewPage() {
                 />
                 <RailCalendar
                   subscribeUrl={subscribeUrl}
-                  nextUp={nextUpFrom(events)}
+                  events={nextUpFrom(events)}
                 />
                 <RailContacts contacts={contacts} />
                 <RailResources resources={resources} />
