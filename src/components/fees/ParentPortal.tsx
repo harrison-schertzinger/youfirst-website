@@ -2,8 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import RegistrationModal from "@/components/portal/RegistrationModal";
 
+/**
+ * Portal sign-in.
+ *
+ * There is no self-registration here, deliberately. A family does not join the
+ * club through a web form — they are entered from the Command Center and sent a
+ * link. Offering "Register Your Player" under the sign-in invited people to try
+ * a route that does not exist and made the page look like a storefront rather
+ * than a door. Email, password, in.
+ */
 export default function ParentPortal() {
   const router = useRouter();
   const [loaded, setLoaded] = useState(false);
@@ -11,7 +19,6 @@ export default function ParentPortal() {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "signing" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  const [showRegister, setShowRegister] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setLoaded(true), 100);
@@ -58,9 +65,9 @@ export default function ParentPortal() {
         }}
       />
 
-      <div className="relative z-10 mx-auto max-w-lg px-6 py-32">
+      <div className="relative z-10 mx-auto w-full max-w-lg px-6 py-16">
         {/* ─── Sign-in section ─── */}
-        <div className="text-center mb-16">
+        <div className="text-center">
           {/* Section label */}
           <p
             className={`section-label mb-6 transition-all duration-700 ${
@@ -133,51 +140,8 @@ export default function ParentPortal() {
           </form>
         </div>
 
-        {/* ─── Registration invitation card ─── */}
-        <div
-          className={`transition-all duration-800 ${
-            loaded ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-4 blur-sm"
-          }`}
-          style={{ transitionDelay: "700ms" }}
-        >
-          <div className="gradient-divider mb-16" />
-
-          <div className="relative bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden group hover:shadow-[0_12px_40px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-500">
-            {/* Accent top edge */}
-            <div className="h-1 bg-accent-blue" />
-
-            <div className="p-8 sm:p-10 text-center">
-              {/* Welcome icon */}
-              <div className="w-14 h-14 rounded-2xl bg-accent-blue/8 flex items-center justify-center mx-auto mb-6 group-hover:bg-accent-blue/12 transition-colors duration-300">
-                <svg className="w-7 h-7 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
-                </svg>
-              </div>
-
-              <h2 className="text-xl font-bold text-[#1A1A1A] tracking-tight mb-2">
-                New to You<span className="text-accent-blue">.</span> First?
-              </h2>
-              <p className="text-sm text-[#6B7280] leading-relaxed mb-8 max-w-xs mx-auto">
-                Join Cincinnati&apos;s premier college prep lacrosse club.
-                Registration takes about 5 minutes.
-              </p>
-
-              <button
-                type="button"
-                onClick={() => setShowRegister(true)}
-                className="px-8 py-3.5 bg-accent-blue text-white text-[13px] font-semibold uppercase tracking-[0.1em] rounded-xl shadow-[0_4px_14px_rgba(74,144,217,0.4)] hover:shadow-[0_4px_24px_rgba(74,144,217,0.55)] hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
-              >
-                Register Your Player
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Registration modal */}
-      {showRegister && (
-        <RegistrationModal onClose={() => setShowRegister(false)} />
-      )}
     </section>
   );
 }
