@@ -196,3 +196,54 @@ alter table public.balance_questions
 -- charged, paid, remaining, percent and settled — zero mismatches.
 -- ═══════════════════════════════════════════════════════════════════════════
 -- (full body applied via MCP; see git history for the definition)
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- is_club_family_email — CORRECTED 2026-08-26, live incident.
+--
+-- The first version admitted an address only if it hung off an athlete in
+-- `players`. Its tryout_registrations branch joined on tr.player_id, which is
+-- NULL for anyone confirmed onto a team who never got a player record — 50
+-- athletes at the time. Every one of those families was refused at sign-in with
+-- the same message as a wrong password, and about a hundred people were told
+-- the portal was broken minutes after the announcement email went out.
+--
+-- BEING CONFIRMED ONTO A TEAM IS THE TEST. A placed_team on a tryout
+-- registration means the club said yes; that is enough on its own.
+--
+-- The deeper repair was to stop the two from diverging: the 50 missing player
+-- records were created from their confirmed registrations, parents linked, and
+-- 2026-27 plans written. Confirmed now means rostered.
+--
+-- Verified after: all 128 announced addresses pass the gate AND resolve to an
+-- athlete; a stranger address is still refused.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+create or replace function public.is_club_family_email(p_email text)
+returns boolean language sql stable security definer set search_path to 'public'
+as $function$
+  with eligible as (
+    select id from players where status in ('active','injured','hold')
+    union select player_id from payment_plans
+    union select player_id from player_charges where status = 'open'
+  ),
+  emails as (
+    select lower(g.email) as email from guardians g
+      join player_guardians pg on pg.guardian_id = g.id
+      join eligible e on e.id = pg.player_id
+      where nullif(g.email,'') is not null
+    union
+    -- The branch that was missing. No join to players.
+    select lower(tr.email) from tryout_registrations tr
+      where tr.placed_team is not null and nullif(tr.email,'') is not null
+    union
+    select lower(rc.parent1_email) from roster_confirmations rc
+      where nullif(rc.parent1_email,'') is not null
+    union
+    select lower(rc.parent2_email) from roster_confirmations rc
+      where nullif(rc.parent2_email,'') is not null
+    union
+    select lower(pt.recipient_email) from placement_tokens pt
+      where nullif(pt.recipient_email,'') is not null
+  )
+  select exists (select 1 from emails where email = lower(btrim(coalesce(p_email,''))));
+$function$;
