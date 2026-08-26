@@ -71,7 +71,7 @@ function completedInCategory(
  * unchanged here.
  *
  * The summer season is NOT a ticket any more. It is one balance surface driven
- * by `player_balances()` (see SummerBalanceCard). There are no due dates and
+ * by `player_balances()` (see FeesPanel). There are no due dates and
  * nothing is labeled overdue: the season is over, and the only question left
  * is what is still owed.
  *

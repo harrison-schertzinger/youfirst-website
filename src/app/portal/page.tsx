@@ -81,7 +81,7 @@ export default async function PortalPage({
         {(paidTicket || canceledTicket) && (
           <PaymentBanner paid={paidTicket} canceled={canceledTicket} />
         )}
-        <PortalContent>
+        <PortalContent contacts={contacts}>
           <RailCalendar subscribeUrl={subscribeUrl} nextUp={nextUpFrom(events)} />
           <RailContacts contacts={contacts} />
         </PortalContent>

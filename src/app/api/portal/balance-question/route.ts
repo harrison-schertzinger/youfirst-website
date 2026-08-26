@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: { playerId?: unknown; message?: unknown };
+  let body: { playerId?: unknown; message?: unknown; contactId?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -52,6 +52,10 @@ export async function POST(request: NextRequest) {
   if (!playerId) {
     return NextResponse.json({ error: "Missing player." }, { status: 400 });
   }
+
+  // The browser sends a contact ID, never an address. Anything else would let
+  // a caller nominate an arbitrary recipient and use the club as a relay.
+  const contactId = typeof body.contactId === "string" ? body.contactId : "";
 
   const rawMessage = typeof body.message === "string" ? body.message : "";
   // Strip control characters, keeping tab and newline. Then trim and cap.
@@ -110,6 +114,25 @@ export async function POST(request: NextRequest) {
   ]);
 
   const balance = (balances as PlayerBalanceRow[] | null)?.[0] ?? null;
+
+  // Resolve the chosen recipient against PUBLISHED contacts only. A row that is
+  // unpublished (an unannounced director, say) is not selectable even if its id
+  // is guessed, and an unknown id falls back to the default recipients rather
+  // than failing the parent's submission — her question still has to arrive.
+  let chosenContactId: string | null = null;
+  let chosenEmail: string | null = null;
+  if (contactId) {
+    const { data: contact } = await admin
+      .from("club_contacts")
+      .select("id, email")
+      .eq("id", contactId)
+      .eq("published", true)
+      .maybeSingle();
+    if (contact?.email) {
+      chosenContactId = contact.id;
+      chosenEmail = contact.email;
+    }
+  }
   const playerName = player
     ? `${player.first_name} ${player.last_name}`
     : "Player";
@@ -125,6 +148,8 @@ export async function POST(request: NextRequest) {
       paid_cents: balance?.paid_cents ?? null,
       adjustment_cents: balance?.adjustment_cents ?? null,
       remaining_cents: balance?.remaining_cents ?? null,
+      sent_to_contact_id: chosenContactId,
+      sent_to_email: chosenEmail,
     })
     .select("id, created_at")
     .single();
@@ -149,6 +174,7 @@ export async function POST(request: NextRequest) {
       timeStyle: "short",
       timeZone: "America/New_York",
     }),
+    recipients: chosenEmail ? [chosenEmail] : undefined,
   });
 
   // Record the outcome on the row. Console-only was unauditable in production:

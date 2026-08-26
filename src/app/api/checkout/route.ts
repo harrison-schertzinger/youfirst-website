@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 // the whole thing again.
 
 type Category = "roster" | "summer";
-type Intent = "full" | "quarter";
+type Intent = "full" | "half" | "quarter";
 
 export async function POST(request: NextRequest) {
   const stripe = getStripe();
@@ -57,7 +57,8 @@ export async function POST(request: NextRequest) {
   // A stale page (or an older client) may not send an intent. Defaulting to
   // the full remaining balance is always the safe read — it can never charge
   // more than what is actually owed.
-  const safeIntent: Intent = intent === "quarter" ? "quarter" : "full";
+  const safeIntent: Intent =
+    intent === "quarter" ? "quarter" : intent === "half" ? "half" : "full";
 
   // ── Authenticate: portal token (parents are NOT on Supabase Auth) ──
   const portalSession = readPortalSession(request);
@@ -151,20 +152,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (safeIntent === "quarter") {
-      // Only offer a quarter when it is a true fraction of what she owes.
-      // The function decides this — the browser cannot talk us into it.
-      if (!balance.quarter_eligible || balance.quarter_cents <= 0) {
+    if (safeIntent === "full") {
+      amountCents = balance.remaining_cents;
+      ticketId = `${playerId}-summer-balance`;
+    } else {
+      // An installment is a fraction of what the SEASON costs, not of what is
+      // left — otherwise "pay a quarter" would mean a different, shrinking
+      // number every time a family came back, and four payments would never
+      // actually clear the balance.
+      //
+      // Derived from charged_cents rather than the hardcoded 46250 that
+      // player_balances() returns. That constant is a quarter of $1,850 and is
+      // correct only while every family pays exactly $1,850 — which stops being
+      // true the moment 2026-27 fees vary by age. Verified against live data
+      // before the change: all 59 plans are charged $1,850, so the derived
+      // quarter is $462.50 for every one of them and no existing family's
+      // amount moves.
+      const divisor = safeIntent === "half" ? 2 : 4;
+      const installment = Math.round(balance.charged_cents / divisor);
+
+      // If an installment would settle the balance anyway, it is not an
+      // installment — refuse rather than dress a full payment up as a plan.
+      if (installment <= 0 || installment >= balance.remaining_cents) {
         return NextResponse.json(
-          { error: "The quarter option isn’t available on this balance." },
+          {
+            error:
+              "That payment option isn’t available on this balance — pay the remaining balance instead.",
+          },
           { status: 409 },
         );
       }
-      amountCents = balance.quarter_cents;
-      ticketId = `${playerId}-summer-quarter`;
-    } else {
-      amountCents = balance.remaining_cents;
-      ticketId = `${playerId}-summer-balance`;
+      amountCents = installment;
+      ticketId = `${playerId}-summer-${safeIntent}`;
     }
 
     // Belt and braces: never let a computed amount exceed what is owed, and

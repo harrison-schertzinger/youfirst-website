@@ -33,11 +33,23 @@ export interface BalanceQuestionNotifyInput {
   adjustmentCents: number | null;
   remainingCents: number | null;
   submittedAt: string;
+  /**
+   * Who the family chose. Already resolved against published club_contacts by
+   * the caller — this module must never accept an address from a browser.
+   */
+  recipients?: string[];
 }
 
+/**
+ * Kathleen first — she owns fees and parent relations, and a balance question
+ * is hers to answer. Harrison is copied, not primary.
+ *
+ * harrison@theyoufirstproject.com is retired; the club address is the only one
+ * used now. Override with BALANCE_QUESTION_EMAILS.
+ */
 const DEFAULT_RECIPIENTS = [
-  "harrison@theyoufirstproject.com",
   "kathleen@youfirstlacrosse.com",
+  "harrison@youfirstlacrosse.com",
 ];
 
 function escapeHtml(s: string): string {
@@ -64,7 +76,15 @@ function safeSubjectFragment(s: string): string {
   return s.replace(/[\r\n]+/g, " ").trim().slice(0, 120);
 }
 
-function recipients(): string[] {
+/**
+ * Who gets the ping.
+ *
+ * `chosen` wins when the family picked someone — it is already validated
+ * against published club_contacts by the caller. Otherwise the env override,
+ * otherwise the defaults. A browser-supplied address never reaches here.
+ */
+function recipients(chosen?: string[]): string[] {
+  if (chosen && chosen.length > 0) return chosen;
   const raw = process.env.BALANCE_QUESTION_EMAILS;
   if (!raw) return DEFAULT_RECIPIENTS;
   const list = raw
@@ -168,7 +188,7 @@ export async function sendBalanceQuestionNotification(
       },
       body: JSON.stringify({
         from,
-        to: recipients(),
+        to: recipients(input.recipients),
         subject,
         html,
         text,

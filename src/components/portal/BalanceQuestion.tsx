@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useIsPreview } from "./PaymentDashboard";
+import { useIsPreview } from "./PortalPreviewContext";
+import type { ClubContact } from "@/lib/club-contacts";
 
 const MAX_LENGTH = 2000;
 
@@ -12,17 +13,25 @@ const MAX_LENGTH = 2000;
  * defer paying. It is not called a dispute and it does not offer to "request an
  * adjustment".
  *
- * The submission goes to Harrison and Kathleen by email AND lands in the admin
- * queue at /admin/questions. Email is a notification, never the queue.
+ * The family chooses who it reaches. The <select> sends a CONTACT ID, never an
+ * address — the server resolves it against published club_contacts, so nobody
+ * can hand us an arbitrary recipient and use the club as a relay.
+ *
+ * It also lands in the admin queue at /admin/questions regardless of who was
+ * picked. Email is a notification; the queue is the record.
  */
 export default function BalanceQuestion({
   playerId,
   playerFirstName,
+  contacts = [],
 }: {
   playerId: string;
   playerFirstName: string;
+  /** Published club contacts, in display order. First is the default. */
+  contacts?: ClubContact[];
 }) {
   const [message, setMessage] = useState("");
+  const [contactId, setContactId] = useState<string>(contacts[0]?.id ?? "");
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">(
     "idle",
   );
@@ -51,7 +60,7 @@ export default function BalanceQuestion({
       const res = await fetch("/api/portal/balance-question", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId, message: trimmed }),
+        body: JSON.stringify({ playerId, message: trimmed, contactId }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -112,7 +121,10 @@ export default function BalanceQuestion({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-10">
+    <form
+      onSubmit={handleSubmit}
+      className="rounded-2xl bg-white border border-[#E5E7EB] shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5"
+    >
       <label
         htmlFor={`balance-question-${playerId}`}
         className="block text-[14px] font-semibold text-[#1A1A1A]"
@@ -123,6 +135,25 @@ export default function BalanceQuestion({
         If something here doesn’t match what we agreed, or {playerFirstName}{" "}
         missed part of the season, tell us and we’ll get it right.
       </p>
+
+      {contacts.length > 1 && (
+        <label className="mt-3 block">
+          <span className="block text-[11px] font-medium uppercase tracking-[0.1em] text-[#9CA3AF] mb-1">
+            Send to
+          </span>
+          <select
+            value={contactId}
+            onChange={(e) => setContactId(e.target.value)}
+            className="w-full rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-[13px] text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#4B9CD3]/20 focus:border-[#4B9CD3] transition-colors"
+          >
+            {contacts.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name ? `${c.name} — ${c.role}` : c.role}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <textarea
         id={`balance-question-${playerId}`}

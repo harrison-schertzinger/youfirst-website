@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SITE_CONFIG } from "@/lib/constants";
 import PlayerHeader from "./PlayerHeader";
-import PaymentDashboard from "./PaymentDashboard";
+import { TICKET_AMOUNTS_CENTS } from "@/lib/feesData";
+import type { ClubContact } from "@/lib/club-contacts";
+import FeesPanel from "./FeesPanel";
 import PlayerProfileCard from "./PlayerProfileCard";
 import BalanceQuestion from "./BalanceQuestion";
 import PlayerPicker from "./PlayerPicker";
@@ -70,11 +72,21 @@ interface PlayerWithData extends Player {
   charges: PortalCharge[];
 }
 
+/** Roster money actually received. Never a counter — always the ledger. */
+function rosterPaidCents(payments: { amount_cents: number; payment_category: string | null; status: string }[]): number {
+  return payments
+    .filter((p) => p.payment_category === "roster" && p.status === "completed")
+    .reduce((sum, p) => sum + (p.amount_cents ?? 0), 0);
+}
+
 export default function PortalContent({
   children,
+  contacts = [],
 }: {
-  /** Server-rendered sections (schedule, contacts) placed above sign-out. */
+  /** Server-rendered rail sections (schedule, contacts). */
   children?: React.ReactNode;
+  /** Published club contacts — who a family can send a question to. */
+  contacts?: ClubContact[];
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -190,41 +202,45 @@ export default function PortalContent({
         onSelect={setSelectedId}
       />
 
-      {/* THE DASHBOARD. Identity across the top, then two columns: what she
-          owes on the left because that is what a parent came for, and the
-          things she acts on once — subscribe, who to email, flag a wrong
-          number — in a rail beside it rather than buried under a scroll.
+      {/* THE DASHBOARD. Two columns, and the rail runs the full height beside
+          the main column rather than sitting under it. The athlete's name does
+          not span the page — it heads the column it belongs to.
+
+          Rail order is deliberate: the correction channel first, because a
+          parent who thinks a number is wrong should not have to hunt for the
+          way to say so; then the one calendar action; then who to email.
           Collapses to a single column on a phone, rail last. */}
-      <div key={selectedPlayer.id} className="space-y-8">
-        <PlayerHeader player={selectedPlayer} />
+      <div key={selectedPlayer.id} className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
+        <div className="lg:col-span-2 space-y-6 min-w-0">
+          <PlayerHeader player={selectedPlayer} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
-          <div className="lg:col-span-2 space-y-8 min-w-0">
-            <PaymentDashboard
-              playerId={selectedPlayer.id}
-              payments={selectedPlayer.payments}
-              balance={selectedPlayer.balance}
-              charges={selectedPlayer.charges}
-            />
+          <FeesPanel
+            playerId={selectedPlayer.id}
+            balance={selectedPlayer.balance}
+            payments={selectedPlayer.payments}
+            charges={selectedPlayer.charges}
+            rosterPaidCents={rosterPaidCents(selectedPlayer.payments)}
+            rosterDueCents={TICKET_AMOUNTS_CENTS.roster}
+          />
 
-            <PlayerProfileCard
-              player={selectedPlayer}
-              onUpdated={(next) =>
-                setPlayers((prev) =>
-                  prev.map((p) => (p.id === next.id ? { ...p, ...next } : p))
-                )
-              }
-            />
-          </div>
-
-          <aside className="lg:col-span-1 space-y-6 min-w-0">
-            {children}
-            <BalanceQuestion
-              playerId={selectedPlayer.id}
-              playerFirstName={selectedPlayer.first_name}
-            />
-          </aside>
+          <PlayerProfileCard
+            player={selectedPlayer}
+            onUpdated={(next) =>
+              setPlayers((prev) =>
+                prev.map((p) => (p.id === next.id ? { ...p, ...next } : p))
+              )
+            }
+          />
         </div>
+
+        <aside className="lg:col-span-1 space-y-5 min-w-0">
+          <BalanceQuestion
+            playerId={selectedPlayer.id}
+            playerFirstName={selectedPlayer.first_name}
+            contacts={contacts}
+          />
+          {children}
+        </aside>
       </div>
 
       {/* Sign out */}

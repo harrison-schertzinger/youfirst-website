@@ -1,9 +1,10 @@
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import PlayerHeader from "@/components/portal/PlayerHeader";
+import BalanceQuestion from "@/components/portal/BalanceQuestion";
 import PlayerProfileCardPreview from "@/components/portal/PlayerProfileCardPreview";
-import PaymentDashboard from "@/components/portal/PaymentDashboard";
-import BalanceQuestionPreview from "@/components/portal/BalanceQuestionPreview";
+import FeesPanel from "@/components/portal/FeesPanel";
+import { PreviewProvider } from "@/components/portal/PortalPreviewContext";
 import RailCalendar from "@/components/portal/RailCalendar";
 import RailContacts from "@/components/portal/RailContacts";
 import { getEvents } from "@/lib/calendar";
@@ -148,31 +149,35 @@ export default async function PortalPreviewPage() {
         <div className="mx-auto max-w-[1280px] px-6 lg:px-8 py-10">
           <p className="section-label mb-5">Player Portal</p>
 
-          <div className="space-y-8">
-            <PlayerHeader player={previewPlayer} />
-
+          <PreviewProvider value>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
-              <div className="lg:col-span-2 space-y-8 min-w-0">
-                <PaymentDashboard
+              <div className="lg:col-span-2 space-y-6 min-w-0">
+                <PlayerHeader player={previewPlayer} />
+                <FeesPanel
                   playerId={PREVIEW_PLAYER_ID}
-                  payments={previewPayments}
                   balance={previewBalance}
+                  payments={previewPayments}
                   charges={[]}
-                  preview
+                  rosterPaidCents={20000}
+                  rosterDueCents={20000}
                 />
                 <PlayerProfileCardPreview player={previewPlayer} />
               </div>
 
-              <aside className="lg:col-span-1 space-y-6 min-w-0">
+              <aside className="lg:col-span-1 space-y-5 min-w-0">
+                <BalanceQuestion
+                  playerId={PREVIEW_PLAYER_ID}
+                  playerFirstName={previewPlayer.first_name}
+                  contacts={contacts}
+                />
                 <RailCalendar
                   subscribeUrl={subscribeUrl}
                   nextUp={nextUpFrom(events)}
                 />
                 <RailContacts contacts={contacts} />
-                <BalanceQuestionPreview playerFirstName={previewPlayer.first_name} />
               </aside>
             </div>
-          </div>
+          </PreviewProvider>
         </div>
       </main>
 
