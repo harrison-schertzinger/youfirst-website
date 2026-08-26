@@ -19,6 +19,7 @@ export interface SpreadsheetRow {
   billed_cents: number;
   collected_cents: number;
   balance_cents: number;
+  prior_balance_cents: number;
 }
 
 type SortKey = "name" | "class" | "position" | "balance";
@@ -212,10 +213,11 @@ export default function PlayerRosterSpreadsheet({ rows }: Props) {
                 />
                 <PlainTh>Jersey</PlainTh>
                 <PlainTh>School</PlainTh>
-                <PlainTh className="text-right">Billed</PlainTh>
-                <PlainTh className="text-right">Collected</PlainTh>
+                <PlainTh className="text-right">Billed 26–27</PlainTh>
+                <PlainTh className="text-right">Collected 26–27</PlainTh>
+                <PlainTh className="text-right">Prior seasons</PlainTh>
                 <SortableTh
-                  label="Balance"
+                  label="Balance 26–27"
                   align="right"
                   active={sortKey === "balance"}
                   order={sortOrder}
@@ -356,6 +358,15 @@ function SpreadsheetRowComponent({
       </td>
       <td className="px-4 py-2 text-right tabular-nums text-[#6B7280]">
         {formatDollars(row.collected_cents)}
+      </td>
+      <td className="px-4 py-2 text-right tabular-nums">
+        {row.prior_balance_cents > 0 ? (
+          <span className="text-[#B45309] font-semibold">
+            {formatDollars(row.prior_balance_cents)}
+          </span>
+        ) : (
+          <span className="text-[#9CA3AF]">—</span>
+        )}
       </td>
       <td
         className="px-4 py-2 text-right tabular-nums font-semibold"

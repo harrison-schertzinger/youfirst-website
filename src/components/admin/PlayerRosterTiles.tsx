@@ -10,6 +10,7 @@ export interface TileRow {
   billed_cents: number;
   collected_cents: number;
   balance_cents: number;
+  prior_balance_cents: number;
 }
 
 export interface TileYearBlock {
@@ -89,9 +90,9 @@ function PlayerTile({ player }: { player: TileRow }) {
       </div>
 
       <dl className="mt-4 grid grid-cols-3 gap-2 text-[11px]">
-        <BalanceCell label="Billed" value={formatDollars(player.billed_cents)} />
+        <BalanceCell label="Billed 26–27" value={formatDollars(player.billed_cents)} />
         <BalanceCell
-          label="Collected"
+          label="Collected 26–27"
           value={formatDollars(player.collected_cents)}
         />
         <BalanceCell

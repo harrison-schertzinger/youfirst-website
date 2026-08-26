@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { CURRENT_SEASON } from "@/lib/fee-schedule";
+import { ROSTER_STATUSES } from "@/lib/player-status";
 import { createClient } from "@supabase/supabase-js";
 import { Plus, Check } from "lucide-react";
 import {
@@ -55,6 +57,8 @@ interface ComputedRow {
   billed_cents: number;
   collected_cents: number;
   balance_cents: number;
+  /** Still owed for any season that is not the current one. */
+  prior_balance_cents: number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -79,16 +83,14 @@ async function loadRoster(): Promise<{
     return { rows: [], totalPlayers: 0, classCount: 0, envOk: false };
   }
 
-  const [playersRes, plansRes, paymentsRes] = await Promise.all([
+  const [playersRes, seasonBalancesRes, paymentsRes] = await Promise.all([
     admin
       .from("players")
       .select(
         "id, first_name, last_name, graduation_year, position, jersey_number, school, status, photo_url, created_at",
       )
-      .eq("status", "active"),
-    admin
-      .from("payment_plans")
-      .select("player_id, total_amount_cents, amount_paid_cents, created_at"),
+      .in("status", ROSTER_STATUSES as unknown as string[]),
+    admin.rpc("player_season_balances"),
     admin
       .from("payments")
       .select("player_id, payment_method, created_at"),
@@ -99,13 +101,27 @@ async function loadRoster(): Promise<{
     return { rows: [], totalPlayers: 0, classCount: 0, envOk: true };
   }
 
-  // Most-recent plan per player.
-  const latestPlanByPlayer = new Map<string, PlanRow>();
-  for (const plan of (plansRes.data ?? []) as PlanRow[]) {
-    const prev = latestPlanByPlayer.get(plan.player_id);
-    if (!prev || (plan.created_at ?? "") > (prev.created_at ?? "")) {
-      latestPlanByPlayer.set(plan.player_id, plan);
-    }
+  // Money comes from player_season_balances(), keyed by season.
+  //
+  // It used to come from the most recent plan row and plan.amount_paid_cents.
+  // Both were wrong once two seasons existed: "most recent" silently became
+  // 2026-27 with no label, so a column headed "Balance" showed this season for
+  // some athletes and last season for others. And amount_paid_cents is the
+  // column the April 2026 import set to a flat value — truth is money received,
+  // never a counter on the plan.
+  type SeasonRow = {
+    player_id: string;
+    season: string;
+    charged_cents: number;
+    paid_cents: number;
+    adjustment_cents: number;
+    remaining_cents: number;
+  };
+  const bySeason = new Map<string, Map<string, SeasonRow>>();
+  for (const row of (seasonBalancesRes.data ?? []) as SeasonRow[]) {
+    const forPlayer = bySeason.get(row.player_id) ?? new Map<string, SeasonRow>();
+    forPlayer.set(row.season, row);
+    bySeason.set(row.player_id, forPlayer);
   }
 
   const paymentsByPlayer = new Map<string, PaymentRow[]>();
@@ -116,10 +132,17 @@ async function loadRoster(): Promise<{
   }
 
   const rows: ComputedRow[] = (playersRes.data as PlayerRow[]).map((p) => {
-    const plan = latestPlanByPlayer.get(p.id);
-    const billed = plan?.total_amount_cents ?? 0;
-    const collected = plan?.amount_paid_cents ?? 0;
-    const balance = Math.max(0, billed - collected);
+    const seasons = bySeason.get(p.id);
+    const current = seasons?.get(CURRENT_SEASON);
+    const billed = current?.charged_cents ?? 0;
+    const collected = current?.paid_cents ?? 0;
+    const balance = current?.remaining_cents ?? 0;
+    // Anything still owed for a season that is not the current one. Shown in
+    // its own column so last year's debt is never mistaken for this year's.
+    let priorBalance = 0;
+    for (const [season, row] of seasons ?? []) {
+      if (season !== CURRENT_SEASON) priorBalance += row.remaining_cents ?? 0;
+    }
     const source = inferPlayerSource(
       { created_at: p.created_at, photo_url: p.photo_url, status: p.status },
       (paymentsByPlayer.get(p.id) ?? []).map((pay) => ({
@@ -139,6 +162,7 @@ async function loadRoster(): Promise<{
       billed_cents: billed,
       collected_cents: collected,
       balance_cents: balance,
+      prior_balance_cents: priorBalance,
     };
   });
 
