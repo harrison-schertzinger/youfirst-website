@@ -11,6 +11,8 @@ export interface TileRow {
   collected_cents: number;
   balance_cents: number;
   prior_balance_cents: number;
+  last_signin: string | null;
+  failed_signins: number;
 }
 
 export interface TileYearBlock {

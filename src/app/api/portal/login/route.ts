@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   signPortalToken,
   portalCookieOptions,
@@ -43,6 +43,35 @@ function deriveFirstName(email: string): string {
   const letters = local.replace(/[^a-zA-Z]/g, "");
   if (!letters) return "Parent";
   return letters.charAt(0).toUpperCase() + letters.slice(1, 40);
+}
+
+/**
+ * Record the outcome of a sign-in attempt.
+ *
+ * Fails soft, always. This exists to make a problem visible; it must never
+ * become one. A logging failure is swallowed and the parent's sign-in proceeds
+ * exactly as it would have.
+ *
+ * The password is never passed in and never derived from — only what happened.
+ */
+async function logAttempt(
+  admin: SupabaseClient,
+  email: string,
+  outcome:
+    | "success"
+    | "wrong_password"
+    | "not_club_family"
+    | "rate_limited"
+    | "error",
+  guardianId?: string | null,
+): Promise<void> {
+  try {
+    await admin
+      .from("portal_logins")
+      .insert({ email, outcome, guardian_id: guardianId ?? null });
+  } catch (err) {
+    console.error("[portal/login] could not record attempt:", err);
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -107,6 +136,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!passwordOk) {
+    await logAttempt(admin, email, "wrong_password");
     return NextResponse.json(
       { error: "That email and password don’t match." },
       { status: 401 },
@@ -139,7 +169,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (!isClubFamily) {
+    // THE ONE TO WATCH. A parent who has the password but is not recognised
+    // almost always means our roster data is wrong, not that she is a stranger.
+    // A run of these is the shape of the 2026-08-26 lockout.
     console.warn("[portal/login] rejected non-club address:", email);
+    await logAttempt(admin, email, "not_club_family");
     return NextResponse.json(
       { error: "That email and password don’t match." },
       { status: 401 },
@@ -212,6 +246,8 @@ export async function POST(request: NextRequest) {
     .eq("guardian_id", guardianId)
     .limit(1);
   const linked = !!(links && links.length > 0);
+
+  await logAttempt(admin, email, "success", guardianId);
 
   const token = signPortalToken({ email, guardianId });
   const response = NextResponse.json({ ok: true, linked });

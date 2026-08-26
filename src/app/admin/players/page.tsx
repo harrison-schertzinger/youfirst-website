@@ -59,6 +59,10 @@ interface ComputedRow {
   balance_cents: number;
   /** Still owed for any season that is not the current one. */
   prior_balance_cents: number;
+  /** When a parent last signed in to the portal. Null = never. */
+  last_signin: string | null;
+  /** Failed attempts since the last success — a run of these means WE are wrong. */
+  failed_signins: number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -83,7 +87,7 @@ async function loadRoster(): Promise<{
     return { rows: [], totalPlayers: 0, classCount: 0, envOk: false };
   }
 
-  const [playersRes, seasonBalancesRes, paymentsRes] = await Promise.all([
+  const [playersRes, seasonBalancesRes, signinsRes, guardianEmailsRes, paymentsRes] = await Promise.all([
     admin
       .from("players")
       .select(
@@ -91,6 +95,10 @@ async function loadRoster(): Promise<{
       )
       .in("status", ROSTER_STATUSES as unknown as string[]),
     admin.rpc("player_season_balances"),
+    // Who has actually signed in. The 2026-08-26 lockout was invisible because
+    // nothing recorded this; the roster is where it belongs.
+    admin.rpc("portal_last_signin_by_email"),
+    admin.from("player_guardians").select("player_id, guardians(email)"),
     admin
       .from("payments")
       .select("player_id, payment_method, created_at"),
@@ -131,6 +139,24 @@ async function loadRoster(): Promise<{
     paymentsByPlayer.set(pay.player_id, list);
   }
 
+  // Last successful sign-in, by address.
+  type SigninRow = { email: string; last_success: string | null; failed_since_success: number };
+  const signinByEmail = new Map<string, SigninRow>();
+  for (const r of (signinsRes.data ?? []) as SigninRow[]) {
+    signinByEmail.set(r.email.toLowerCase(), r);
+  }
+
+  // Which addresses belong to which athlete.
+  type GERow = { player_id: string; guardians: { email: string } | { email: string }[] | null };
+  const emailsByPlayer = new Map<string, string[]>();
+  for (const row of ((guardianEmailsRes.data ?? []) as unknown as GERow[])) {
+    const g = Array.isArray(row.guardians) ? row.guardians[0] : row.guardians;
+    if (!g?.email) continue;
+    const list = emailsByPlayer.get(row.player_id) ?? [];
+    list.push(g.email.toLowerCase());
+    emailsByPlayer.set(row.player_id, list);
+  }
+
   const rows: ComputedRow[] = (playersRes.data as PlayerRow[]).map((p) => {
     const seasons = bySeason.get(p.id);
     const current = seasons?.get(CURRENT_SEASON);
@@ -150,6 +176,20 @@ async function loadRoster(): Promise<{
         created_at: pay.created_at,
       })),
     );
+    // An athlete counts as reached when ANY parent has signed in — one parent
+    // getting in is the family getting in.
+    const familyEmails = emailsByPlayer.get(p.id) ?? [];
+    let lastSignin: string | null = null;
+    let failedAttempts = 0;
+    for (const email of familyEmails) {
+      const rec = signinByEmail.get(email);
+      if (!rec) continue;
+      if (rec.last_success && (!lastSignin || rec.last_success > lastSignin)) {
+        lastSignin = rec.last_success;
+      }
+      failedAttempts += rec.failed_since_success ?? 0;
+    }
+
     return {
       id: p.id,
       first_name: p.first_name,
@@ -163,6 +203,8 @@ async function loadRoster(): Promise<{
       collected_cents: collected,
       balance_cents: balance,
       prior_balance_cents: priorBalance,
+      last_signin: lastSignin,
+      failed_signins: failedAttempts,
     };
   });
 

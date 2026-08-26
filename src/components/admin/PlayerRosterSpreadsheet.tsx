@@ -20,6 +20,8 @@ export interface SpreadsheetRow {
   collected_cents: number;
   balance_cents: number;
   prior_balance_cents: number;
+  last_signin: string | null;
+  failed_signins: number;
 }
 
 type SortKey = "name" | "class" | "position" | "balance";
@@ -216,6 +218,7 @@ export default function PlayerRosterSpreadsheet({ rows }: Props) {
                 <PlainTh className="text-right">Billed 26–27</PlainTh>
                 <PlainTh className="text-right">Collected 26–27</PlainTh>
                 <PlainTh className="text-right">Prior seasons</PlainTh>
+                <PlainTh>Portal</PlainTh>
                 <SortableTh
                   label="Balance 26–27"
                   align="right"
@@ -366,6 +369,24 @@ function SpreadsheetRowComponent({
           </span>
         ) : (
           <span className="text-[#9CA3AF]">—</span>
+        )}
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap">
+        {row.last_signin ? (
+          <span className="text-[#0F9D6E]">
+            ✓ {new Date(row.last_signin).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+        ) : row.failed_signins > 0 ? (
+          // Tried and could not get in. That is almost always our data, not
+          // the parent — it is the shape the 2026-08-26 lockout made.
+          <span className="text-[#EF4444] font-semibold">
+            ✕ {row.failed_signins} failed
+          </span>
+        ) : (
+          <span className="text-[#9CA3AF]">never</span>
         )}
       </td>
       <td

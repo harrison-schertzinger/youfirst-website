@@ -247,3 +247,36 @@ as $function$
   )
   select exists (select 1 from emails where email = lower(btrim(coalesce(p_email,''))));
 $function$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- portal_logins — APPLIED 2026-08-26.
+--
+-- Every parent-portal sign-in attempt and its outcome. Outcome only; the
+-- password is never passed in or derived from.
+--
+-- Exists because the access-gate bug earlier the same day refused ~100 families
+-- and NOTHING in the system knew. The only signal was Harrison's phone. A
+-- failure spike belongs in the Command Center, not in the texts of the people
+-- it is failing.
+--
+-- 'not_club_family' is the outcome to watch: the family has the password but we
+-- do not recognise the address, which almost always means our roster data is
+-- wrong rather than that they are a stranger.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+create table if not exists public.portal_logins (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  outcome text not null,
+  guardian_id uuid references public.guardians(id) on delete set null,
+  created_at timestamptz not null default now(),
+  constraint portal_logins_outcome_check check (outcome in (
+    'success','wrong_password','not_club_family','rate_limited','error'))
+);
+create index if not exists portal_logins_created_idx on public.portal_logins (created_at desc);
+create index if not exists portal_logins_email_idx   on public.portal_logins (lower(email), created_at desc);
+create index if not exists portal_logins_outcome_idx on public.portal_logins (outcome, created_at desc);
+alter table public.portal_logins enable row level security;
+drop policy if exists "Service role full access portal_logins" on public.portal_logins;
+create policy "Service role full access portal_logins" on public.portal_logins
+  for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
