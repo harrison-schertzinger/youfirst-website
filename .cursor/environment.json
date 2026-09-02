@@ -1,0 +1,10 @@
+{
+  "name": "You First Lacrosse Website",
+  "install": "bash .cursor/setup.sh",
+  "terminals": [
+    {
+      "name": "next-dev",
+      "command": "npm run dev"
+    }
+  ]
+}
