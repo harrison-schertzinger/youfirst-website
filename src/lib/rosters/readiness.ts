@@ -71,7 +71,7 @@ function isCountedElite(a: RosterAthlete): boolean {
  * 2026-09-09 fifty-seven registrations held a placement tier with no such
  * link, and fifty of them named a girl who already had a player row on the
  * same team — so she arrived here twice, and the strip counted her twice.
- * You First Blue read 28 for a team of 14. 2029 read 31 for a team of 20.
+ * You First Blue read 28 for a team of 15. 2029 read 31 for a team of 21.
  * Every team then looked "over 17" and the number beside it meant nothing.
  *
  * This folds the twin back in for the purposes of counting, on name within a
@@ -79,6 +79,12 @@ function isCountedElite(a: RosterAthlete): boolean {
  * her: seven of 2031's "blank" positions were never blank, they were recorded
  * on the duplicate row a few lines down, and dropping that row without
  * keeping its position would trade a double-count for a false blank.
+ *
+ * WHAT THIS DOES NOT CATCH: two PLAYER rows for the same girl. Every players
+ * row is kept (Stella Straubel has three, Annabel Dawes two, as of this
+ * writing), so the moment a second row for one girl is placed on a team the
+ * strip double-counts her again with no guard here. Only the registration side
+ * is folded, because only the registration side is the known 57-row defect.
  *
  * This is a GUARD, not the cure. The cure is linking those registrations to
  * their players so every screen agrees; until then this one strip refuses to
@@ -99,14 +105,20 @@ function foldDuplicateRegistrations(list: RosterAthlete[]): RosterAthlete[] {
 
   const positionFromTwin = new Map<string, string>();
   const unmatched: RosterAthlete[] = [];
+  // At most ONE registration folds into a given player. A second registration
+  // bearing the same name is a DIFFERENT GIRL until someone proves otherwise,
+  // and she keeps her place in the count: an inflated number is a question, a
+  // missing athlete is a girl nobody notices is gone.
+  const consumed = new Set<string>();
   for (const a of list) {
     if (a.table === "players") continue;
     const k = nameKey(a.name);
     const twin = players.get(k);
-    if (!twin) {
+    if (!twin || consumed.has(k)) {
       unmatched.push(a);
       continue;
     }
+    consumed.add(k);
     // First recorded position wins, so the fold is stable between refreshes
     // if a girl somehow carries two registrations naming different positions.
     if (!twin.position && a.position && !positionFromTwin.has(k)) {
