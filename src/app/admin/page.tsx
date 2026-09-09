@@ -2,6 +2,8 @@ import { Users, DollarSign, TrendingUp, Scale } from "lucide-react";
 import RostersClient from "@/components/admin/rosters/RostersClient";
 import { buildRosterData, getServiceClient } from "@/lib/rosters/data";
 import { loadKpis, formatDollars } from "@/lib/admin-kpis";
+import TeamReadiness from "@/components/admin/rosters/TeamReadiness";
+import { buildReadiness } from "@/lib/rosters/readiness";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +53,11 @@ export default async function AdminHomePage() {
     );
   }
 
+  // Every team's shape in one view, worst first. Derived from the roster
+  // data already in hand — no second query, and no second set of targets.
+  // The War Room renders this exact component off this exact function.
+  const teams = buildReadiness(data);
+
   const kpis = await loadKpis().catch(() => null);
   const net = kpis ? kpis.revenueCollectedCents - kpis.totalExpensesCents : 0;
 
@@ -87,6 +94,8 @@ export default async function AdminHomePage() {
           />
         </section>
       )}
+
+      <TeamReadiness teams={teams} />
 
       <RostersClient initial={data} />
     </div>
