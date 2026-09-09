@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ClipboardCheck,
+  Columns3,
   ClipboardList,
   LayoutDashboard,
   Users,
@@ -26,6 +27,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: "/admin", label: "Roster", Icon: ClipboardList },
+  { href: "/admin/war-room", label: "War Room", Icon: Columns3 },
   { href: "/admin/prospects", label: "Prospects", Icon: UserPlus },
   { href: "/admin/tryouts", label: "Tryouts", Icon: ClipboardCheck },
   { href: "/admin/placements", label: "Placements", Icon: Send },
