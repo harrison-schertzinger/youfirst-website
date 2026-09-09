@@ -18,6 +18,10 @@ const ADMIN_ALLOWLIST = [
   // RETIRE ME once harrison@youfirstlacrosse.com has signed in successfully.
   "harrison@theyoufirstproject.com",
 
+  // Luke — club director. Owns admin, local relations, tournament relations,
+  // and parent relations; the War Room at /admin/war-room is his page.
+  "luke@youfirstlacrosse.com",
+
   // Kathleen.
   "kathleen@youfirstlacrosse.com",
   "kathleen@youfirstelitelacrosseclub.com",
