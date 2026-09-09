@@ -63,6 +63,68 @@ function isCountedElite(a: RosterAthlete): boolean {
   return (COUNTED_ELITE_TIERS as readonly string[]).includes(a.placementTier ?? "");
 }
 
+/**
+ * ONE GIRL, ONE LINE.
+ *
+ * A registration is only absorbed into a returning player's row when it
+ * actually carries her player_id (see data.ts, the "new band" loop). On
+ * 2026-09-09 fifty-seven registrations held a placement tier with no such
+ * link, and fifty of them named a girl who already had a player row on the
+ * same team — so she arrived here twice, and the strip counted her twice.
+ * You First Blue read 28 for a team of 14. 2029 read 31 for a team of 20.
+ * Every team then looked "over 17" and the number beside it meant nothing.
+ *
+ * This folds the twin back in for the purposes of counting, on name within a
+ * team she is already established on. The registration's POSITION comes with
+ * her: seven of 2031's "blank" positions were never blank, they were recorded
+ * on the duplicate row a few lines down, and dropping that row without
+ * keeping its position would trade a double-count for a false blank.
+ *
+ * This is a GUARD, not the cure. The cure is linking those registrations to
+ * their players so every screen agrees; until then this one strip refuses to
+ * report a number it knows is inflated. Nothing here mutates the athletes it
+ * is given — other screens still see their own rows.
+ */
+function nameKey(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function foldDuplicateRegistrations(list: RosterAthlete[]): RosterAthlete[] {
+  const players = new Map<string, RosterAthlete>();
+  for (const a of list) {
+    if (a.table === "players") players.set(nameKey(a.name), a);
+  }
+  // Nothing to fold — the common case once the data is linked.
+  if (players.size === 0) return list;
+
+  const positionFromTwin = new Map<string, string>();
+  const unmatched: RosterAthlete[] = [];
+  for (const a of list) {
+    if (a.table === "players") continue;
+    const k = nameKey(a.name);
+    const twin = players.get(k);
+    if (!twin) {
+      unmatched.push(a);
+      continue;
+    }
+    // First recorded position wins, so the fold is stable between refreshes
+    // if a girl somehow carries two registrations naming different positions.
+    if (!twin.position && a.position && !positionFromTwin.has(k)) {
+      positionFromTwin.set(k, a.position);
+    }
+  }
+
+  const kept = list
+    .filter((a) => a.table === "players")
+    .map((a) => {
+      if (a.position) return a;
+      const filled = positionFromTwin.get(nameKey(a.name));
+      return filled ? { ...a, position: filled } : a;
+    });
+
+  return [...kept, ...unmatched];
+}
+
 function summarize(key: string, label: string, list: RosterAthlete[]): TeamReadiness {
   const count = list.length;
   const goalies = list.filter((a) => a.position === "Goalie").length;
@@ -107,9 +169,11 @@ export function buildReadiness(data: RosterData): TeamReadiness[] {
 
   const teams: TeamReadiness[] = [];
   for (const [key, list] of byClass) {
-    teams.push(summarize(key, `${key} Elite`, list));
+    teams.push(summarize(key, `${key} Elite`, foldDuplicateRegistrations(list)));
   }
-  if (blue.length > 0) teams.push(summarize("blue", BLUE_TEAM_NAME, blue));
+  if (blue.length > 0) {
+    teams.push(summarize("blue", BLUE_TEAM_NAME, foldDuplicateRegistrations(blue)));
+  }
 
   return teams.sort((x, y) => {
     if (x.needsGoalie !== y.needsGoalie) return x.needsGoalie ? -1 : 1;
