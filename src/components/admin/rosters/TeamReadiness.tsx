@@ -65,13 +65,7 @@ export default function TeamReadiness({
               <div className="mt-1 flex items-baseline gap-1.5">
                 <span
                   className="text-[20px] font-bold tracking-tight tabular-nums"
-                  style={{
-                    color: !team.atMinimum
-                      ? "#EF4444"
-                      : team.overMax
-                        ? "#F59E0B"
-                        : "#0A0A0B",
-                  }}
+                  style={{ color: !team.atMinimum ? "#EF4444" : "#0A0A0B" }}
                 >
                   {team.count}
                 </span>
@@ -91,12 +85,7 @@ export default function TeamReadiness({
                     {team.shortBy} short of {ROSTER_SIZE_MIN}
                   </Flag>
                 )}
-                {team.overMax && (
-                  <Flag tone="#F59E0B" Icon={AlertTriangle}>
-                    {team.count - ROSTER_SIZE_MAX} over {ROSTER_SIZE_MAX}
-                  </Flag>
-                )}
-                {team.atMinimum && !team.needsGoalie && !team.overMax && (
+                {team.atMinimum && !team.needsGoalie && (
                   <span className="text-[11px] text-[#9CA3AF]">
                     At size · {team.goalies} goalie{team.goalies === 1 ? "" : "s"}
                   </span>

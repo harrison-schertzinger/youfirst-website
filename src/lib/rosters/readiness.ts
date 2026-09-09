@@ -43,8 +43,6 @@ export interface TeamReadiness {
   shortBy: number;
   /** True once the team has reached the minimum. */
   atMinimum: boolean;
-  /** Over the maximum — a real state, and not the same problem as short. */
-  overMax: boolean;
 }
 
 /**
@@ -76,7 +74,6 @@ function summarize(key: string, label: string, list: RosterAthlete[]): TeamReadi
     needsGoalie: goalies < GOALIE_MIN,
     shortBy: Math.max(0, ROSTER_SIZE_MIN - count),
     atMinimum: count >= ROSTER_SIZE_MIN,
-    overMax: count > ROSTER_SIZE_MAX,
   };
 }
 
