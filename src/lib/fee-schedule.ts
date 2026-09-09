@@ -9,8 +9,9 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { CURRENT_SEASON } from "@/lib/season";
 
-export const CURRENT_SEASON = "2026-27";
+export { CURRENT_SEASON } from "@/lib/season";
 
 export interface ClassFees {
   gradYear: number;
@@ -58,4 +59,36 @@ export async function getClassFees(
     tournamentCents: data.tournament_cents,
     summerTournamentCount: data.summer_tournament_count ?? null,
   };
+}
+
+/** Every published class/season row. Used by the portal so 2025-26 and 2026-27 never share one fee table. */
+export async function getPublishedClassFees(): Promise<ClassFees[]> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return [];
+
+  const admin = createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const { data, error } = await admin
+    .from("fee_schedule")
+    .select(
+      "grad_year, season, summer_cents, roster_cents, tournament_count, tournament_cents, summer_tournament_count",
+    )
+    .eq("published", true);
+
+  if (error || !data) return [];
+
+  return data
+    .filter((row) => row.summer_cents != null && row.tournament_count != null)
+    .map((row) => ({
+      gradYear: row.grad_year,
+      season: row.season,
+      summerCents: row.summer_cents,
+      rosterCents: row.roster_cents,
+      tournamentCount: row.tournament_count,
+      tournamentCents: row.tournament_cents,
+      summerTournamentCount: row.summer_tournament_count ?? null,
+    }));
 }

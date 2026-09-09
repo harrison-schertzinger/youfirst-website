@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { isEmailAllowed } from "@/lib/admin-auth";
+import { CURRENT_SEASON } from "@/lib/season";
 
 export const dynamic = "force-dynamic";
 
@@ -96,7 +97,7 @@ export async function POST(
   const season =
     typeof body.season === "string" && body.season.trim()
       ? body.season.trim()
-      : "2025-26";
+      : CURRENT_SEASON;
 
   const admin = getAdmin();
   if (!admin) return fail(500, "Service-role env vars not configured.");

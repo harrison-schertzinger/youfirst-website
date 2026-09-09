@@ -38,7 +38,7 @@ export default function ProspectConvertModal({
   prospect,
   onClose,
   onConverted,
-  defaultSeason = "2025-26",
+  defaultSeason = "2026-27",
 }: Props) {
   const [planType, setPlanType] = useState("lump_sum");
   const [dollars, setDollars] = useState("");

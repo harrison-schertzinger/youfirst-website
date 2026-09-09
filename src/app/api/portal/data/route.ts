@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { readPortalSession } from "@/lib/portal-session";
+import { sortSeasonsNewestFirst } from "@/lib/season";
 
 export const dynamic = "force-dynamic";
 
@@ -129,11 +130,9 @@ export async function GET(request: NextRequest) {
         guardians: (guardianNamesByPlayer.get(player.id) ?? []),
         payments: paymentsRes.data ?? [],
         balance: balanceRes.data?.[0] ?? null,
-        // Newest season first — that is the one a family wants by default.
-        seasons: (seasonsRes.data ?? []).sort(
-          (a: { season: string }, b: { season: string }) =>
-            b.season.localeCompare(a.season),
-        ),
+        // Newest known season first. localeCompare alone put 2026-27 above
+        // 2025-26, but it would also scramble any older spelling.
+        seasons: sortSeasonsNewestFirst(seasonsRes.data ?? []),
         charges: chargesRes.data ?? [],
       };
     }),

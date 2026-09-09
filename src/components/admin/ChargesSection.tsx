@@ -3,6 +3,7 @@
 import { useCallback, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, Receipt } from "lucide-react";
+import { CURRENT_SEASON } from "@/lib/season";
 
 export interface AdminCharge {
   id: string;
@@ -82,6 +83,7 @@ export default function ChargesSection({
           body: JSON.stringify({
             label: label.trim(),
             amount_cents: Math.round(d * 100),
+            season: CURRENT_SEASON,
           }),
         });
         if (!res.ok) {

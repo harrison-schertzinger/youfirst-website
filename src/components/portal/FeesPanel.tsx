@@ -10,9 +10,16 @@ import {
   WINDOWS,
   type PlanChoice,
 } from "@/lib/payment-plan";
+import {
+  CURRENT_SEASON,
+  filterBySeason,
+  rosterPaidCentsForSeason,
+  seasonsEqual,
+} from "@/lib/season";
+import { TICKET_AMOUNTS_CENTS } from "@/lib/feesData";
 import { useIsPreview } from "./PortalPreviewContext";
 import type { PortalPayment } from "@/lib/portal-tickets";
-import type { PortalCharge } from "./PortalContent";
+import type { PortalCharge, SeasonBalance } from "./PortalContent";
 
 /**
  * Fees.
@@ -51,24 +58,30 @@ export default function FeesPanel({
   balance,
   payments,
   charges,
-  rosterPaidCents,
-  rosterDueCents,
+  seasons = [],
+  onSelectSeason,
+  rosterDueCents = TICKET_AMOUNTS_CENTS.roster,
   fallTournamentCount,
   fallTournamentCents,
   summerTournamentCount = null,
+  missingCurrentPlan = false,
 }: {
   playerId: string;
   balance: PlayerBalanceRow | null;
   payments: PortalPayment[];
   charges: PortalCharge[];
-  rosterPaidCents: number;
-  rosterDueCents: number;
+  /** Every season this athlete has. Tabs live on the money, not only in the rail. */
+  seasons?: SeasonBalance[];
+  onSelectSeason?: (season: string) => void;
+  rosterDueCents?: number;
   /** How many fall tournaments this class travels to. Null = not decided. */
   /** Fall travel, billed on top of tuition. 0 = this class does not travel. */
   fallTournamentCount: number | null;
   fallTournamentCents: number;
   /** June tournaments covered by tuition. Display only, never billed here. */
   summerTournamentCount?: number | null;
+  /** fee_schedule has this year's price but no payment_plans row yet. */
+  missingCurrentPlan?: boolean;
 }) {
   const isPreview = useIsPreview();
   const [choice, setChoice] = useState<PlanChoice>("full");
@@ -76,6 +89,7 @@ export default function FeesPanel({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const inFlight = useRef(false);
 
+  const season = balance?.season ?? null;
   const charged = balance?.charged_cents ?? 0;
   const paid = balance?.paid_cents ?? 0;
   const remaining = balance?.remaining_cents ?? 0;
@@ -83,7 +97,23 @@ export default function FeesPanel({
   // Without this on screen, charged minus paid does not equal remaining and the
   // panel reads as broken arithmetic.
   const adjustment = balance?.adjustment_cents ?? 0;
-  const settled = remaining <= 0;
+  const hasPlan = charged > 0 || paid > 0 || (balance?.plan_id != null);
+  const settled = hasPlan && remaining <= 0;
+
+  // One season only. Passing the full ledger and filtering here is what keeps
+  // last year's $1,850 from appearing under this year's tab (and the reverse).
+  const seasonPayments = filterBySeason(payments, season);
+  const rosterPaidCents = rosterPaidCentsForSeason(payments, season);
+  const summerPayments = seasonPayments.filter(
+    (p) => p.payment_category === "summer" && p.status === "completed",
+  );
+  const fallPayments = seasonPayments.filter(
+    (p) => p.payment_category === "fall" && p.status === "completed",
+  );
+  const openCharges = filterBySeason(charges, season).filter(
+    (c) => c.status === "open",
+  );
+  const otherSeasons = seasons.filter((s) => !seasonsEqual(s.season, season));
 
   // Summer tuition is its own window — November through February 1. The fall
   // tournament window closes on October 1 and is shown separately below.
@@ -143,7 +173,11 @@ export default function FeesPanel({
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId, category: "roster" }),
+        body: JSON.stringify({
+          playerId,
+          category: "roster",
+          season: season ?? undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.url) {
@@ -160,23 +194,73 @@ export default function FeesPanel({
     inFlight.current = false;
   }
 
-  const summerPayments = payments.filter(
-    (p) => p.payment_category === "summer" && p.status === "completed",
-  );
-  const fallPayments = payments.filter(
-    (p) => p.payment_category === "fall" && p.status === "completed",
-  );
-  const openCharges = charges.filter((c) => c.status === "open");
-
   return (
     <section className="rounded-2xl bg-white border border-[#E5E7EB] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-      <div className="flex items-baseline justify-between px-6 pt-5 pb-4 border-b border-[#F0F1F3]">
-        <h2 className="text-[15px] font-semibold tracking-tight text-[#1A1A1A]">
-          Fees
-        </h2>
-        <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-[#9CA3AF]">
-          Season {balance?.season ?? "—"}
-        </span>
+      <div className="px-6 pt-5 pb-4 border-b border-[#F0F1F3] space-y-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-[15px] font-semibold tracking-tight text-[#1A1A1A]">
+            Club dues
+          </h2>
+          {seasons.length < 2 && (
+            <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-[#9CA3AF]">
+              Season {season ?? "—"}
+            </span>
+          )}
+        </div>
+        {seasons.length >= 2 && onSelectSeason && (
+          <div
+            role="tablist"
+            aria-label="Club dues by season"
+            className="flex flex-wrap gap-1.5"
+          >
+            {seasons.map((s) => {
+              const active = seasonsEqual(s.season, season);
+              return (
+                <button
+                  key={s.season}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => onSelectSeason(s.season)}
+                  className={`rounded-lg px-3 py-1.5 text-[12px] font-semibold border transition-colors ${
+                    active
+                      ? "border-[#4B9CD3] bg-[#EDF5FB] text-[#1A1A1A]"
+                      : "border-[#E5E7EB] bg-white text-[#6B7280] hover:text-[#1A1A1A]"
+                  }`}
+                >
+                  {s.season}
+                  <span
+                    className={`ml-1.5 font-medium ${
+                      s.remaining_cents > 0 ? "text-[#B45309]" : "text-[#0F9D6E]"
+                    }`}
+                  >
+                    {s.remaining_cents > 0
+                      ? `${formatCents(s.remaining_cents)} due`
+                      : "Settled"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {missingCurrentPlan && (
+          <p className="text-[12px] leading-relaxed text-[#6B7280]">
+            {CURRENT_SEASON} dues have not been assigned to this athlete yet.
+            {season
+              ? ` The numbers below are ${season} only — they are not combined with this year.`
+              : " Nothing below is this year’s balance."}
+          </p>
+        )}
+        {otherSeasons.length > 0 && (
+          <p className="text-[12px] leading-relaxed text-[#6B7280]">
+            Looking at {season ?? "one season"} only.
+            {otherSeasons.map((s) =>
+              s.remaining_cents > 0
+                ? ` ${s.season} still has ${formatCents(s.remaining_cents)} due — switch tabs to see it.`
+                : ` ${s.season} is settled on its own tab.`,
+            )}
+          </p>
+        )}
       </div>
 
       {/* ── Season tuition ─────────────────────────────────────────────── */}
@@ -191,7 +275,11 @@ export default function FeesPanel({
               </span>
             )}
           </span>
-          {settled ? (
+          {!hasPlan ? (
+            <span className="text-[12px] font-medium text-[#9CA3AF]">
+              No plan for this season
+            </span>
+          ) : settled ? (
             <span className="text-[12px] font-semibold text-[#0F9D6E]">
               Paid in full
             </span>
