@@ -400,6 +400,7 @@ export default async function PlayerProfilePage({
           <PaymentLinksSection
             playerId={p.id}
             playerName={fullName}
+            season={plan?.season ?? null}
             plan={
               plan
                 ? {

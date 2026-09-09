@@ -13,6 +13,11 @@ import BalanceQuestion from "./BalanceQuestion";
 import PlayerPicker from "./PlayerPicker";
 import PlayerSwitcher from "./PlayerSwitcher";
 import type { PlayerBalanceRow } from "@/lib/portal-balance";
+import {
+  CURRENT_SEASON,
+  seasonsEqual,
+  sortSeasonsNewestFirst,
+} from "@/lib/season";
 
 interface Guardian {
   id: string;
@@ -86,12 +91,12 @@ interface PlayerWithData extends Player {
   charges: PortalCharge[];
 }
 
-/** Roster money actually received. Never a counter — always the ledger. */
-function rosterPaidCents(payments: { amount_cents: number; payment_category: string | null; status: string }[]): number {
-  return payments
-    .filter((p) => p.payment_category === "roster" && p.status === "completed")
-    .reduce((sum, p) => sum + (p.amount_cents ?? 0), 0);
-}
+export type SeasonClassFees = {
+  tournamentCount: number;
+  tournamentCents: number;
+  summerTournamentCount: number | null;
+  rosterCents?: number;
+};
 
 export default function PortalContent({
   children,
@@ -105,11 +110,8 @@ export default function PortalContent({
   contacts?: ClubContact[];
   /** Full-width resource tiles, rendered below the dashboard. */
   resources?: React.ReactNode;
-  /** Season pricing by graduation year. Missing = not published for that class. */
-  classFees?: Record<
-    number,
-    { tournamentCount: number; tournamentCents: number; summerTournamentCount: number | null }
-  >;
+  /** Published pricing, keyed first by season then graduation year. Never one merged table. */
+  classFees?: Record<string, Record<number, SeasonClassFees>>;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -220,9 +222,20 @@ export default function PortalContent({
   const selectedPlayer =
     shownPlayers.find((p) => p.id === selectedId) ?? shownPlayers[0];
 
-  const seasons = selectedPlayer.seasons ?? [];
+  const seasons = sortSeasonsNewestFirst(selectedPlayer.seasons ?? []);
+  const currentFees =
+    classFees[CURRENT_SEASON]?.[selectedPlayer.graduation_year] ?? null;
+  const missingCurrentPlan =
+    currentFees != null &&
+    !seasons.some((s) => seasonsEqual(s.season, CURRENT_SEASON));
   const activeSeason =
-    seasons.find((s) => s.season === selectedSeason) ?? seasons[0] ?? null;
+    seasons.find((s) => seasonsEqual(s.season, selectedSeason)) ??
+    seasons.find((s) => seasonsEqual(s.season, CURRENT_SEASON)) ??
+    seasons[0] ??
+    null;
+  const activeFees = activeSeason
+    ? classFees[activeSeason.season]?.[selectedPlayer.graduation_year] ?? null
+    : currentFees;
 
   // FeesPanel speaks player_balances()' shape. A season row carries the same
   // money fields, so it is adapted rather than duplicated — one set of numbers,
@@ -253,7 +266,10 @@ export default function PortalContent({
       <PlayerSwitcher
         players={shownPlayers}
         selectedId={selectedPlayer.id}
-        onSelect={setSelectedId}
+        onSelect={(id) => {
+          setSelectedId(id);
+          setSelectedSeason(null);
+        }}
       />
 
       {/* THE DASHBOARD — three columns.
@@ -300,17 +316,15 @@ export default function PortalContent({
               balance={activeBalance}
               payments={selectedPlayer.payments}
               charges={selectedPlayer.charges}
-              rosterPaidCents={rosterPaidCents(selectedPlayer.payments)}
-              rosterDueCents={TICKET_AMOUNTS_CENTS.roster}
-              fallTournamentCount={
-                classFees[selectedPlayer.graduation_year]?.tournamentCount ?? null
+              seasons={seasons}
+              onSelectSeason={setSelectedSeason}
+              rosterDueCents={
+                activeFees?.rosterCents ?? TICKET_AMOUNTS_CENTS.roster
               }
-              fallTournamentCents={
-                classFees[selectedPlayer.graduation_year]?.tournamentCents ?? 30000
-              }
-              summerTournamentCount={
-                classFees[selectedPlayer.graduation_year]?.summerTournamentCount ?? null
-              }
+              fallTournamentCount={activeFees?.tournamentCount ?? null}
+              fallTournamentCents={activeFees?.tournamentCents ?? 30000}
+              summerTournamentCount={activeFees?.summerTournamentCount ?? null}
+              missingCurrentPlan={missingCurrentPlan}
             />
           </div>
         </div>

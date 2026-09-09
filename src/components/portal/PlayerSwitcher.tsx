@@ -1,13 +1,15 @@
 "use client";
 
-import { formatCents, type PlayerBalanceRow } from "@/lib/portal-balance";
+import { formatCents } from "@/lib/portal-balance";
+import { CURRENT_SEASON, seasonsEqual } from "@/lib/season";
+import type { SeasonBalance } from "./PortalContent";
 
 export interface SwitcherPlayer {
   id: string;
   first_name: string;
   last_name: string;
   graduation_year: number;
-  balance: PlayerBalanceRow | null;
+  seasons?: SeasonBalance[];
 }
 
 /**
@@ -44,9 +46,14 @@ export default function PlayerSwitcher({
       >
         {players.map((player) => {
           const selected = player.id === selectedId;
-          const balance = player.balance;
-          const owes = (balance?.remaining_cents ?? 0) > 0;
-          const overpaid = (balance?.overpaid_cents ?? 0) > 0;
+          const seasons = player.seasons ?? [];
+          const current =
+            seasons.find((s) => seasonsEqual(s.season, CURRENT_SEASON)) ?? null;
+          const priorUnpaid = seasons.filter(
+            (s) =>
+              !seasonsEqual(s.season, CURRENT_SEASON) && s.remaining_cents > 0,
+          );
+          const currentOwes = (current?.remaining_cents ?? 0) > 0;
 
           return (
             <button
@@ -76,43 +83,33 @@ export default function PlayerSwitcher({
                 </span>
               </div>
 
-              {/* The payment state, visible without clicking. */}
-              <div className="mt-1.5">
-                {!balance ? (
-                  <span className="text-[12px] text-[#9CA3AF]">
-                    No season plan
-                  </span>
-                ) : owes ? (
+              {/* Per-season money, never a combined total. */}
+              <div className="mt-1.5 space-y-0.5">
+                {currentOwes && current ? (
                   <span className="inline-flex items-center gap-1.5 text-[13px] font-bold tabular-nums text-[#1A1A1A]">
                     <span
                       aria-hidden="true"
                       className="inline-block w-1.5 h-1.5 rounded-full bg-[#EF4444]"
                     />
-                    {formatCents(balance.remaining_cents)} due
+                    {formatCents(current.remaining_cents)} due for {CURRENT_SEASON}
                   </span>
-                ) : overpaid ? (
-                  <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#4A90D9]">
-                    Overpaid {formatCents(balance.overpaid_cents)}
+                ) : current ? (
+                  <span className="text-[13px] font-semibold text-[#34D399]">
+                    {CURRENT_SEASON} settled
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-[#34D399]">
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                      aria-hidden="true"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    Settled
+                  <span className="text-[12px] text-[#9CA3AF]">
+                    No {CURRENT_SEASON} plan yet
                   </span>
                 )}
+                {priorUnpaid.map((s) => (
+                  <span
+                    key={s.season}
+                    className="block text-[12px] tabular-nums text-[#B45309]"
+                  >
+                    {formatCents(s.remaining_cents)} still due for {s.season}
+                  </span>
+                ))}
               </div>
             </button>
           );

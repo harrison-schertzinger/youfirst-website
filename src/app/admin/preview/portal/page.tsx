@@ -73,19 +73,41 @@ const previewPayments = [
     season: "2025-26",
     status: "completed",
   },
+  {
+    id: "prev-3",
+    amount_cents: 92500,
+    payment_method: "card",
+    payment_category: "summer",
+    description: "Summer tuition — second payment",
+    payment_date: "2026-07-15",
+    season: "2025-26",
+    status: "completed",
+  },
+  {
+    id: "prev-4",
+    amount_cents: 46250,
+    payment_method: "card",
+    payment_category: "summer",
+    description: "Summer tuition — first payment",
+    payment_date: "2026-08-20",
+    season: "2026-27",
+    status: "completed",
+  },
 ];
 
 // Two seasons, so the toggle is real on this screen: last year settled, this
 // year still owed. Shaped exactly like player_season_balances() rows.
+// Paid amounts match the payment rows above — if the UI ever merges seasons
+// the 2026-27 tab would show $1,850 paid instead of $462.50.
 const previewSeasons = [
   {
     season: "2026-27",
     charged_cents: 185000,
-    paid_cents: 0,
+    paid_cents: 46250,
     adjustment_cents: 0,
-    remaining_cents: 185000,
+    remaining_cents: 138750,
     overpaid_cents: 0,
-    percent_paid: 0,
+    percent_paid: 25,
     is_settled: false,
   },
   {

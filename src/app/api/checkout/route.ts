@@ -4,6 +4,7 @@ import { getStripe } from "@/lib/stripe";
 import { STRIPE_PRICE_IDS, TICKET_AMOUNTS_CENTS } from "@/lib/feesData";
 import { readPortalSession } from "@/lib/portal-session";
 import type { PlayerBalanceRow } from "@/lib/portal-balance";
+import { CURRENT_SEASON, normalizeSeason, seasonsEqual } from "@/lib/season";
 
 export const dynamic = "force-dynamic";
 
@@ -91,12 +92,14 @@ export async function POST(request: NextRequest) {
   };
   let ticketId: string;
   let amountCents: number;
+  let ledgerSeason = normalizeSeason(season) ?? CURRENT_SEASON;
 
   if (safeCategory === "roster") {
-    // Fixed $200, settled by money received. Unchanged.
+    // Fixed $200, settled by money received — for THIS season only.
+    // Last year's roster payment must not close this year's fee.
     const { data: rosterPayments, error: rosterErr } = await admin
       .from("payments")
-      .select("amount_cents")
+      .select("amount_cents, season")
       .eq("player_id", playerId)
       .eq("payment_category", "roster")
       .eq("status", "completed");
@@ -109,10 +112,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const paidCents = (rosterPayments ?? []).reduce(
-      (sum, p) => sum + (p.amount_cents ?? 0),
-      0,
-    );
+    const paidCents = (rosterPayments ?? [])
+      .filter((p) => seasonsEqual(p.season, ledgerSeason))
+      .reduce((sum, p) => sum + (p.amount_cents ?? 0), 0);
     if (paidCents >= TICKET_AMOUNTS_CENTS.roster) {
       return NextResponse.json(
         { error: "Roster fee already paid." },
@@ -122,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     amountCents = TICKET_AMOUNTS_CENTS.roster;
     lineItem = { price: STRIPE_PRICE_IDS.roster, quantity: 1 };
-    ticketId = `${playerId}-roster-1`;
+    ticketId = `${playerId}-roster-${ledgerSeason}`;
   } else {
     // ── Summer: the amount IS the balance. One source of truth. ──────
     //
@@ -146,7 +148,7 @@ export async function POST(request: NextRequest) {
 
     const rows = (rpc.data as PlayerBalanceRow[] | null) ?? [];
     const balance = season
-      ? rows.find((r) => r.season === season)
+      ? rows.find((r) => seasonsEqual(r.season, season))
       : rows[0];
 
     if (!balance) {
@@ -162,6 +164,8 @@ export async function POST(request: NextRequest) {
         { status: 409 },
       );
     }
+
+    ledgerSeason = normalizeSeason(balance.season) ?? ledgerSeason;
 
     if (safeIntent === "full") {
       amountCents = balance.remaining_cents;
@@ -261,6 +265,9 @@ export async function POST(request: NextRequest) {
         // moment this session was created.
         amount_cents: String(amountCents),
         intent: safeCategory === "summer" ? safeIntent : "full",
+        // The season this payment belongs to. The webhook used to hardcode
+        // 2025-26, which credited last year with this year's money.
+        season: ledgerSeason,
       },
       success_url: `${origin}/portal?paid=${encodeURIComponent(ticketId)}`,
       cancel_url: `${origin}/portal?canceled=${encodeURIComponent(ticketId)}`,

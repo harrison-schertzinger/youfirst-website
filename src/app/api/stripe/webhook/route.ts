@@ -11,6 +11,7 @@ import {
   money,
 } from "@/lib/admin-notify";
 import type { PlayerBalanceRow } from "@/lib/portal-balance";
+import { resolveLedgerSeason } from "@/lib/season";
 
 // Absolute base for admin deep links in notification emails.
 const SITE_URL =
@@ -134,6 +135,7 @@ export async function POST(request: NextRequest) {
 
   const stripeSessionId = session.id;
   const amountCents = session.amount_total ?? 0;
+  const paymentSeason = resolveLedgerSeason(meta);
 
   // ── C2 fix: pre-insert dedup + unique-conflict guard.
   // Primary defense is the UNIQUE index on payments.stripe_session_id
@@ -156,7 +158,7 @@ export async function POST(request: NextRequest) {
     payment_category: category,
     payment_method: "stripe",
     description: ticketId,
-    season: "2025-26",
+    season: paymentSeason,
     status: "completed",
     payment_date: new Date().toISOString(),
     stripe_session_id: stripeSessionId,
@@ -186,6 +188,7 @@ export async function POST(request: NextRequest) {
     .from("payment_plans")
     .select("id, installments_total, total_amount_cents")
     .eq("player_id", playerId)
+    .eq("season", paymentSeason)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -196,7 +199,8 @@ export async function POST(request: NextRequest) {
       .select("amount_cents")
       .eq("player_id", playerId)
       .eq("payment_category", "summer")
-      .eq("status", "completed");
+      .eq("status", "completed")
+      .eq("season", paymentSeason);
 
     const summerPaidCents = (summerPayments ?? []).reduce(
       (sum, p) => sum + (p.amount_cents ?? 0),
@@ -252,7 +256,13 @@ export async function POST(request: NextRequest) {
   // already landed and Stripe must get its 200. Money always wins over a ping.
   if (!duplicate && category === "summer") {
     try {
-      await notifyPaymentReceived(supabase, playerId, amountCents, session);
+      await notifyPaymentReceived(
+        supabase,
+        playerId,
+        amountCents,
+        session,
+        paymentSeason,
+      );
     } catch (notifyErr) {
       console.error("Payment notification failed (non-fatal):", notifyErr);
     }
@@ -271,6 +281,7 @@ async function notifyPaymentReceived(
   playerId: string,
   amountCents: number,
   session: Stripe.Checkout.Session,
+  season: string,
 ): Promise<void> {
   const [{ data: player }, { data: balances }] = await Promise.all([
     supabase
@@ -278,13 +289,15 @@ async function notifyPaymentReceived(
       .select("first_name, last_name, graduation_year, team_name")
       .eq("id", playerId)
       .maybeSingle(),
-    supabase.rpc("player_balances", { p_player_id: playerId }),
+    supabase.rpc("player_season_balances", { p_player_id: playerId }),
   ]);
 
   const playerName = player
     ? `${player.first_name} ${player.last_name}`
     : "Unknown player";
-  const balance = (balances as PlayerBalanceRow[] | null)?.[0] ?? null;
+  const rows = (balances as PlayerBalanceRow[] | null) ?? [];
+  const balance =
+    rows.find((r) => r.season === season) ?? rows[0] ?? null;
 
   const method =
     session.payment_method_types?.[0] === "card"
@@ -305,6 +318,7 @@ async function notifyPaymentReceived(
         .join(" · ") || undefined,
     rows: [
       { label: "Paid now", value: money(amountCents), emphasise: true },
+      { label: "Season", value: season },
       { label: "Method", value: method },
       ...(balance
         ? [
@@ -328,8 +342,8 @@ async function notifyPaymentReceived(
     ],
     paragraphs: [
       settled
-        ? `${playerName} is now settled for the summer season — nothing further due.`
-        : `${money(balance?.remaining_cents ?? 0)} still outstanding.`,
+        ? `${playerName} is now settled for ${season} — nothing further due on that season.`
+        : `${money(balance?.remaining_cents ?? 0)} still outstanding on ${season}.`,
     ],
     button: { label: "Open her record", url: `${SITE_URL}/admin/players/${playerId}` },
   });
@@ -605,7 +619,7 @@ async function handleChargePaid(
       payment_category: "custom",
       payment_method: "stripe",
       description: meta.label || meta.ticket_id || "Charge",
-      season: meta.season || "2025-26",
+      season: resolveLedgerSeason(meta),
       status: "completed",
       payment_date: new Date().toISOString(),
       stripe_session_id: stripeSessionId,

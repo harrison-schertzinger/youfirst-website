@@ -14,7 +14,7 @@ import { getEvents } from "@/lib/calendar";
 import { getPublishedContacts } from "@/lib/club-contacts";
 import { getPublishedResources } from "@/lib/club-resources";
 import { getFeeds } from "@/lib/events";
-import { getClassFees, CURRENT_SEASON } from "@/lib/fee-schedule";
+import { getPublishedClassFees } from "@/lib/fee-schedule";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.youfirstlacrosse.com";
@@ -78,25 +78,30 @@ export default async function PortalPage({
     getFeeds().catch(() => []),
   ]);
 
-  // Season pricing for every class in the club. Cheap (one row per class) and
-  // it means the portal never has to know which athlete it is about to render.
-  const feeRows = await Promise.all(
-    [2027, 2028, 2029, 2030, 2031, 2032, 2033].map((y) =>
-      getClassFees(y, CURRENT_SEASON).catch(() => null),
-    ),
-  );
-  const classFees = Object.fromEntries(
-    feeRows
-      .filter((f): f is NonNullable<typeof f> => f !== null)
-      .map((f) => [
-        f.gradYear,
-        {
-          tournamentCount: f.tournamentCount,
-          tournamentCents: f.tournamentCents,
-          summerTournamentCount: f.summerTournamentCount,
-        },
-      ]),
-  );
+  // Season pricing keyed by season then class. Loading only the live year
+  // used to paint 2026-27 tournament counts onto a 2025-26 tab.
+  const feeRows = await getPublishedClassFees().catch(() => []);
+  const classFees: Record<
+    string,
+    Record<
+      number,
+      {
+        tournamentCount: number;
+        tournamentCents: number;
+        summerTournamentCount: number | null;
+        rosterCents: number;
+      }
+    >
+  > = {};
+  for (const f of feeRows) {
+    classFees[f.season] ??= {};
+    classFees[f.season][f.gradYear] = {
+      tournamentCount: f.tournamentCount,
+      tournamentCents: f.tournamentCents,
+      summerTournamentCount: f.summerTournamentCount,
+      rosterCents: f.rosterCents,
+    };
+  }
 
   // The whole-club feed is the one with no team attached.
   const clubFeed = feeds.find((f) => f.teamId === null) ?? null;

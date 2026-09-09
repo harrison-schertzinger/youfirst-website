@@ -96,13 +96,18 @@ export default function PreviewDashboard({
           <FeesPanel
             playerId={playerId}
             balance={balance}
-            payments={payments.filter((p) => p.season === active.season)}
+            payments={payments}
             charges={[]}
-            rosterPaidCents={active.season === "2025-26" ? 20000 : 0}
+            seasons={seasons}
+            onSelectSeason={setSelected}
             rosterDueCents={20000}
-            fallTournamentCount={fallTournamentCount}
+            fallTournamentCount={
+              active.season === "2026-27" ? fallTournamentCount : null
+            }
             fallTournamentCents={fallTournamentCents}
-            summerTournamentCount={summerTournamentCount}
+            summerTournamentCount={
+              active.season === "2026-27" ? summerTournamentCount : null
+            }
           />
         </div>
       </div>

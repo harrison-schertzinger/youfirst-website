@@ -45,7 +45,7 @@ const INITIAL_FORM: FormState = {
   guardian_last_name: "",
   guardian_email: "",
   guardian_phone: "",
-  season: "2025-26",
+  season: "2026-27",
   plan_type: "lump_sum",
   total_amount_dollars: "1850",
   notes: "",

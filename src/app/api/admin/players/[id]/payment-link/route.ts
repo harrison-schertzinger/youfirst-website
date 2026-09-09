@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { isEmailAllowed } from "@/lib/admin-auth";
 import { getStripe } from "@/lib/stripe";
+import { CURRENT_SEASON, normalizeSeason } from "@/lib/season";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ interface PostBody {
   amount_cents?: unknown;
   description?: unknown;
   payment_category?: unknown;
+  season?: unknown;
 }
 
 function fail(status: number, error: string, field?: string): NextResponse {
@@ -93,6 +95,10 @@ export async function POST(
     admin_category = body.payment_category as PaymentCategory;
   }
 
+  const linkSeason = normalizeSeason(
+    typeof body.season === "string" ? body.season : null,
+  ) ?? CURRENT_SEASON;
+
   // ── Service-role + Stripe clients (after auth + validation) ────────────
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -159,6 +165,7 @@ export async function POST(
         category: admin_category,
         player_name: playerName,
         description,
+        season: linkSeason,
       },
       after_completion: {
         type: "redirect",

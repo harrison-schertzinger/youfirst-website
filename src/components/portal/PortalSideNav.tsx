@@ -1,6 +1,7 @@
 "use client";
 
 import { formatCents } from "@/lib/portal-balance";
+import { seasonsEqual } from "@/lib/season";
 import type { SeasonBalance } from "./PortalContent";
 
 /**
@@ -42,7 +43,7 @@ export default function PortalSideNav({
         </p>
         <ul className="space-y-1.5">
           {seasons.map((s) => {
-            const active = s.season === activeSeason;
+            const active = seasonsEqual(s.season, activeSeason);
             const owes = s.remaining_cents > 0;
             return (
               <li key={s.season}>

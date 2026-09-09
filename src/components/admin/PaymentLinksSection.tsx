@@ -2,6 +2,7 @@
 
 import { useState, useCallback, type FormEvent } from "react";
 import { Link2, Loader2, Copy, Check, ExternalLink } from "lucide-react";
+import { CURRENT_SEASON } from "@/lib/season";
 
 interface PlanShape {
   total_amount_cents: number | null;
@@ -14,6 +15,7 @@ interface Props {
   playerId: string;
   playerName: string;
   plan: PlanShape | null;
+  season?: string | null;
 }
 
 interface LinkResult {
@@ -32,6 +34,7 @@ export default function PaymentLinksSection({
   playerId,
   playerName,
   plan,
+  season = CURRENT_SEASON,
 }: Props) {
   const installmentsTotal = plan?.installments_total ?? 0;
   const installmentsPaid = plan?.installments_paid ?? 0;
@@ -63,11 +66,12 @@ export default function PaymentLinksSection({
           amountCents={perInstallmentCents}
           installmentIndex={nextInstallment}
           installmentsTotal={installmentsTotal}
+          season={season ?? CURRENT_SEASON}
         />
       )}
 
       {/* ── Subsection B — Custom amount ───────────────────────────────── */}
-      <CustomLinkBlock playerId={playerId} />
+      <CustomLinkBlock playerId={playerId} season={season ?? CURRENT_SEASON} />
     </section>
   );
 }
@@ -79,11 +83,13 @@ function QuickLinkBlock({
   amountCents,
   installmentIndex,
   installmentsTotal,
+  season,
 }: {
   playerId: string;
   amountCents: number;
   installmentIndex: number;
   installmentsTotal: number;
+  season: string;
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,8 +105,9 @@ function QuickLinkBlock({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount_cents: amountCents,
-          description: `Installment ${installmentIndex} of ${installmentsTotal} — 2025-26 season`,
+          description: `Installment ${installmentIndex} of ${installmentsTotal} — ${season} season`,
           payment_category: "summer",
+          season,
         }),
       });
       if (!res.ok) {
@@ -117,7 +124,7 @@ function QuickLinkBlock({
     } finally {
       setSubmitting(false);
     }
-  }, [amountCents, installmentIndex, installmentsTotal, playerId, submitting]);
+  }, [amountCents, installmentIndex, installmentsTotal, playerId, season, submitting]);
 
   return (
     <div className="rounded-xl border border-[#E5E7EB] p-5">
@@ -168,7 +175,13 @@ function QuickLinkBlock({
 
 // ─── Subsection B: custom amount ──────────────────────────────────────────────
 
-function CustomLinkBlock({ playerId }: { playerId: string }) {
+function CustomLinkBlock({
+  playerId,
+  season,
+}: {
+  playerId: string;
+  season: string;
+}) {
   const [dollars, setDollars] = useState("");
   const [description, setDescription] = useState("");
   // Which ledger the money lands in. "summer" credits her season balance —
@@ -212,6 +225,7 @@ function CustomLinkBlock({ playerId }: { playerId: string }) {
             amount_cents: Math.round(d * 100),
             description: description.trim(),
             payment_category: category,
+            season,
           }),
         });
         if (!res.ok) {
@@ -241,7 +255,7 @@ function CustomLinkBlock({ playerId }: { playerId: string }) {
     },
     // `category` must be here: without it the closure keeps the initial
     // "summer" and silently ignores the admin switching to a one-off.
-    [category, description, dollars, playerId, submitting],
+    [category, description, dollars, playerId, season, submitting],
   );
 
   return (
