@@ -219,7 +219,7 @@ export default function ScheduleContent({ events }: ScheduleContentProps) {
   }, []);
 
   return (
-    <div className="pt-12 sm:pt-16 pb-24 sm:pb-32 lg:pb-40 bg-background">
+    <div className="pt-4 sm:pt-6 pb-24 sm:pb-32 lg:pb-40 bg-background">
       <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
         {/* ── Up Next Card ── */}
         {upNext && (

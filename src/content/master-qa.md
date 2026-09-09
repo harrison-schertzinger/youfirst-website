@@ -55,7 +55,13 @@ We publish practice time blocks and treat them as opportunities, not mandates. N
 - **Development:** first tournaments next June — three of them. Until then the year is pure training and development. Training is built around maximum touches: 6v6, stick skills, fundamentals, learning to love to compete.
 - **Elite:** the full competitive schedule on the national circuit, competing this year.
 
-Specific tournament names and dates are announced closer to the season.
+Fall 2026 Elite weekends (dates confirmed):
+
+- **Continental Cup** — Nov 7–8, 2026 — teams 2028, 2029, 2030 — The Proving Grounds, Conshohocken PA (NXT)
+- **Mid Atlantic** (MidAtlantic Showcase) — Nov 14–15, 2026 — team 2028 — Robinson Sports / MD
+- **President's Cup** — Nov 20–22, 2026 — teams 2028, 2029, 2030 — Bradenton & Tampa FL (IWLCA)
+
+Summer 2027 tournament dates have not been released yet. We will not publish an estimate.
 
 ## Tryouts and evaluations — completely free
 

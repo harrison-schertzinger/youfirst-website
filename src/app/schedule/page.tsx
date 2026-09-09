@@ -4,6 +4,7 @@ import Footer from "@/components/layout/Footer";
 import ScheduleHero from "@/components/schedule/ScheduleHero";
 import ScheduleContent from "@/components/schedule/ScheduleContent";
 import { getEvents, getUnconfirmedEvents } from "@/lib/calendar";
+import ConfirmedTournaments from "@/components/schedule/ConfirmedTournaments";
 import UndatedEvents from "@/components/schedule/UndatedEvents";
 
 // Reads the events table on every request. The schedule changes and a stale
@@ -44,6 +45,9 @@ export default async function SchedulePage() {
       <Navbar />
       <main className="bw-site">
         <ScheduleHero />
+        <div className="bg-background pt-12 sm:pt-16">
+          <ConfirmedTournaments events={events} />
+        </div>
         <ScheduleContent events={events} />
         <UndatedEvents events={undated} />
       </main>
