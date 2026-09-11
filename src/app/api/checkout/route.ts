@@ -21,6 +21,67 @@ export const dynamic = "force-dynamic";
 type Category = "roster" | "summer";
 type Intent = "full" | "half" | "quarter";
 
+// ── TOURNIQUET · 2026-09-11 · REMOVE WITH THE SEASON BACKFILL ─────────
+// Before fdd4771 deployed (2026-09-09 19:38 UTC) the Stripe webhook stamped
+// every new payment `season: "2025-26"`. 14 summer payments ($17,775) and 22
+// roster payments ($4,400) that were 2026-27 money landed on 2025-26. Until
+// those rows are re-tagged, player_season_balances() reports these families
+// $0 paid on 2026-27, and this route derives its charge from that figure — it
+// has already billed one family twice. Refuse to open a checkout for these
+// (player, category) pairs. A blocked family sees a message, not Stripe.
+//
+// Lists are keyed by players.id, taken from the live ledger on 2026-09-11
+// (docs/plans/2026-09-11-season-data-audit.md). An unlisted player is not
+// touched by this block at all.
+const BLOCKED_SUMMER_PLAYER_IDS = new Set<string>([
+  "1d40ecc4-0190-4d48-9bcb-67d3ea41200a", // Camryn Brown
+  "6f0c4829-7216-4067-8203-3b8d45eeaae8", // Joan McLean
+  "7041eed3-85b3-44e3-94fd-f7950a18b4dd", // Parker Murray
+  "7f71feb8-0c6b-40a8-bad3-66b20597c14c", // Mia Lietzow
+  "8a8732fa-dfa4-49a1-9d4d-65532f249784", // Cam Bahl
+  "9329bd0a-844d-47da-943c-fd3e1a8717b9", // Audrey Noah (already paid twice)
+  "94da9567-59b5-42d0-b1cc-aab19bbca11a", // Vivienne Likes
+  "aade43b1-d9e9-4cfe-8458-91d3befec9e4", // Adele Cline
+  "b454acec-6e02-46d7-9333-40732beda153", // Bri VanVleet
+  "b483d0be-1d3b-4cee-8b83-7c4028cb15f5", // Charlotte Anne Gosdin
+  "d5b8d178-eadc-48da-bc4c-ebf407aa2d0f", // Claire Thaman
+  "d77fb78e-f010-4317-831d-cc23449a3b68", // Alden Long
+  "d8303130-80d5-4011-8403-ccca85e9896d", // Emma Mutchler
+]);
+const BLOCKED_ROSTER_PLAYER_IDS = new Set<string>([
+  "0d6b99b7-83bd-4621-b396-b74814fb19ca", // Lola DeBord
+  "0ed3fe6b-0588-4f10-bc71-d5584ea3dc3c", // Annabel Dawes
+  "1e946cc5-67bf-4149-aaa7-17c3f53df3e3", // Meredith Holdridge
+  "1eab58e9-b4e9-4fdd-b5b9-d2f56957752c", // Ella McGrath
+  "28206503-b33f-4bdc-b267-12bbb1d19d5b", // Stella Straubel
+  "36e8db08-366e-4806-9b4e-01992f113426", // Grace Lanzillotta
+  "4392f785-cd5f-48a4-be76-4ff96294fd3a", // Piper Glover
+  "496bfdcd-faf4-4cbf-92b8-76a342bccc8b", // Eva Behrens
+  "6b86b8d4-1bab-439f-bcb6-d0006631b219", // Elizabeth Vaughn
+  "81949525-ff76-44a5-a9e9-54c6cf4b2fee", // Natalie Rogers
+  "828e04f1-756a-4459-9526-6e13e570ca19", // Abigail Sansone
+  "8a8732fa-dfa4-49a1-9d4d-65532f249784", // Cam Bahl
+  "8d62de86-5b56-4de2-ba0f-fefbe118fcdc", // Nora Schuckman
+  "aade43b1-d9e9-4cfe-8458-91d3befec9e4", // Adele Cline
+  "ae4f7379-ecea-4c5f-977b-9310515f5a50", // Alyson Hackett
+  "b65813f6-dd5a-4e5b-9c04-5a87f312e0b1", // Greta VonAllmen
+  "bfa2f3be-cd4b-49e1-afe1-ad6fb983e1fb", // Kelsey Lorenzen
+  "c27a8be0-c7d7-49e9-8e67-073f3a87c52d", // Reagan Foxbower
+  "c9fa1d94-934c-4c3f-8d12-f92d23befaad", // Summer Graupe
+  "d5b8d178-eadc-48da-bc4c-ebf407aa2d0f", // Claire Thaman
+  "d77fb78e-f010-4317-831d-cc23449a3b68", // Alden Long
+  "ff0ddf8e-a3bb-426c-a27e-3082c45b803c", // Lauren Kao
+]);
+const FALSE_BALANCE_MESSAGE =
+  "We already have a payment on file for this athlete that is not showing here yet. Nothing is due right now — please do not pay again. We are correcting the balance. Questions: kathleen@youfirstlacrosse.com.";
+
+function isFalseBalanceBlocked(playerId: string, category: Category): boolean {
+  return category === "summer"
+    ? BLOCKED_SUMMER_PLAYER_IDS.has(playerId)
+    : BLOCKED_ROSTER_PLAYER_IDS.has(playerId);
+}
+// ── end tourniquet ──────────────────────────────────────────────────────
+
 export async function POST(request: NextRequest) {
   const stripe = getStripe();
 
@@ -66,6 +127,16 @@ export async function POST(request: NextRequest) {
   const portalSession = readPortalSession(request);
   if (!portalSession) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  }
+
+  // TOURNIQUET (see top of file). Before any balance is read or any Stripe
+  // object is created. 409 so FeesPanel renders the message inline.
+  if (isFalseBalanceBlocked(playerId, safeCategory)) {
+    console.warn("[checkout] false-balance block refused checkout", {
+      playerId,
+      category: safeCategory,
+    });
+    return NextResponse.json({ error: FALSE_BALANCE_MESSAGE }, { status: 409 });
   }
 
   // Any signed-in parent may pay for any player — intentionally not gated
