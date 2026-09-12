@@ -147,7 +147,7 @@ export async function getEvents(): Promise<ScheduleEvent[]> {
 
 /**
  * Scheduled-but-undated events. These are real commitments whose date the club
- * has not confirmed — fall tournaments awaiting an operator's release, most
+ * has not confirmed — summer weekends awaiting an operator's release, most
  * often. They render as "Date TBC" and are deliberately withheld from the
  * calendar feed: a wrong date on a parent's phone is worse than no date.
  */
